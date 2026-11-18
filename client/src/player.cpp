@@ -4,6 +4,8 @@
 #include <settings.h>
 #include <game.h>
 #include <ui.h>
+#include <item_model.h>
+#include <gtc/matrix_transform.hpp>
 #include <random>
 
 Player::Player(const dvec3& _pos)
@@ -59,7 +61,7 @@ bool Player::place_selected(Chunk* c,ivec3 local,ivec3 normal){
     Hitbox cube(dvec3(local)+chunk_pos_to_world_hp(c->pos)-pos,dvec3(1));
     if(intersect(cube,hitbox))return false;
     if(!world->place_block(c,local,&bs))return false;
-    if(survival_mode){--stack.count;Items::normalize(stack);}return true;
+    swing();if(survival_mode){--stack.count;Items::normalize(stack);}return true;
 }
 void Player::handle_clicks(){
     action_delay=std::max(0.,action_delay-delta_time);
@@ -67,6 +69,7 @@ void Player::handle_clicks(){
     vec3 origin=vec3(pos)+cam.pos;
     hit_info=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin));
     bool attack=is_button_down(0) || is_button_pressed(0);
+    if(attack)swing();
     if(hit_info.hit){
         int id=hit_info.chunk->get(hit_info.block_pos)->id;
         ivec3 target=ivec3(chunk_pos_to_world_hp(hit_info.chunk->pos))+hit_info.block_pos;
@@ -106,7 +109,7 @@ void Player::handle_clicks(){
                 }
                 if(level==Water::Solid || level==Water::Unloaded)break;
             }
-        }action_delay=.3;return;
+        }swing();action_delay=.3;return;
     }
     if(use && hit_info.hit && action_delay<=0){
         auto* c=hit_info.chunk;auto p=hit_info.block_pos;
@@ -115,13 +118,13 @@ void Player::handle_clicks(){
         int replacement=Items::use_on_block(c->get(p)->id,held,air,hit_info.face_normal.y<0);
         if(replacement!=-1){
             BlockState b{char(replacement),0,0};c->set(p,&b);world->notify_water(c,p);world->rebuild_dirty();
-            if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;return;
+            swing();if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;return;
         }
         if(held==Items::FLINT_AND_STEEL){
             BlockState fire{FIRE,0,0};
             auto target=p+hit_info.face_normal;auto* n=get_neighbor_chunk(c,target);
             if(n && n->get(target)->id!=WATER && world->place_block(c,p+hit_info.face_normal,&fire)){
-                if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;
+                swing();if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;
             }return;
         }
     }
@@ -133,7 +136,7 @@ void Player::handle_clicks(){
             if(done){if(survival_mode){--stack.count;Items::normalize(stack);Items::Stack out{result,1};if(stack.empty())stack=out;else if(inventory.data().add(out))drop_item(out);}else if(held==Items::BUCKET)stack={Items::WATER_BUCKET,1};action_delay=.25;}
         }return;
     }
-    bool edible=survival_mode && (held==Items::APPLE || held==Items::BREAD || held==Items::RAW_FISH) && vitals.food<20;
+    bool edible=survival_mode && Items::food_points(held)>0 && vitals.food<20;
     if(use && edible){
         if(eating_item!=held){eating_item=held;eat_progress=0;}
         eat_progress+=delta_time;
@@ -179,7 +182,8 @@ void Player::move()
         cam.forward = rotate(cam.forward, radians(.07f*x*Settings::options.sensitivity/100.f), cam.up);
     }
     vec3 input = show_inventory ? vec3(0) : get_input();
-    double dt = std::min(delta_time,.05);
+    // Catch up up to five simulation ticks after a slow render frame.
+    double dt = std::min(delta_time,.25);
     dvec3 direction = dvec3(right)*double(input.x) + normalize(dvec3(cam.forward.x,0,cam.forward.z))*double(input.z);
     if (length(direction)>1) direction = normalize(direction);
     auto solid = [](int x,int y,int z) {
@@ -191,40 +195,35 @@ void Player::move()
         int id = c->get(local)->id;
         return id != AIR && id != GRASS && id != TORCH && id!=WATER && id!=FIRE;
     };
-    if(!survival_mode && flying){
-        dvec3 flight=dvec3(right)*double(input.x)+normalize(dvec3(cam.forward.x,0,cam.forward.z))*double(input.z);
-        flight.y=(!show_inventory && is_key_pressed(SDLK_SPACE)?1.:0.)-(!show_inventory && is_key_pressed(SDLK_LSHIFT)?1.:0.);
-        if(length(flight)>1)flight=normalize(flight);
-        flight*=is_key_pressed(SDLK_LCTRL)?21.8:10.9;
-        previous_position=pos;
-        for(int axis=0;axis<3;++axis){double amount=flight[axis]*dt;int n=std::max(1,int(ceil(abs(amount)/.1)));for(int i=0;i<n;++i){auto next=pos;next[axis]+=amount/n;if(!Movement::overlaps(next,solid))pos=next;}}
-        vel=flight;vitals.fallen=0;return;
-    }
     const bool sneak=!show_inventory && is_key_pressed(SDLK_LSHIFT);
     const bool sprint=!show_inventory && is_key_pressed(SDLK_LCTRL) && input.z>0 && !sneak && (!survival_mode || vitals.food>6);
     const bool jump=!show_inventory && is_key_pressed(SDLK_SPACE);
     accumulator += dt;
     Movement::State state{pos,vel,grounded,jump_cooldown};
-    while (accumulator >= .05) {
+    while (accumulator >= .05-1e-9) {
         previous_position=state.position;
         double old_y=state.position.y;
         bool was_grounded=state.grounded;
         dvec3 flow;bool swimming=world->submerged(state.position,&flow);
-        if(swimming){Movement::swim_tick(state,dvec2(direction.x,direction.z),jump,flow,solid);vitals.fallen=0;}
+        if(!survival_mode && flying){
+            Movement::fly_tick(state,dvec2(direction.x,direction.z),double(jump)-double(sneak),sprint,solid);
+            vitals.fallen=0;if(state.grounded)flying=false;
+        }
+        else if(swimming){Movement::swim_tick(state,dvec2(direction.x,direction.z),jump,flow,solid);vitals.fallen=0;}
         else Movement::tick(state,dvec2(direction.x,direction.z),jump,sprint,sneak,solid);
         if(survival_mode){
             if(!swimming)vitals.landing(old_y-state.position.y,state.grounded);
             if(jump && was_grounded && state.velocity.y>0)vitals.exhaust(sprint?.2f:.05f);
             if(sprint && state.grounded)vitals.exhaust(float(length(dvec2(state.velocity.x,state.velocity.z))*.05*.1));
         }
-        accumulator -= .05;
+        accumulator=std::max(0.,accumulator-.05);
     }
     pos = state.position; vel = state.velocity; grounded = state.grounded;jump_cooldown=state.jump_cooldown;
     walk_phase += length(dvec2(vel.x,vel.z))*dt*4.0;
 }
 
 dvec3 Player::render_position() const {
-    if(flying || length(pos-previous_position)>3.)return pos;
+    if(length(pos-previous_position)>3.)return pos;
     return mix(previous_position,pos,clamp(accumulator/.05,0.,1.));
 }
 
@@ -233,6 +232,10 @@ Camera Player::view_camera() {
     float roll=float(Movement::hurt_roll(vitals.hurt_ticks,vital_clock/.05));
     view.up=rotate(cam.up,radians(roll),cam.forward);
     if (!third_person) {
+        float phase=float(walk_phase)*.6662f;
+        vec3 right=normalize(cross(cam.up,cam.forward));
+        view.pos+=right*(sin(phase)*bob_amount*.05f)-cam.up*(abs(cos(phase))*bob_amount*.05f);
+        view.up=rotate(view.up,radians(sin(phase)*bob_amount*2.f),cam.forward);
         if(world->underwater(render_position()+dvec3(view.pos)))view.fov*=60.f/70.f;
         return view;
     }
@@ -256,7 +259,7 @@ Camera Player::view_camera() {
 void Player::update()
 {
     if (!world->spawned) return;
-    handle_keys();handle_clicks();move();update_drops();update_fishing();
+    animate();handle_keys();handle_clicks();move();update_drops();update_fishing();
     bool burning=false;
     if(survival_mode)for(int x=int(floor(pos.x-.3));x<=int(floor(pos.x+.3));++x)
         for(int y=int(floor(pos.y));y<=int(floor(pos.y+1.8));++y)for(int z=int(floor(pos.z-.3));z<=int(floor(pos.z+.3));++z){
@@ -274,7 +277,12 @@ void Player::draw()
 {
     Camera view = view_camera();
     mat4 cam_mat = view.matrix((vec3)render_position());
-    if (third_person) Avatar::draw(render_position(),cam.forward,walk_phase,cam_mat,float(length(dvec2(vel.x,vel.z))/5.6));
+    if(hit_info.hit && break_progress>0 && break_duration>0 && ItemModel::cube(hit_info.chunk->get(hit_info.block_pos)->id)){
+        vec3 center=vec3(hit_info.block_pos)+chunk_pos_to_world(hit_info.chunk->pos)+vec3(.5);
+        mat4 m=scale(translate(cam_mat,center),vec3(1.002f));
+        ItemModel::cracks(int(break_progress/break_duration*10),m);
+    }
+    if (third_person) Avatar::draw(render_position(),cam.forward,walk_phase,cam_mat,flying?0.f:float(length(dvec2(vel.x,vel.z))/5.6),float(swing_progress));
     line_shader.bind();
     line_shader.upload_mat4("cam_mat", cam_mat);
     if(fishing){
@@ -353,4 +361,50 @@ void Player::draw_hud(){
     if(eat_progress>0){Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,float(eat_progress/1.6)*150,6,vec4(.5,1,.3,1));}
     int id=hotbar.get_item();std::string title=Items::name(id);Ui::text("hand",title,int(win_size.x)/2-int(title.size())*6,bottom-26,2);
     glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);
+}
+void Player::swing(){if(swing_progress>=1)swing_progress=0;}
+void Player::animate(){
+    float dt=float(std::min(delta_time,.25));
+    swing_progress=std::min(1.,swing_progress+dt/.3);
+    int selected=hotbar.get_item();
+    float target=selected==equipped_item?1.f:0.f;
+    equip+=std::clamp(target-equip,-8.f*dt,8.f*dt);
+    if(equip<.1f)equipped_item=selected;
+    float walking=grounded && !flying && !world->submerged(pos)?std::min(1.f,float(length(dvec2(vel.x,vel.z))/5.6)):0.f;
+    bob_amount+=(walking-bob_amount)*std::min(1.f,dt*12);
+}
+void Player::draw_hand(){
+    if(third_person || show_inventory || vitals.health<=0)return;
+    glClear(GL_DEPTH_BUFFER_BIT);glEnable(GL_DEPTH_TEST);
+    const float pi=3.14159265359f,s=float(swing_progress),root=sqrt(s);
+    mat4 m=perspective(radians(70.f),float(win_size.x)/win_size.y,.05f,10.f);
+    float phase=float(walk_phase)*.6662f;
+    m=translate(m,vec3(sin(phase)*bob_amount*.025f,-abs(cos(phase))*bob_amount*.025f,0));
+    if(!Items::valid(equipped_item)){
+        m=translate(m,vec3(.64f-.3f*sin(root*pi),-.6f+.2f*sin(root*2*pi)-(1-equip)*.6f,-.72f-.3f*sin(s*pi)));
+        m=rotate(m,radians(35.f-45.f*sin(root*pi)),vec3(1,0,0));
+        m=rotate(m,radians(-25.f),vec3(0,0,1));Avatar::hand(m);return;
+    }
+    if(eat_progress>0){
+        float remaining=32.f-float(eat_progress)*20.f+1;
+        float f=remaining/32.f;
+        if(f<.8f)m=translate(m,vec3(0,abs(cos(remaining/4*pi))*.1f,0));
+        float bite=1-pow(f,27.f);
+        m=translate(m,vec3(bite*.6f,bite*-.5f,0));
+        m=rotate(m,radians(bite*90),vec3(0,1,0));m=rotate(m,radians(bite*10),vec3(1,0,0));m=rotate(m,radians(bite*30),vec3(0,0,1));
+        m=translate(m,vec3(.56f,-.52f-(1-equip)*.6f,-.72f));
+    }else{
+        m=translate(m,vec3(-.4f*sin(root*pi),.2f*sin(root*2*pi),-.2f*sin(s*pi)));
+        m=translate(m,vec3(.56f,-.52f-(1-equip)*.6f,-.72f));
+        m=rotate(m,radians(45.f-20.f*sin(s*s*pi)),vec3(0,1,0));
+        m=rotate(m,radians(-20.f*sin(root*pi)),vec3(0,0,1));
+        m=rotate(m,radians(-80.f*sin(root*pi)),vec3(1,0,0));
+        m=rotate(m,radians(-45.f),vec3(0,1,0));
+    }
+    if(ItemModel::cube(equipped_item)){m=rotate(m,radians(45.f),vec3(0,1,0));m=scale(m,vec3(.4f));}
+    else{
+        // Flat sprite adaptation of the vanilla generated/handheld display pose.
+        m=rotate(m,radians(-45.f),vec3(0,1,0));m=rotate(m,radians(25.f),vec3(0,0,1));m=scale(m,vec3(.68f));
+    }
+    ItemModel::draw(equipped_item,Ui::items_texture(),Ui::item_frame(equipped_item),m);
 }

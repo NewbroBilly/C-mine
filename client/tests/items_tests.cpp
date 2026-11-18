@@ -76,6 +76,16 @@ int main(){try{
     require(clock_frame(6000)==0 && clock_frame(18000)==16 && clock_frame(24000)==clock_frame(0),"Clock noon, midnight and wrap");
     require(compass_frame(0,1,0,1)==16 && compass_frame(1,0,0,1)==24 && compass_frame(0,-1,0,1)==0 && compass_frame(-1,0,0,1)==8,"Compass front, right, back and left");
     Vitals v;v.landing(4.5,false);v.landing(.5,true);require(v.health==18,"Five-block fall deals two damage");
+    inv={};inv.craft[0]={DARK_OAK_LOG,1};require(recipe(inv.craft,2).output.id==DARK_OAK_PLANKS,"new log makes matching planks");
+    inv={};for(auto& stack:inv.craft)stack={COAL,1};require(recipe(inv.craft,3).output.id==COAL_BLOCK,"coal block compression");
+    inv={};inv.craft[0]={COAL_BLOCK,1};require(recipe(inv.craft,2).output.id==COAL && recipe(inv.craft,2).output.count==9,"coal block decompression");
+    inv={};inv.craft[0]={PUMPKIN,1};inv.craft[1]={SUGAR,1};inv.craft[3]={EGG,1};require(recipe(inv.craft,2).output.id==PUMPKIN_PIE,"shapeless pumpkin pie");
+    inv.craft[2]={DIRT,1};require(recipe(inv.craft,2).output.empty(),"pie rejects extra ingredient");
+    inv={};inv.craft[0]={LEATHER,1};for(int i:{2,5,7})inv.craft[i]={PAPER,1};require(recipe(inv.craft,3).output.id==BOOK,"shapeless book");
+    require(!harvestable(RED_CONCRETE,-1) && harvestable(RED_CONCRETE,WOOD_PICKAXE),"concrete requires a pickaxe");
+    require(break_seconds(DARK_OAK_LOG,IRON_AXE,true)<break_seconds(DARK_OAK_LOG,IRON_PICKAXE,true),"extended wood uses axe speed");
+    Vitals fed;fed.food=1;fed.saturation=0;require(fed.eat(STEAK) && fed.food==9 && fed.saturation==9,"steak uses vanilla food and saturation cap");
+    require(BLOCK_COUNT<128 && ITEM_END-ITEM_START-1<160,"catalog fits persistent IDs and static item atlas region");
     v={};v.landing(3,true);require(v.health==20,"Three-block fall is safe");
     v.food=10;v.saturation=0;require(v.eat(APPLE) && v.food==14 && v.saturation>2.3,"Apple nutrition");
     v={};require(!v.eat(APPLE),"Cannot eat when full");v.saturation=0;v.exhaust(4.1f);v.tick();require(v.food==19,"Exhaustion depletes food after saturation");

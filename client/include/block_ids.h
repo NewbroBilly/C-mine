@@ -9,3 +9,4 @@ enum BlockID {
 #undef EXTRA_BLOCK
     BLOCK_COUNT
 };
+static_assert(BLOCK_COUNT<=128,"BlockState's signed byte cannot store more block IDs");

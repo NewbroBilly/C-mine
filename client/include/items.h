@@ -9,6 +9,7 @@ enum ID { ITEM_START=255,
 #undef ITEM
     ITEM_END
 };
+static_assert(ITEM_END-ITEM_START-1<=160,"Static icons overlap the animated item atlas region");
 struct Stack {
     int id=-1,count=0,damage=0;
     bool empty() const {return id<1 || count<=0;}
@@ -19,6 +20,8 @@ int limit(int id);
 int durability(int id);
 const char* name(int id);
 bool valid(int id);
+int food_points(int id);
+float food_saturation(int id);
 bool block(int id);
 bool pickaxe(int id);
 enum class Tool {None,Pickaxe,Axe,Shovel,Hoe,Sword,Shears};

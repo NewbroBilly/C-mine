@@ -457,9 +457,7 @@ struct Log : public Block
 
     vec2 get_texture(Chunk* chunk, const ivec3& pos, int face)
     {
-        BlockState* bs = chunk->get(pos);
-
-        int orientation = 2 * (bs->data1 & 3);
+        int orientation = chunk?2 * (chunk->get(pos)->data1 & 3):TOP_FACE;
 
         if (face == orientation || face == (orientation + 1))
             return vec2(7, 0);

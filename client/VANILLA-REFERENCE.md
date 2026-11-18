@@ -87,3 +87,27 @@ movement tests check the water recurrence, current impulse, collision and hurt t
 The graphics smoke covers water rendering, source pickup, survival bucket pouring,
 underwater/drowning, tabs/search, creation fields, world mode, edited chunk eviction
 and world reopen with both bags, pose and vitals.
+
+* `bud` / `EntityPlayerSP`, `aed` / `EntityPlayer`: seven-tick double jump window,
+  vertical flySpeed*3 input, flySpeed=.05 (sprint x2), horizontal .91 and vertical
+  .6 drag. Creative flight now uses the swept C++ collision solver at 20 Hz,
+  interpolates between ticks, brakes when controls are released and exits on
+  downward ground contact. The flight recurrence and frame-rate independence
+  are covered by movement tests and the integrated graphics smoke.
+* `assets/minecraft/models/block/block.json`: GUI rotation [30,225,0] and scale
+  [.625,.625,.625], first-person block rotation [0,45,0] and scale .4.
+  `item/torch.json` uses item/generated rather than a GUI cube. The shared cached
+  GUI renderer uses these shapes/poses with per-face atlas textures and lighting.
+* `buu` / `ItemRenderer`: six-tick normal swings use sin(sqrt(progress)*PI),
+  sin(progress*PI), sin(progress^2*PI) with -20/-80-degree swing rotations;
+  equip moves at most .4 per tick and swaps near .1. Eating has the original
+  32-tick duration, power-27 approach and cosine bite bob. The order of eating
+  transforms before equip translation is preserved. C++ uses a thin sprite
+  adaptation for held 2D items rather than vanilla's generated edge extrusion.
+  Walking bob is adapted to this client's distance phase; exact vanilla view
+  sway, offhand actions, attack targets, item-use effects and audio are outside
+  this implementation. Original destroy_stage_0..9 textures overlay mined cubes.
+
+The new 0.6.0 catalog appends IDs: 55 blocks and 40 items. Imported images stay
+in local resource packs; repository fallback textures are independently drawn.
+The game's complete Java registries/recipe system are not loaded at runtime.

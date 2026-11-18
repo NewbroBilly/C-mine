@@ -419,6 +419,38 @@ int main(int argc, char** argv)
                 if(player->fishing || new_fish!=old_fish+1 || player->inventory.survival.main[0].damage!=1)return 69;
                 SDL_Log("Tools/ores smoke passed: all seven ore kinds, creative tools/swords, tilling, paths, fire/light/extinguishing and fishing catch/durability");
                 Game::set_mode(false);player->flying=true;player->vitals.health=13;player->vitals.hurt_ticks=0;
+                // Integrated flight must follow identical ticks at 10/20/60/144 FPS.
+                dvec3 reference_position(0),reference_velocity(0);
+                bool old_mouse=mouse_control;mouse_control=false;
+                keys[SDLK_w]=keys[SDLK_SPACE]=Input::PRESSED;
+                for(int fps:{10,20,60,144}){
+                    player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,240,8.5);
+                    player->vel=dvec3(0);player->cam.forward=vec3(0,0,1);player->accumulator=0;player->flying=true;
+                    delta_time=1./fps;for(int i=0;i<fps;++i)player->move();
+                    if(fps==10){reference_position=player->pos;reference_velocity=player->vel;}
+                    else if(length(player->pos-reference_position)>1e-7 || length(player->vel-reference_velocity)>1e-7)return 71;
+                }
+                keys[SDLK_w]=keys[SDLK_SPACE]=Input::NONE;mouse_control=old_mouse;delta_time=original_dt;
+                player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,234,4.5);
+                player->vel=dvec3(0);player->accumulator=0;player->third_person=0;player->cam.forward=normalize(vec3(0,-.5,1));
+                auto old_stack=player->inventory.creative.main[0];
+                player->inventory.creative.main[0]={GRASS_BLOCK,64};player->hotbar.set_index(0);
+                player->equipped_item=GRASS_BLOCK;player->equip=1;player->swing_progress=1;
+                Game::draw();save_frame("smoke-hand-block.bmp");
+                player->swing_progress=.4;Game::draw();save_frame("smoke-hand-swing.bmp");
+                player->equipped_item=Items::IRON_PICKAXE;player->swing_progress=1;Game::draw();save_frame("smoke-hand-tool.bmp");
+                player->equipped_item=Items::APPLE;player->eat_progress=.6;Game::draw();save_frame("smoke-hand-eating.bmp");
+                player->eat_progress=0;player->equipped_item=-1;Game::draw();save_frame("smoke-hand-empty.bmp");
+                player->cam.forward=normalize(vec3(0,-1,1));
+                auto target=raycast(vec3(player->pos)+player->cam.pos,player->cam.forward,20.f,world->get_chunk_from_pos(player->pos));
+                if(!target.hit)return 72;
+                player->hit_info=target;player->break_progress=.65;player->break_duration=1;
+                Game::draw();save_frame("smoke-mining-cracks.bmp");player->break_progress=0;
+                Game::inventory(true);player->inventory.tab(0);player->inventory.scroll(100);Game::draw();save_frame("smoke-expanded-blocks.bmp");
+                player->inventory.tab(6);Game::draw();save_frame("smoke-expanded-food.bmp");
+                player->inventory.tab(10);Game::draw();save_frame("smoke-expanded-materials.bmp");Game::inventory(false);
+                player->inventory.creative.main[0]=old_stack;
+                SDL_Log("Flight/icons/animation smoke passed: identical flight at 10/20/60/144 FPS; expanded catalog, isometric menus, held block/tool/empty hand, swing/eating and mining cracks rendered");
                 // Restore a known source and persist the edits, both bags and player pose.
                 BlockState water{WATER,0,0};world->place_block(c,ivec3(8,232,8),&water);
                 player->cam.forward=normalize(vec3(0,-.5,1));player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,234,4.5);

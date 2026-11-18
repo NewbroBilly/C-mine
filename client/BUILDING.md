@@ -140,12 +140,12 @@ hardness, harvest tier, tool speed and durability affect mining and loot. Ground
 items have gravity, a pickup delay, automatic collection and a five-minute life.
 The HUD shows 20 health and 20 hunger points, fall damage above three blocks,
 exhaustion, saturation, regeneration and Normal-difficulty starvation (to one HP).
-Hold RMB/ZL for 1.6 seconds to eat an apple/bread. Death drops the inventory;
+Hold RMB/ZL for 1.6 seconds to eat food (apples, bread, vegetables, fish and meat). Death drops the inventory;
 Respawn restores health/food at the surface without replacing the current world.
 Creative has free items, instant breaking, no item consumption/damage/hunger,
 and collision-aware flight (double Space/A; Space/A up, Shift/B down).
 
-Creative has 49 blocks plus 49 items, including empty/water buckets. The original
+Creative has 104 blocks plus 89 items, including empty/water buckets. The original
 five-by-nine catalog has 12 tabs: Building, Decoration, Redstone, Transportation,
 Miscellaneous, Search, Food, Tools, Combat, Brewing, Materials and Player Inventory.
 Tabs with no implemented items are empty. Click a tab, press P or [ / ], or use
@@ -230,3 +230,42 @@ crafting screens, death/respawn, creative flight and timed food consumption.
 regeneration, downhill routing and unloaded frontiers. `client_saves_tests` covers
 player/chunk roundtrips, isolated worlds, negative coordinates, truncated files,
 backup recovery, Java seed hashing and creative category/search coverage.
+
+## Flight, isometric icons and hand animations (0.6.0)
+
+Creative flight uses the same 20 Hz/interpolated movement path as walking, with
+swept collisions. Double Space/A toggles flight, Space/A ascends, Shift/B descends;
+Ctrl while moving forward sprints. Horizontal fly acceleration is .05 (.1 while
+sprinting), input damping .98 and drag .91. Vertical input adds .15 blocks/tick,
+with .6 drag. Releasing controls brakes into a hover; descending onto ground
+turns flight off. Climbing no longer reduces horizontal speed.
+
+Hotbar, both inventories, creative tabs, crafting output and cursor use cached
+cube meshes with individual top/side/bottom textures, face lighting and the
+1.12.2 GUI transform (30/225/0 degrees, scale .625). Torch and grass remain flat
+item sprites, matching the generated item models. Geometry is uploaded once,
+not rebuilt per slot or when a block is placed.
+
+The first-person view now shows the held block/item or Steve's empty right hand.
+Mining/placing triggers a six-tick swing; item switches lower/raise the held model,
+food uses the 32-tick eating curve, and walking bobs the camera/held object.
+Third-person attacks also swing the arm. Ten imported destruction stages overlay
+full cubes while mining. These are C++ adaptations of the original timing/curves:
+flat item sprites have no extruded pixel edges, and animations cover the main
+hand only. There is no offhand-use, bow, shield or entity-combat animation yet.
+
+The added catalog includes granite/diorite/andesite and polished variants,
+jungle/acacia/dark-oak planks/logs, all wool/concrete colors, coal blocks, red
+sand/sandstone, terracotta, hay, melon, pumpkin, purpur, prismarine and sea lanterns.
+New recipes include matching log/planks, polished stone, coal/hay/nugget
+packing and unpacking, quartz/red sandstone, paper, books, sugar, bone meal,
+blaze powder, magma cream, ender eyes and pumpkin pie. Foods use their vanilla
+nutrition/saturation values. Resources can be stored/crafted; planting, portals,
+teleporting pearls, brewing effects and cooking/smelting are not implemented.
+New logs remain upright; hay/farmland/path use full-cube geometry. Animated
+prismarine/sea-lantern textures currently display their first resource frame.
+
+Existing save IDs are retained. Static item icons occupy indices 0-159; clock,
+compass and cast-rod frames occupy 160-224, avoiding catalog collisions.
+The GL smoke compares integrated flight at 10/20/60/144 FPS and captures the expanded
+catalog, held block/tool/empty hand, swings, eating and mining cracks.

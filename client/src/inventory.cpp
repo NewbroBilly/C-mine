@@ -6,7 +6,7 @@
 #include <gtc/matrix_transform.hpp>
 namespace {vec2 location(float x,float y){return vec2(x-win_size.x/2.f,win_size.y/2.f-y-48);}}
 Inventory::Inventory(){
-over=nullptr;int n=0;for(int id=1;id<BLOCK_COUNT;++id)if(id!=WATER)catalog[n++]={id,64};
+over=nullptr;
 for(int i=0;i<54;++i)slots[i/9][i%9].bind(catalog[i]);
 int defaults[]={STONE,DIRT,GRASS_BLOCK,LOG,PLANKS,GLASS,TORCH,CRAFTING_TABLE,Items::APPLE};for(int i=0;i<9;++i)creative.main[i]={defaults[i],Items::limit(defaults[i])};}
 Items::Inventory& Inventory::data(){return survival_mode?survival:creative;}

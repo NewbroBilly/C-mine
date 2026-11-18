@@ -54,6 +54,12 @@ struct Player
     void update_drops();
     void draw_hud();
     void draw_drops();
+    double swing_progress=1;
+    float equip=0,bob_amount=0;
+    int equipped_item=-1;
+    void swing();
+    void animate();
+    void draw_hand();
     bool place_selected(Chunk* chunk,ivec3 local,ivec3 normal);
 
     Player() {}

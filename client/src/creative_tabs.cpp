@@ -11,7 +11,8 @@ std::vector<int> entries(int tab,const std::string& search){
     auto lower=[](std::string s){for(auto& c:s)c=char(std::tolower(static_cast<unsigned char>(c)));return s;};
     std::string query=lower(search);std::vector<int> result;
     for(int id:all){bool decor=id==LEAVES || id==GRASS || id==TORCH || id==CRAFTING_TABLE || id==BOOKSHELF;
-        bool food=id==Items::APPLE || id==Items::BREAD;
+        bool food=Items::food_points(id)>0;
+        bool brewing=id==Items::NETHER_WART || id==Items::BLAZE_POWDER || id==Items::MAGMA_CREAM || id==Items::GHAST_TEAR;
         bool misc=id==Items::BUCKET || id==Items::WATER_BUCKET || id==Items::SNOWBALL;
         bool redstone=id==REDSTONE_BLOCK || id==Items::REDSTONE_DUST;
         bool combat=Items::tool_kind(id)==Items::Tool::Sword;
@@ -19,7 +20,7 @@ std::vector<int> entries(int tab,const std::string& search){
         bool include=tab==5?lower(Items::name(id)).find(query)!=std::string::npos:
             (tab==0?Items::block(id) && !decor && id!=REDSTONE_BLOCK:
              tab==1?decor:tab==2?redstone:tab==4?misc:tab==6?food || id==Items::RAW_FISH:tab==7?tool:tab==8?combat:
-             tab==10?!Items::block(id) && !food && id!=Items::RAW_FISH && !misc && !tool && !combat && !redstone:false);
+             tab==9?brewing:tab==10?!Items::block(id) && !food && !misc && !tool && !combat && !redstone && !brewing:false);
         if(include)result.push_back(id);
     }return result;
 }

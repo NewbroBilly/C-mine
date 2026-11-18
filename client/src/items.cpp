@@ -2,6 +2,22 @@
 #include <algorithm>
 #include <cmath>
 namespace Items {
+static bool wool(int id){return id==WHITE_WOOL || id==RED_WOOL || id==BLUE_WOOL || (id>=ORANGE_WOOL && id<=BLACK_WOOL);}
+static bool wood(int id){return id==LOG || id==PLANKS || id==SPRUCE_PLANKS || id==BIRCH_PLANKS || (id>=JUNGLE_PLANKS && id<=DARK_OAK_LOG) || id==CRAFTING_TABLE || id==BOOKSHELF;}
+static bool stone_material(int id){return (id>=GRANITE && id<=POLISHED_ANDESITE) || (id>=WHITE_CONCRETE && id<=BLUE_TERRACOTTA && id!=RED_SAND) || (id>=PURPUR_BLOCK && id<=PRISMARINE_ROUGH);}
+int food_points(int id){switch(id){
+case APPLE:return 4;case BREAD:case BAKED_POTATO:case COOKED_FISH:case COOKED_RABBIT:return 5;
+case RAW_FISH:case MELON_SLICE:case COOKIE:return 2;
+case CARROT:case RAW_BEEF:case RAW_PORKCHOP:case RABBIT:return 3;
+case POTATO:case BEETROOT:return 1;
+case STEAK:case COOKED_PORKCHOP:case PUMPKIN_PIE:return 8;
+case COOKED_CHICKEN:case COOKED_MUTTON:return 6;
+default:return 0;}}
+float food_saturation(int id){switch(id){
+case RAW_FISH:case COOKIE:return .1f;
+case APPLE:case PUMPKIN_PIE:case POTATO:case MELON_SLICE:case RAW_BEEF:case RAW_PORKCHOP:case RABBIT:return .3f;
+case STEAK:case COOKED_PORKCHOP:case COOKED_MUTTON:return .8f;
+default:return .6f;}}
 int limit(int id){switch(id){
 #define ITEM(id,label,texture,max,damage) case id:return max;
 #include <items.def>
@@ -57,7 +73,7 @@ int mining_wear(int id,int tool){
     switch(tool_kind(tool)){
     case Tool::Pickaxe:case Tool::Axe:case Tool::Shovel:return 1;
     case Tool::Sword:return 2;
-    case Tool::Shears:return id==LEAVES || id==GRASS || id==WHITE_WOOL || id==RED_WOOL || id==BLUE_WOOL?1:0;
+    case Tool::Shears:return id==LEAVES || id==GRASS || wool(id)?1:0;
     default:return 0;}
 }
 int use_on_block(int id,int tool,bool air,bool bottom){
@@ -95,7 +111,7 @@ void Inventory::quick_move(int i){
     if(i<0 || i>=36 || main[i].empty())return;
     main[i].count=insert(main.data()+(i<9?9:0),i<9?27:9,main[i]);normalize(main[i]);
 }
-static bool plank(int id){return id==PLANKS || id==BIRCH_PLANKS || id==SPRUCE_PLANKS;}
+static bool plank(int id){return id==PLANKS || id==BIRCH_PLANKS || id==SPRUCE_PLANKS || id==JUNGLE_PLANKS || id==ACACIA_PLANKS || id==DARK_OAK_PLANKS;}
 Recipe recipe(const std::array<Stack,9>& grid,int width){
     Recipe r;int left=width,top=width,right=-1,bottom=-1,count=0;
     for(int y=0;y<width;++y)for(int x=0;x<width;++x)if(!grid[y*width+x].empty()){
@@ -107,6 +123,14 @@ Recipe recipe(const std::array<Stack,9>& grid,int width){
     auto all=[&](int id){for(int y=0;y<h;++y)for(int x=0;x<w;++x)if(at(x,y)!=id)return false;return true;};
     auto all_planks=[&](){for(int y=0;y<h;++y)for(int x=0;x<w;++x)if(!plank(at(x,y)))return false;return true;};
     if(count==1 && at(0,0)==LOG)r.output={PLANKS,4};
+    if(count==1){
+        if(at(0,0)==JUNGLE_LOG)r.output={JUNGLE_PLANKS,4};
+        if(at(0,0)==ACACIA_LOG)r.output={ACACIA_PLANKS,4};
+        if(at(0,0)==DARK_OAK_LOG)r.output={DARK_OAK_PLANKS,4};
+        if(at(0,0)==SUGAR_CANE)r.output={SUGAR,1};
+        if(at(0,0)==BONE)r.output={BONE_MEAL,3};
+        if(at(0,0)==BLAZE_ROD)r.output={BLAZE_POWDER,2};
+    }
     if(w==1 && h==2 && count==2 && all_planks())r.output={STICK,4};
     if(w==2 && h==2 && count==4){
         if(all_planks())r.output={CRAFTING_TABLE,1};
@@ -115,9 +139,14 @@ Recipe recipe(const std::array<Stack,9>& grid,int width){
         if(all(SNOWBALL))r.output={SNOW_BLOCK,1};
         if(all(GLOWSTONE_DUST))r.output={GLOWSTONE,1};
         if(all(STONE))r.output={STONE_BRICKS,4};
+        if(all(RED_SAND))r.output={RED_SANDSTONE,1};
+        if(all(QUARTZ))r.output={QUARTZ_BLOCK,1};
+        for(int id:{GRANITE,DIORITE,ANDESITE})if(all(id))r.output={id+1,4};
     }
     if(w==1 && h==2 && count==2 && at(0,0)==COAL && at(0,1)==STICK)r.output={TORCH,4};
+    if(w==1 && h==2 && count==2 && at(0,0)==CHARCOAL && at(0,1)==STICK)r.output={TORCH,4};
     if(w==3 && h==1 && count==3 && all(WHEAT))r.output={BREAD,1};
+    if(w==3 && h==1 && count==3 && all(SUGAR_CANE))r.output={PAPER,3};
     if(w==3 && h==2 && count==3 && at(0,0)==IRON_INGOT && at(2,0)==IRON_INGOT && at(1,1)==IRON_INGOT)r.output={BUCKET,1};
     auto shape=[&](const char* pattern,int sw,int sh,int material,bool mirror=false){
         if(w!=sw || h!=sh)return false;
@@ -146,17 +175,33 @@ Recipe recipe(const std::array<Stack,9>& grid,int width){
     if(count==2){
         Stack a,b;for(int i=0;i<width*width;++i)if(!grid[i].empty()){if(a.empty())a=grid[i];else b=grid[i];}
         if((a.id==IRON_INGOT && b.id==FLINT) || (b.id==IRON_INGOT && a.id==FLINT))r.output={FLINT_AND_STEEL,1};
+        auto pair=[&](int x,int y){return (a.id==x && b.id==y) || (a.id==y && b.id==x);};
+        if(pair(SLIME_BALL,BLAZE_POWDER))r.output={MAGMA_CREAM,1};
+        if(pair(ENDER_PEARL,BLAZE_POWDER))r.output={ENDER_EYE,1};
         int max=durability(a.id);
         if(a.id==b.id && a.count==1 && b.count==1 && max)r.output={a.id,1,std::max(0,a.damage+b.damage-max-max*5/100)};
     }
     if(w==3 && h==3 && count==9){
         const int raw[]={IRON_INGOT,GOLD_INGOT,DIAMOND,EMERALD,REDSTONE_DUST,LAPIS,COAL};
-        const int packed[]={IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK,REDSTONE_BLOCK,LAPIS_BLOCK,-1};
-        for(int i=0;i<6;++i)if(all(raw[i]))r.output={packed[i],1};
+        const int packed[]={IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK,REDSTONE_BLOCK,LAPIS_BLOCK,COAL_BLOCK};
+        for(int i=0;i<7;++i)if(all(raw[i]))r.output={packed[i],1};
+        if(all(IRON_NUGGET))r.output={IRON_INGOT,1};if(all(GOLD_NUGGET))r.output={GOLD_INGOT,1};
+        if(all(WHEAT))r.output={HAY_BLOCK,1};if(all(MELON_SLICE))r.output={MELON_BLOCK,1};
     }
     if(count==1){const int packed[]={IRON_BLOCK,GOLD_BLOCK,DIAMOND_BLOCK,EMERALD_BLOCK,REDSTONE_BLOCK,LAPIS_BLOCK};
         const int raw[]={IRON_INGOT,GOLD_INGOT,DIAMOND,EMERALD,REDSTONE_DUST,LAPIS};
         for(int i=0;i<6;++i)if(at(0,0)==packed[i])r.output={raw[i],9};
+    }
+    if(count==1){switch(at(0,0)){
+        case COAL_BLOCK:r.output={COAL,9};break;case HAY_BLOCK:r.output={WHEAT,9};break;
+        case IRON_INGOT:r.output={IRON_NUGGET,9};break;case GOLD_INGOT:r.output={GOLD_NUGGET,9};break;default:break;}}
+    if(count==3 || count==4){
+        int paper=0,leather=0,pumpkin=0,sugar=0,egg=0;
+        for(int i=0;i<width*width;++i)if(!grid[i].empty()){
+            int id=grid[i].id;paper+=id==PAPER;leather+=id==LEATHER;pumpkin+=id==PUMPKIN;sugar+=id==SUGAR;egg+=id==EGG;
+        }
+        if(count==4 && paper==3 && leather==1)r.output={BOOK,1};
+        if(count==3 && pumpkin==1 && sugar==1 && egg==1)r.output={PUMPKIN_PIE,1};
     }
     return r;
 }
@@ -173,7 +218,14 @@ std::vector<Stack> Inventory::close(){
     auto return_stack=[&](Stack& s){if(!s.empty()){s.count=add(s);if(!s.empty())rest.push_back(s);s.clear();}};
     return_stack(cursor);for(auto& s:craft)return_stack(s);return rest;
 }
-double hardness(int id){switch(id){
+double hardness(int id){
+if(wool(id))return .8;if(wood(id))return id==CRAFTING_TABLE?2.5:(id==BOOKSHELF?1.5:2.);
+if(id>=WHITE_CONCRETE && id<=BLACK_CONCRETE)return 1.8;
+if(id==COAL_BLOCK)return 5.;if(id==RED_SAND)return .5;
+if(id==HAY_BLOCK)return .5;if(id==PUMPKIN)return 1.;if(id==MELON_BLOCK)return 1.;
+if(id==SEA_LANTERN)return .3;
+if(id==RED_SANDSTONE)return .8;if(id>=HARDENED_CLAY && id<=BLUE_TERRACOTTA)return 1.25;
+switch(id){
 case BEDROCK:return -1;case GRASS:case TORCH:case FIRE:return 0;
 case LEAVES:return .2;case GLASS:case GLOWSTONE:return .3;
 case DIRT:case SAND:case SOUL_SAND:return .5;case GRASS_BLOCK:case GRAVEL:case CLAY:case FARMLAND:case GRASS_PATH:return .6;
@@ -183,7 +235,7 @@ case COAL_ORE:case IRON_ORE:case GOLD_ORE:case DIAMOND_ORE:case EMERALD_ORE:case
 case WHITE_WOOL:case RED_WOOL:case BLUE_WOOL:return .8;case SNOW_BLOCK:return .2;
 case NETHERRACK:return .4;case END_STONE:return 3;
 default:return 1.5;}}
-static bool needs_pick(int id){switch(id){
+static bool needs_pick(int id){if(stone_material(id))return true;switch(id){
 case STONE:case COBBLESTONE:case MOSSY_COBBLESTONE:case STONE_BRICKS:case BRICKS:case OBSIDIAN:
 case COAL_ORE:case IRON_ORE:case GOLD_ORE:case DIAMOND_ORE:case REDSTONE_ORE:case LAPIS_ORE:case EMERALD_ORE:
 case IRON_BLOCK:case GOLD_BLOCK:case DIAMOND_BLOCK:case EMERALD_BLOCK:case REDSTONE_BLOCK:case LAPIS_BLOCK:
@@ -203,11 +255,10 @@ bool harvestable(int id,int tool){
 double break_seconds(int id,int tool,bool grounded){
     double h=hardness(id);if(h<0)return -1;if(h==0)return 0;
     Tool kind=tool_kind(tool);double speed=1.;
-    bool wood=id==LOG || id==PLANKS || id==SPRUCE_PLANKS || id==BIRCH_PLANKS || id==CRAFTING_TABLE || id==BOOKSHELF;
-    bool soil=id==DIRT || id==GRASS_BLOCK || id==SAND || id==GRAVEL || id==CLAY || id==SNOW_BLOCK || id==SOUL_SAND || id==FARMLAND || id==GRASS_PATH;
-    if((needs_pick(id) && kind==Tool::Pickaxe) || (wood && kind==Tool::Axe) || (soil && kind==Tool::Shovel))speed=tool_speed(tool);
+    bool soil=id==DIRT || id==GRASS_BLOCK || id==SAND || id==RED_SAND || id==GRAVEL || id==CLAY || id==SNOW_BLOCK || id==SOUL_SAND || id==FARMLAND || id==GRASS_PATH;
+    if((needs_pick(id) && kind==Tool::Pickaxe) || ((wood(id) || id==PUMPKIN || id==MELON_BLOCK) && kind==Tool::Axe) || (soil && kind==Tool::Shovel))speed=tool_speed(tool);
     if(kind==Tool::Sword)speed=1.5;
-    if(tool==SHEARS){if(id==LEAVES)speed=15.;if(id==WHITE_WOOL || id==RED_WOOL || id==BLUE_WOOL)speed=5.;}
+    if(tool==SHEARS){if(id==LEAVES)speed=15.;if(wool(id))speed=5.;}
     if(!grounded)speed/=5.;return h*(harvestable(id,tool)?30.:100.)/speed/20.;
 }
 Stack drop(int id,int tool,unsigned r){
@@ -218,12 +269,13 @@ Stack drop(int id,int tool,unsigned r){
     case COAL_ORE:return {COAL,1};case DIAMOND_ORE:return {DIAMOND,1};case EMERALD_ORE:return {EMERALD,1};
     case REDSTONE_ORE:return {REDSTONE_DUST,4+int(r%2)};case LAPIS_ORE:return {LAPIS,4+int(r%5)};
     case GLOWSTONE:return {GLOWSTONE_DUST,2+int(r%3)};case GRAVEL:return {r%10==0?int(FLINT):int(GRAVEL),1};
+    case MELON_BLOCK:return {MELON_SLICE,3+int(r%5)};case SEA_LANTERN:return {PRISMARINE_CRYSTALS,2+int(r%2)};
     default:return {id,1};}
 }
 void Vitals::hurt(float amount){if(amount>0 && hurt_ticks==0){health=std::max(0.f,health-amount);hurt_ticks=10;}}
 void Vitals::exhaust(float amount){exhaustion=std::min(40.f,exhaustion+amount);}
-bool Vitals::eat(int id){if(food>=20)return false;int n=id==APPLE?4:(id==BREAD?5:(id==RAW_FISH?2:0));if(!n)return false;
-    food=std::min(20,food+n);saturation=std::min(float(food),saturation+n*(id==APPLE?.6f:(id==RAW_FISH?.2f:1.2f)));return true;}
+bool Vitals::eat(int id){if(food>=20)return false;int n=food_points(id);if(!n)return false;
+    food=std::min(20,food+n);saturation=std::min(float(food),saturation+n*food_saturation(id)*2);return true;}
 void Vitals::tick(){
     if(hurt_ticks>0)--hurt_ticks;
     if(exhaustion>4){exhaustion-=4;if(saturation>0)saturation=std::max(0.f,saturation-1);else food=std::max(0,food-1);}

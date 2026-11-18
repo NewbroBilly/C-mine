@@ -11,6 +11,7 @@ struct State {
 };
 using SolidQuery = std::function<bool(int, int, int)>;
 bool overlaps(const glm::dvec3& position, const SolidQuery& solid);
+void fly_tick(State& state,const glm::dvec2& input,double vertical,bool sprint,const SolidQuery& solid);
 void swim_tick(State& state,const glm::dvec2& input,bool jump,
                const glm::dvec3& flow,const SolidQuery& solid);
 double hurt_roll(double hurt_ticks,double partial_ticks);

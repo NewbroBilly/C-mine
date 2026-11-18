@@ -62,6 +62,8 @@ def build_atlas(archive):
     atlas.paste(tile("torch_on"), (48, 16))
     torch_top = tile("torch_on").crop((7, 6, 9, 8)).resize((16, 16), Image.Resampling.NEAREST)
     atlas.paste(torch_top, (32, 16))
+    for stage in range(10):
+        atlas.paste(tile(f"destroy_stage_{stage}"),(stage*16,160))
     return atlas
 
 
@@ -82,16 +84,18 @@ def main():
             (args.output / target).write_bytes(archive.read("assets/minecraft/textures/gui/container/creative_inventory/" + source))
         items = Image.new("RGBA", (256, 256))
         catalog = Path(__file__).resolve().parents[1] / "client/include/items.def"
-        for i, line in enumerate(catalog.read_text().splitlines()):
+        entries = catalog.read_text().splitlines()
+        if len(entries) > 160: raise ValueError("Static item atlas collides with animation region")
+        for i, line in enumerate(entries):
             fields = next(csv.reader([re.fullmatch(r"ITEM\((.*)\)", line)[1]]))
             image = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/" + fields[2] + ".png"))).convert("RGBA")
             items.paste(image.crop((0, 0, 16, 16)), ((i % 16)*16, (i // 16)*16))
-        for start, prefix in [(64,"clock"),(96,"compass")]:
+        for start, prefix in [(160,"clock"),(192,"compass")]:
             for frame in range(32):
                 image=Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/items/{prefix}_{frame:02d}.png"))).convert("RGBA")
                 n=start+frame;items.paste(image.crop((0,0,16,16)),((n%16)*16,(n//16)*16))
         image=Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/fishing_rod_cast.png"))).convert("RGBA")
-        items.paste(image.crop((0,0,16,16)),(0,128))
+        items.paste(image.crop((0,0,16,16)),(0,224))
         items.save(args.output / "items.png")
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "player.png").write_bytes(skin)

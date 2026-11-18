@@ -35,7 +35,7 @@ void Avatar::init() {
     glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)offsetof(Vertex,uv));glEnableVertexAttribArray(1);
     glVertexAttribPointer(2,1,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)offsetof(Vertex,shade));glEnableVertexAttribArray(2);
 }
-void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,float amount) {
+void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,float amount,float attack) {
     vertices.clear();
     mat4 body=translate(mat4(1),vec3(position));
     body=rotate(body,atan2(forward.x,forward.z),vec3(0,1,0));
@@ -47,6 +47,7 @@ void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,fl
     box(body,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,32),.25f);
     float swing=cos(float(phase)*.6662f)*clamp(amount,0.f,1.f);
     mat4 right_arm=rotate(translate(body,vec3(-5,2,0)),-swing,vec3(1,0,0));
+    right_arm=rotate(right_arm,-sin(sqrt(attack)*3.14159265f)*1.2f,vec3(1,0,0));
     mat4 left_arm=rotate(translate(body,vec3(5,2,0)),swing,vec3(1,0,0));
     box(right_arm,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16));
     box(right_arm,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,32),.25f);
@@ -59,6 +60,15 @@ void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,fl
     box(left_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(16,48));
     box(left_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,48),.25f);
     skin.bind();shader.bind();shader.upload_texture("skin",skin);shader.upload_mat4("cam_mat",camera);
+    glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);
+    glDisable(GL_CULL_FACE);glDrawArrays(GL_TRIANGLES,0,(GLsizei)vertices.size());glEnable(GL_CULL_FACE);
+}
+void Avatar::hand(const mat4& matrix){
+    vertices.clear();
+    mat4 m=scale(mat4(1),vec3(1,-1,1)/16.f);
+    box(m,vec3(-2,-6,-2),ivec3(4,12,4),ivec2(40,16));
+    box(m,vec3(-2,-6,-2),ivec3(4,12,4),ivec2(40,32),.25f);
+    skin.bind();shader.bind();shader.upload_texture("skin",skin);shader.upload_mat4("cam_mat",matrix);
     glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);
     glDisable(GL_CULL_FACE);glDrawArrays(GL_TRIANGLES,0,(GLsizei)vertices.size());glEnable(GL_CULL_FACE);
 }

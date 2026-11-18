@@ -343,6 +343,7 @@ void Game::draw()
     world->draw();
     player->draw();
     player->draw_drops();
+    player->draw_hand();
 
     player->hotbar.draw();
     player->draw_hud();

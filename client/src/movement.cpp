@@ -41,6 +41,21 @@ double hurt_roll(double ticks,double partial){
     double t=std::clamp((ticks-partial)/10.,0.,1.);
     return -std::sin(t*t*t*t*3.141592653589793)*14.;
 }
+void fly_tick(State& state,const glm::dvec2& input,double vertical,bool sprint,const SolidQuery& solid){
+    // EntityPlayer.travel: flySpeed=.05, sprint x2, horizontal drag .91;
+    // EntityPlayerSP adds flySpeed*3 vertically, then flight applies .6 drag.
+    glm::dvec3 motion=state.velocity*.05;
+    for(int axis=0;axis<3;++axis)if(std::abs(motion[axis])<.003)motion[axis]=0;
+    glm::dvec2 control=input*.98;control/=std::max(1.,glm::length(control));
+    motion.x+=control.x*.05*(sprint?2.:1.);
+    motion.z+=control.y*.05*(sprint?2.:1.);
+    motion.y+=std::clamp(vertical,-1.,1.)*.15;
+    state.velocity=motion;
+    bool hit=move_axis(state,1,motion.y,solid);
+    move_axis(state,0,motion.x,solid);move_axis(state,2,motion.z,solid);
+    state.grounded=hit && motion.y<0;
+    state.velocity*=glm::dvec3(.91,.6,.91)*20.;state.jump_cooldown=0;
+}
 void swim_tick(State& state,const glm::dvec2& input,bool jump,const glm::dvec3& flow,const SolidQuery& solid){
     glm::dvec3 motion=state.velocity*.05+flow*.014;
     glm::dvec2 control=input*.98;control/=std::max(1.,glm::length(control));

@@ -75,6 +75,27 @@ int main() {
     }
     auto target=[](glm::ivec3 p){return p==glm::ivec3(0,0,5);};
     auto empty=[](int,int,int){return false;};
+    // Compare a full second of flight to the 1.12.2 recurrence, independently
+    // of rendering frequency. Ascending must not reduce horizontal movement.
+    s={{0,50,0},{0,0,0},false};double fly_x=0,fly_y=50,mx=0,my=0;
+    for(int i=0;i<80;++i){
+        Movement::fly_tick(s,{1,0},1,false,empty);
+        mx+=.049;my+=.15;fly_x+=mx;fly_y+=my;mx*=.91;my*=.6;
+        check(std::abs(s.position.x-fly_x)<1e-8 && std::abs(s.position.y-fly_y)<1e-8,"creative flight reference acceleration and drag");
+    }
+    check(std::abs(s.velocity.x-10.8889*.91)<.01,"flight cruising velocity");
+    auto horizontal=s;Movement::fly_tick(horizontal,{1,0},0,false,empty);Movement::fly_tick(s,{1,0},1,false,empty);
+    check(std::abs(s.position.x-horizontal.position.x)<1e-8,"ascending must preserve horizontal speed");
+    double previous_speed=s.velocity.x;
+    Movement::fly_tick(s,{0,0},0,false,empty);
+    check(s.velocity.x>0 && s.velocity.x<previous_speed,"release must smoothly brake flight");
+    for(int i=0;i<100;++i)Movement::fly_tick(s,{0,0},0,false,empty);
+    check(glm::length(s.velocity)<1e-8,"released flight must settle to hover without gravity");
+    s={{.5,1,.5},{0,0,0},false};
+    for(int i=0;i<100;++i)Movement::fly_tick(s,{1,0},0,true,wall);
+    check(std::abs(s.position.x-1.7)<1e-5 && s.velocity.x==0 && !Movement::overlaps(s.position,wall),"sprint flight clips wall and clears blocked velocity");
+    s={{.5,.1,.5},{0,0,0},false};Movement::fly_tick(s,{0,0},-1,false,floor);
+    check(s.grounded && std::abs(s.position.y)<1e-5,"descending flight must signal landing");
     s={{0,50,0},{0,0,0},false};double water_y=50,water_v=0,water_x=0,water_vx=0;
     for(int i=0;i<100;++i){
         Movement::swim_tick(s,{1,0},true,{0,0,0},empty);
