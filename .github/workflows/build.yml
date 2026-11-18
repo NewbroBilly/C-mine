@@ -16,9 +16,16 @@ jobs:
         os: [windows-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        env:
+          PYTHONUTF8: '1'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMC_BUILD_CLIENT=${{ runner.os == 'Windows' && 'ON' || 'OFF' }}
       - name: Build
+        env:
+          PYTHONUTF8: '1'
         run: cmake --build build --config Release --parallel 2
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
@@ -30,3 +37,29 @@ jobs:
           path: |
             build/Release/minecraft_1122.exe
             build/minecraft_1122
+      - name: Package desktop game
+        if: runner.os == 'Windows'
+        run: cmake --install build --config Release --prefix dist/MineCppClone
+      - name: Upload desktop game
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MineCppClone-Windows-x64
+          if-no-files-found: error
+          path: dist/MineCppClone/
+
+  switch:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Switch libraries
+        run: dkp-pacman -Sy --noconfirm --needed switch-sdl2 switch-glm switch-glad
+      - name: Build Switch homebrew
+        run: make -f Makefile.switch -j2
+      - name: Upload Switch homebrew
+        uses: actions/upload-artifact@v4
+        with:
+          name: MineCppClone-Switch
+          if-no-files-found: error
+          path: build/switch/MineCppClone.nro

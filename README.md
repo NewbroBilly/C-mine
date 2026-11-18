@@ -1,5 +1,25 @@
 # Minecraft 1.12.2 C++ Edition
 
+## Graphical desktop client and Switch build
+
+The user-supplied `mc-main` game is integrated under `client/`. It includes
+SDL2/OpenGL rendering, terrain, block editing, inventory and a supplied texture
+atlas. See [client/BUILDING.md](client/BUILDING.md) for setup and controls and
+[client/ORIGIN.md](client/ORIGIN.md) for source provenance.
+
+Enable it with `-DMC_BUILD_CLIENT=ON`. GitHub Actions packages the Windows game
+with shaders/textures and builds a separate Nintendo Switch homebrew `.nro`
+through devkitPro. Switch hardware testing is still required.
+
+The client serializes terrain, lighting and mesh changes on the main thread,
+loads one nearby chunk per frame, replaces GPU meshes without clearing the old
+mesh first, and starts the player above the highest solid surface. Original
+1.12.2 block textures can be imported from a local client JAR using
+`tools/import_textures.py`; imported assets are not committed to Git.
+
+The milestones below describe the separate headless parity core, not the
+imported graphical client. Neither is a full recreation of Minecraft 1.12.2.
+
 A cross-platform C++20 project beginning with a headless core prototype. The target is Java Edition 1.12.2 behavior. This repository does not include Minecraft code, assets, or resource packs.
 
 ## Current milestone
