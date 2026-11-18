@@ -65,6 +65,26 @@ def main():
     with zipfile.ZipFile(args.archive) as archive:
         atlas = build_atlas(archive)
         skin = archive.read("assets/minecraft/textures/entity/steve.png")
+        gui_assets = {"inventory.png": "container/inventory.png",
+                      "crafting.png": "container/crafting_table.png", "icons.png": "icons.png"}
+        args.output.mkdir(parents=True, exist_ok=True)
+        for target, source in gui_assets.items():
+            (args.output / target).write_bytes(archive.read("assets/minecraft/textures/gui/" + source))
+        source = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/gui/container/creative_inventory/tab_items.png"))).convert("RGBA")
+        creative = Image.new("RGBA", (256, 256))
+        creative.paste(source.crop((0, 0, 176, 112)), (0, 0))
+        creative.paste(source.crop((0, 17, 176, 35)), (0, 107))
+        # Reuse the original hotbar strip under six catalog rows.
+        creative.paste(source.crop((0, 112, 176, 136)), (0, 126))
+        creative.paste(creative.crop((0, 0, 7, 150)).transpose(Image.Transpose.FLIP_LEFT_RIGHT), (169, 0))
+        creative.save(args.output / "creative.png")
+        items = Image.new("RGBA", (256, 256))
+        catalog = Path(__file__).resolve().parents[1] / "client/include/items.def"
+        for i, line in enumerate(catalog.read_text().splitlines()):
+            fields = next(csv.reader([re.fullmatch(r"ITEM\((.*)\)", line)[1]]))
+            image = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/" + fields[2] + ".png"))).convert("RGBA")
+            items.paste(image.crop((0, 0, 16, 16)), ((i % 16)*16, (i // 16)*16))
+        items.save(args.output / "items.png")
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "player.png").write_bytes(skin)
     atlas.save(args.output / "texture_atlas.png")

@@ -215,7 +215,7 @@ int main(int argc, char** argv)
                     if(id==GLOWSTONE && c->get_block_light(ivec3(9,240,8))<14)return 18;
                     world->remove_block(c,p);if(c->get(p)->id!=AIR)return 19;
                 }
-                show_inventory=true;
+                Game::set_mode(false);Game::inventory(true);
             }
             if(frame==111){
                 player->inventory.selected=0;player->inventory.keyboard_navigation=true;
@@ -225,11 +225,86 @@ int main(int argc, char** argv)
             if(frame==112){
                 if(player->inventory.selected!=1)return 20;
                 keys[SDLK_RETURN&~0x40000000]=Input::DOWN;Game::update();
-                if(player->hotbar.get_item()!=DIRT)return 21;
+                if(player->inventory.data().cursor.id!=DIRT)return 21;
                 Game::title();Game::open_options();Game::draw();save_frame("smoke-options-title.bmp");
                 keys[SDLK_ESCAPE&~0x40000000]=Input::DOWN;Game::update();
                 if(Game::screen!=Game::Screen::Title || world!=nullptr)return 22;
                 SDL_Log("Settings save/reload, options pause freeze, camera FOV, all inventory blocks and glowstone lighting passed");
+                Game::start(true);Game::update();
+            }
+            if(frame==113){
+                auto& data=player->inventory.survival;
+                for(auto& s:data.main)if(!s.empty())return 23;
+                data.main[0]={DIRT,2};
+                Chunk* c=world->get_chunk_from_pos(player->pos);ivec3 p(8,240,8);
+                if(!player->place_selected(c,p,ivec3(0,1,0)) || data.main[0].count!=1)return 24;
+                if(player->place_selected(c,p,ivec3(0,1,0)) || data.main[0].count!=1)return 25;
+                Game::set_mode(false);player->hotbar.set_item(0,DIRT);
+                if(!player->place_selected(c,p+ivec3(1,0,0),ivec3(0,1,0)) || player->hotbar.slots[0].value().count!=1)return 26;
+                Game::set_mode(true);if(data.main[0].count!=1)return 27;
+                data.main[1]={LOG,16};data.main[2]={PLANKS,64};data.main[9]={Items::APPLE,4};
+                data.craft[0]={LOG,2};Game::inventory(true);Game::draw();save_frame("smoke-survival-inventory.bmp");
+            }
+            if(frame==114){
+                auto& data=player->inventory.survival;
+                player->inventory.activate(40,false,false);
+                if(data.cursor.id!=PLANKS || data.cursor.count!=4 || data.craft[0].count!=1)return 28;
+                Game::inventory(false);Game::inventory(true,true);
+                data.craft={};for(int i=0;i<3;++i)data.craft[i]={PLANKS,1};data.craft[4]={Items::STICK,1};data.craft[7]={Items::STICK,1};
+                Game::draw();save_frame("smoke-workbench.bmp");
+                player->inventory.activate(45,false,false);
+                if(data.cursor.id!=Items::WOOD_PICKAXE)return 29;
+                Game::inventory(false);
+            }
+            if(frame==115){
+                Game::set_mode(false);Game::inventory(true);player->inventory.catalog_page=1;
+                Game::draw();save_frame("smoke-creative-items.bmp");Game::inventory(false);Game::set_mode(true);
+                Chunk* c=world->get_chunk_from_pos(player->pos);
+                // A level test arena, away from terrain and player overlap.
+                for(int x=5;x<=12;++x)for(int z=5;z<=13;++z){
+                    BlockState floor{DIRT,0,0};c->set(ivec3(x,199,z),&floor);
+                    for(int y=200;y<=204;++y){BlockState air{AIR,0,0};c->set(ivec3(x,y,z),&air);}
+                }
+                world->rebuild_dirty();BlockState dirt{DIRT,0,0};world->place_block(c,ivec3(8,201,10),&dirt);
+                player->pos=player->previous_position=dvec3(8.5,200,8.5);player->vel=dvec3(0);player->vitals={};player->grounded=true;
+                player->hotbar.set_index(0);player->inventory.survival.main={};player->cam.forward=vec3(0,0,1);
+                buttons[0]=Input::DOWN;
+            }
+            if(frame==125){
+                auto* c=world->get_chunk_from_pos(player->pos);if(c->get(ivec3(8,201,10))->id!=DIRT)return 30;
+            }
+            if(frame==200){
+                buttons[0]=Input::NONE;
+                auto* c=world->get_chunk_from_pos(player->pos);if(c->get(ivec3(8,201,10))->id!=AIR || player->drops.empty())return 31;
+                player->pos=player->previous_position=dvec3(8.5,200,10.5);
+            }
+            if(frame==230){
+                int dirt=0;for(auto& s:player->inventory.survival.main)if(s.id==DIRT)dirt+=s.count;
+                if(dirt!=1)return 32;
+                Game::draw();save_frame("smoke-survival-hud.bmp");
+                player->vitals.health=0;Game::update();
+                if(Game::screen!=Game::Screen::Dead)return 33;
+                Game::draw();save_frame("smoke-death.bmp");
+                Game::respawn();Game::update();
+                if(Game::screen!=Game::Screen::Playing || player->vitals.health!=20 || !world->spawned)return 34;
+                for(auto& s:player->inventory.survival.main)if(!s.empty())return 35;
+                Game::set_mode(false);player->pos.y+=6;auto y=player->pos.y;
+                keys[SDLK_SPACE]=Input::DOWN;Game::update();keys[SDLK_SPACE]=Input::NONE;Game::update();
+                keys[SDLK_SPACE]=Input::DOWN;Game::update();keys[SDLK_SPACE]=Input::NONE;
+                if(!player->flying)return 36;
+                player->vitals.health=15;player->vitals.fallen=50;Game::update();
+                if(player->vitals.health!=15)return 37;
+                Game::set_mode(true);if(player->flying)return 38;
+                SDL_Log("Inventory smoke passed: empty survival, stack spending, failed placement conservation, separate creative inventory, crafting, timed mining, drops, pickup, death/respawn and creative flight");
+                Game::set_mode(true);player->pos=player->previous_position=dvec3(8.5,241,8.5);player->vel=dvec3(0);player->grounded=true;
+                player->vitals={};player->vitals.food=10;player->vitals.saturation=0;
+                player->hotbar.set_index(0);player->hotbar.slots[0].value()={Items::APPLE,2};buttons[2]=Input::DOWN;
+            }
+            if(frame==245 && (player->vitals.food!=10 || player->hotbar.slots[0].value().count!=2))return 39;
+            if(frame==340){
+                buttons[2]=Input::NONE;
+                if(player->vitals.food!=14 || player->hotbar.slots[0].value().count!=1)return 40;
+                SDL_Log("Timed food consumption passed: no early consumption, one apple after 32 ticks");
                 closed=true;
             }
         }

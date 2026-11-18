@@ -26,7 +26,7 @@ struct World
 
     Chunk* get_chunk_from_pos(const vec3 pos);
 
-    void remove_block(Chunk* chunk, const ivec3& pos);
+    void remove_block(Chunk* chunk, const ivec3& pos,bool creative=false);
     bool place_block(Chunk* chunk, const ivec3& pos, BlockState* bs);
 
     void update();

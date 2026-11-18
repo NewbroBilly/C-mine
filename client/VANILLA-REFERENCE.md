@@ -24,7 +24,7 @@ local JAR into the ignored resource pack. Local Windows/Switch packages include
 it; GitHub builds use authored fallback art unless a resource pack is supplied.
 
 Not covered: exact vanilla biome/seed generation, water/lava swimming, ladders,
-elytra, potions, hunger, damage or networking. The player is not a full Java entity.
+elytra, potions, combat or networking. The player is not a full Java entity.
 Tree anchors use this project's deterministic grid, while tree shapes and Java
 random operations follow the inspected small-oak generator. Clipped crowns are
 reconstructed from the same world coordinates on both sides of chunk seams.
@@ -32,3 +32,22 @@ reconstructed from the same world coordinates on both sides of chunk seams.
 Verification covers reference jump recurrence, walking/sprinting speeds,
 collisions and sneaking at ledges, oak support/obstruction/canopy/seams, Java random,
 mouse-wheel wrapping, and rendered Steve/trees in the graphics smoke test.
+
+* `aec` / `InventoryPlayer` and `agi` / `ContainerPlayer`: 36 main slots,
+  nine-slot hotbar, stack cap 64, the original slot coordinates (8/84/142),
+  2x2 input at 98/18 and output at 154/28, with slot splitting, merging,
+  cursor swapping, quick transfer and return-on-close semantics. C++ uses an
+  independent item model; selected recipes are explicitly ported, not a Java VM.
+* `afp` / `FoodStats`: 20 food, initial saturation 5, exhaustion threshold 4,
+  ten-tick saturated healing and 80-tick ordinary healing/starvation. Normal
+  starvation stops at one HP. Eating takes 32 ticks. Fall damage follows
+  ceil(fallDistance - 3), without enchantment/effect modifiers.
+* `bsa` / `PlayerControllerMP`: creative instant break/reach 5, survival reach
+  4.5, break progress and a five-tick break delay. The C++ block table implements
+  a subset of hardness, drop and pickaxe harvest-tier rules.
+
+Inventory/container GUI images, hearts, hunger and item icons are read from the
+user's installed 1.12.2 resource JAR. Repository fallback art remains authored.
+Survival/creative inventories are deliberately separate to preserve gathered
+supplies when changing mode; that convenience differs from vanilla's shared bag.
+There is no armor system, furnace, complete recipe set or world persistence yet.

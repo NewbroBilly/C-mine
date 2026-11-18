@@ -8,8 +8,8 @@ namespace {
 Shader flat, panorama;
 GLuint vao=0, cube=0;
 int selected=0, last_x=-1,last_y=-1;
-int count(bool paused){return Game::screen==Game::Screen::Options?8:(paused?4:3);}
-int top(bool options){return options?int(win_size.y)/2-170:int(win_size.y)/2-25;}
+int count(bool paused){return Game::screen==Game::Screen::Options?8:(Game::screen==Game::Screen::Dead?2:(paused?5:4));}
+int top(bool options){return options?int(win_size.y)/2-170:int(win_size.y)/2-65;}
 int spacing(bool options){return options?46:54;}
 double panorama_angle=0;
 std::map<std::string,Text> labels;
@@ -74,22 +74,23 @@ void Menu::draw(bool paused) {
         glBindVertexArray(vao);glDrawArrays(GL_TRIANGLES,0,6);
     } else rectangle(0,0,win_size.x,win_size.y,vec4(0,0,0,.65));
     bool options=Game::screen==Game::Screen::Options;
-    text(options?"OPTIONS":(paused?"GAME PAUSED":"C-MINE"),options?35:int(win_size.y)/5,options?4:(paused?4:7));
+    text(options?"OPTIONS":(Game::screen==Game::Screen::Dead?"YOU DIED":(paused?"GAME PAUSED":"C-MINE")),options?35:int(win_size.y)/5,options?4:(paused?4:7));
     std::vector<std::string> labels;
     auto& o=Settings::options;
     if(options)labels={"FOV: "+std::to_string(o.fov),"Sensitivity: "+std::to_string(o.sensitivity)+"%",
         "Render distance: "+std::to_string(o.distance),std::string("VSync: ")+(o.vsync?"ON":"OFF"),
         std::string("Ambient occlusion: ")+(o.ao?"ON":"OFF"),std::string("Fullscreen: ")+(o.fullscreen?"ON":"OFF"),
         std::string("Invert mouse Y: ")+(o.invert_y?"ON":"OFF"),"Done"};
-    else if(paused)labels={"Resume Game","Options...","Back to Title","Quit Game"};
-    else labels={"Singleplayer","Options...","Quit Game"};
+    else if(Game::screen==Game::Screen::Dead)labels={"Respawn","Back to Title"};
+    else if(paused)labels={"Resume Game",survival_mode?"Mode: Survival":"Mode: Creative","Options...","Back to Title","Quit Game"};
+    else labels={"Survival","Creative","Options...","Quit Game"};
     for(int i=0;i<(int)labels.size();++i) {
         float x=win_size.x/2.f-210,y=float(top(options)+i*spacing(options));
         rectangle(x,y,420,42,i==selected?vec4(.72,.76,.92,1):vec4(.18,.18,.18,1));
         rectangle(x+2,y+2,416,38,i==selected?vec4(.37,.42,.61,1):vec4(.34,.34,.34,1));
         text(labels[i],(int)y+4,options?2:3);
     }
-    text(options?"Click / Left-Right to change  /  Esc: back":(paused?"World is paused":"WASD  /  Space: jump  /  F5: camera"),(int)win_size.y-35,2);
+    text(options?"Click / Left-Right to change  /  Esc: back":(paused?"World is paused":"E: inventory  /  Tab: game mode"),(int)win_size.y-35,2);
     glEnable(GL_DEPTH_TEST);glEnable(GL_CULL_FACE);
 }
 void Menu::destroy() {

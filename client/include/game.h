@@ -12,13 +12,17 @@
 
 namespace Game
 {
-    enum class Screen { Title, Playing, Paused, Options };
+    enum class Screen { Title, Playing, Paused, Options, Dead };
     extern Screen screen;
     void open_options();
     void close_options();
     void apply_options();
     void save_options();
-    void start();
+    void start(bool survival=true);
+    void set_mode(bool survival);
+    void inventory(bool open,bool table=false);
+    void die();
+    void respawn();
     void pause();
     void resume();
     void title();

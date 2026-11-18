@@ -43,14 +43,11 @@ void handle_misc_keys()
             global_light--;
     }
 
-    if (is_key_down(SDLK_i))
+    if (is_key_down(SDLK_i) || is_key_down(SDLK_e))
     {
-        show_inventory = !show_inventory;
-
-        if (mouse_control == show_inventory)
-            toggle_mouse_control();
+        Game::inventory(!show_inventory);
     }
 
     if (is_key_down(SDLK_TAB))
-        survival_mode = !survival_mode;
+        Game::set_mode(!survival_mode);
 }

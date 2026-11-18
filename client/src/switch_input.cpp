@@ -36,20 +36,24 @@ void update_switch_input() {
     key(SDLK_a, move.x < -8000);
     key(SDLK_d, move.x > 8000);
     key(SDLK_SPACE, held & HidNpadButton_A);
-    key(SDLK_LCTRL, held & HidNpadButton_StickL || (!survival_mode && (held & HidNpadButton_B)));
-    key(SDLK_LSHIFT, survival_mode && (held & HidNpadButton_B));
+    key(SDLK_LCTRL, held & HidNpadButton_StickL);
+    key(SDLK_LSHIFT, held & HidNpadButton_B);
     key(SDLK_i, held & HidNpadButton_X);
     key(SDLK_TAB, held & HidNpadButton_Y);
 
     if(show_inventory){
         key(SDLK_UP,held & HidNpadButton_Up);key(SDLK_DOWN,held & HidNpadButton_Down);
         key(SDLK_LEFT,held & HidNpadButton_Left);key(SDLK_RIGHT,held & HidNpadButton_Right);
-        key(SDLK_RETURN,held & HidNpadButton_A);return;
+        key(SDLK_RETURN,held & HidNpadButton_A);
+        key(SDLK_LSHIFT,held & HidNpadButton_L);
+        key(SDLK_p,held & HidNpadButton_R);
+        buttons[2]=(held & HidNpadButton_ZL)?((down & HidNpadButton_ZL)?Input::DOWN:Input::PRESSED):Input::NONE;
+        return;
     }
     if (down & HidNpadButton_R) player->hotbar.set_index((player->hotbar.get_index() + 1) % 9);
     if (down & HidNpadButton_L) player->hotbar.set_index((player->hotbar.get_index() + 8) % 9);
-    if (down & HidNpadButton_ZR) buttons[0] = Input::DOWN;
-    if (down & HidNpadButton_ZL) buttons[2] = Input::DOWN;
+    buttons[0]=(held & HidNpadButton_ZR)?((down & HidNpadButton_ZR)?Input::DOWN:Input::PRESSED):Input::NONE;
+    buttons[2]=(held & HidNpadButton_ZL)?((down & HidNpadButton_ZL)?Input::DOWN:Input::PRESSED):Input::NONE;
     if (!show_inventory) {
         const float scale = 2.0f * Settings::options.sensitivity/100.f * (float)delta_time / 32767.0f;
         vec3 right = normalize(cross(player->cam.up, player->cam.forward));

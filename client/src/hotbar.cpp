@@ -75,6 +75,8 @@ bool Hotbar::is_empty(int _index)
 
 void Hotbar::draw()
 {
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
     s_hotbar.pos.y = -(int)win_size.y / 2 + 8;
     set_index(index);
     for (int i=0;i<9;++i) slots[i].pos = s_hotbar.pos + vec2(9+i*60,9);
@@ -87,4 +89,6 @@ void Hotbar::draw()
 
     glClear(GL_DEPTH_BUFFER_BIT);
     s_selector.draw();
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
 }

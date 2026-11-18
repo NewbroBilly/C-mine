@@ -4,6 +4,7 @@
 #include <menu.h>
 #include <avatar.h>
 #include <settings.h>
+#include <ui.h>
 
 SDL_Window* win;
 uvec2 win_size = uvec2(800, 600);
@@ -94,6 +95,7 @@ void Game::init()
 
     apply_options();
     blocks_init();
+    Ui::init();
 
     Menu::init();
     Avatar::init();
@@ -139,17 +141,43 @@ void Game::apply_options(){
 }
 void Game::open_options(){screen=Screen::Options;capture(false);}
 void Game::close_options(){save_options();screen=world?Screen::Paused:Screen::Title;capture(false);}
-void Game::start() {
+void Game::start(bool survival) {
+    survival_mode=survival;
     player = new Player(dvec3(8.5,122,8.5));
+    player->inventory.bind_hotbar();
     world = new World();
-    survival_mode = true;
     show_inventory = false;
     screen = Screen::Playing;
     capture(true);
 }
+void Game::inventory(bool open,bool table){
+    if(!player)return;
+    if(open)player->inventory.open(table);else player->inventory.close();
+    show_inventory=open;capture(!open);
+}
+void Game::set_mode(bool survival){
+    if(!player || survival_mode==survival)return;
+    if(show_inventory)inventory(false);
+    survival_mode=survival;player->flying=false;player->vel=dvec3(0);
+    player->accumulator=0;player->previous_position=player->pos;player->vitals.fallen=0;
+    player->break_progress=0;player->inventory.bind_hotbar();
+}
+void Game::die(){
+    if(screen!=Screen::Playing)return;
+    if(show_inventory)inventory(false);
+    auto& d=player->inventory.survival;
+    for(auto& s:d.main){player->drop_item(s);s.clear();}
+    player->drop_item(d.offhand);d.offhand.clear();
+    screen=Screen::Dead;capture(false);
+}
+void Game::respawn(){
+    player->pos=player->previous_position=dvec3(8.5,122,8.5);player->vel=dvec3(0);player->grounded=false;
+    player->accumulator=player->vital_clock=0;player->vitals={};player->break_progress=0;player->hit_info.hit=false;
+    world->spawned=false;screen=Screen::Playing;capture(true);
+}
 void Game::pause() {
     if (screen != Screen::Playing) return;
-    show_inventory = false;
+    if(show_inventory)inventory(false);
     screen = Screen::Paused;
     capture(false);
 }
@@ -158,6 +186,7 @@ void Game::title() {
     if (world) world->destroy();
     if (player) player->destroy();
     world = nullptr; player = nullptr;
+    Ui::clear_text();
     screen = Screen::Title;
     capture(false);
 }
@@ -169,7 +198,7 @@ void Game::update()
         if (screen == Screen::Options) { close_options(); return; }
         if (screen == Screen::Paused) { resume(); return; }
         if (screen == Screen::Playing) {
-            if (show_inventory) { show_inventory = false; capture(true); }
+            if (show_inventory) { inventory(false); }
             else pause();
             return;
         }
@@ -188,10 +217,9 @@ void Game::update()
                 if(button==5)o.fullscreen=!o.fullscreen;if(button==6)o.invert_y=!o.invert_y;
                 apply_options();save_options();
             }
-        }else if(button==0){if(screen==Screen::Title)start();else resume();}
-        else if(button==1)open_options();
-        else if(button==2){if(screen==Screen::Paused)title();else closed=true;}
-        else if(button==3)closed=true;
+        }else if(screen==Screen::Dead){if(button==0)respawn();else if(button==1)title();}
+        else if(screen==Screen::Title){if(button==0)start(true);else if(button==1)start(false);else if(button==2)open_options();else if(button==3)closed=true;}
+        else if(screen==Screen::Paused){if(button==0)resume();else if(button==1)set_mode(!survival_mode);else if(button==2)open_options();else if(button==3)title();else if(button==4)closed=true;}
         return;
     }
     handle_misc_keys();
@@ -261,8 +289,10 @@ void Game::draw()
     if (!world) { Menu::draw(false); return; }
     world->draw();
     player->draw();
+    player->draw_drops();
 
     player->hotbar.draw();
+    player->draw_hud();
 
     if (show_inventory)
         player->inventory.draw();
@@ -279,7 +309,7 @@ void Game::draw()
 
     if (show_debug)
         debug_text.draw();
-    if (screen == Screen::Paused || screen == Screen::Options) Menu::draw(true);
+    if (screen == Screen::Paused || screen == Screen::Options || screen==Screen::Dead) Menu::draw(true);
 }
 
 void Game::destroy()
@@ -288,6 +318,7 @@ void Game::destroy()
     if (player) player->destroy();
     Menu::destroy();
     Avatar::destroy();
+    Ui::destroy();
 
     debug_text.destroy();
     crosshair.destroy();

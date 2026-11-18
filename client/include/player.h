@@ -36,6 +36,19 @@ struct Player
     Inventory inventory;
 
     HitInfo hit_info;
+    Items::Vitals vitals;
+    bool flying=false;
+    double flight_tap=-1,vital_clock=0,break_progress=0,break_duration=0,action_delay=0,eat_progress=0;
+    int eating_item=-1;
+    ivec3 mining_position{-1000000};
+    int mining_tool=-1;
+    struct Dropped {Items::Stack stack;dvec3 position,velocity;double age=0;};
+    std::vector<Dropped> drops;
+    void drop_item(Items::Stack stack);
+    void update_drops();
+    void draw_hud();
+    void draw_drops();
+    bool place_selected(Chunk* chunk,ivec3 local,ivec3 normal);
 
     Player() {}
     Player(const dvec3& _pos);

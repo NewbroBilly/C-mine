@@ -35,3 +35,4 @@ EXTRA_BLOCK(BIRCH_PLANKS,"Birch Planks",4,4,"planks_birch",4,4,"planks_birch",4,
 EXTRA_BLOCK(CLAY,"Clay",5,4,"clay",5,4,"clay",5,4,"clay",0)
 EXTRA_BLOCK(BOOKSHELF,"Bookshelf",6,4,"bookshelf",7,4,"planks_oak",7,4,"planks_oak",0)
 EXTRA_BLOCK(PRISMARINE,"Prismarine Bricks",8,4,"prismarine_bricks",8,4,"prismarine_bricks",8,4,"prismarine_bricks",0)
+EXTRA_BLOCK(CRAFTING_TABLE,"Crafting Table",9,4,"crafting_table_side",10,4,"crafting_table_top",7,4,"planks_oak",0)

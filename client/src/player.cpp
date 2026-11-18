@@ -2,6 +2,9 @@
 #include <movement.h>
 #include <avatar.h>
 #include <settings.h>
+#include <game.h>
+#include <ui.h>
+#include <random>
 
 Player::Player(const dvec3& _pos)
 {
@@ -16,13 +19,7 @@ Player::Player(const dvec3& _pos)
 
     hit_info.hit = false;
 
-    int slot=0;
-    for(int id=1;id<BLOCK_COUNT && slot<54;++id){
-        if(id==WATER || id==BEDROCK)continue;
-        inventory.set_item(slot/9,slot%9,id);++slot;
-    }
-    int items[] = {STONE, DIRT, GRASS_BLOCK, GRASS, LEAVES, LOG, PLANKS, GLASS, TORCH};
-    for (int i=0;i<9;++i) hotbar.set_item(i, items[i]);
+
 }
 
 vec3 get_input()
@@ -41,96 +38,85 @@ vec3 get_input()
 
 void Player::handle_keys()
 {
-    for (int i = 0; i < 9; i++)
-        if (is_key_down(SDLK_1 + i))
-            hotbar.set_index(i);
-
-    if (is_key_down(SDLK_q))
-        hotbar.set_item(-1);
-}
-
-void Player::handle_clicks()
-{
-    if (show_inventory)
-    {
-        if (inventory.over != NULL && is_button_down(0))
-        {
-            if (!inventory.over->is_empty())
-                hotbar.set_item(inventory.over->get_item());
-        }
+    if(show_inventory)return;
+    for(int i=0;i<9;++i)if(is_key_down(SDLK_1+i))hotbar.set_index(i);
+    if(is_key_down(SDLK_q)){
+        auto& s=hotbar.slots[hotbar.index].value();
+        if(!s.empty()){auto one=s;one.count=is_key_pressed(SDLK_LCTRL)?s.count:1;drop_item(one);s.count-=one.count;Items::normalize(s);}
     }
-    else
-    {
-        vec3 ray_origin = (vec3)pos + cam.pos;
-        vec3 ray_direction = cam.forward;
-
-        Chunk* chunk = world->get_chunk_from_pos(ray_origin);
-
-        hit_info = raycast(ray_origin, ray_direction, 4.5f, chunk);
-
-        if (hit_info.hit)
-        {
-            if (is_button_down(0))
-                world->remove_block(hit_info.chunk, hit_info.block_pos);
-
-            if (is_button_down(1))
-            {
-                int id = hit_info.chunk->get(hit_info.block_pos)->id;
-
-                int i = hotbar.find_item(id);
-
-                if (i != -1)
-                    hotbar.set_index(i);
-                else
-                {
-                    i = hotbar.find_empty();
-
-                    if (i != -1)
-                        hotbar.set_index(i);
-
-                    hotbar.set_item(id);
-                }
-            }
-
-            if (is_button_down(2))
-            {
-                if (!hotbar.is_empty())
-                {
-                    ivec3 new_pos = hit_info.block_pos + hit_info.face_normal;
-
-                    BlockState bs = { (char)hotbar.get_item(), 0, 0 };
-
-                    bool failed = false;
-
-                    if (bs.id == BlockID::LOG)
-                    {
-                        if (hit_info.face_normal.x != 0)
-                            bs.data1 = 0;
-                        else if (hit_info.face_normal.y != 0)
-                            bs.data1 = 1;
-                        else
-                            bs.data1 = 2;
-                    }
-                    else if (bs.id == BlockID::TORCH)
-                    {
-                        if (hit_info.face_normal.y == 1)         bs.data1 = 0;
-                        else if (hit_info.face_normal.z == 1)    bs.data1 = 1;
-                        else if (hit_info.face_normal.z == -1)   bs.data1 = 2;
-                        else if (hit_info.face_normal.x == 1)    bs.data1 = 3;
-                        else if (hit_info.face_normal.x == -1)   bs.data1 = 4;
-                        else                                    failed = true;
-                    }
-
-                    if (!failed)
-                    {
-                        Hitbox cube = Hitbox((dvec3)new_pos + chunk_pos_to_world_hp(hit_info.chunk->pos) - pos, dvec3(1));
-
-                        if (!intersect(cube, hitbox))
-                            world->place_block(hit_info.chunk, new_pos, &bs);
-                    }
+    if(!survival_mode && is_key_down(SDLK_SPACE)){
+        double now=SDL_GetTicks()/1000.;
+        if(flight_tap>=0 && now-flight_tap<.35){flying=!flying;vel=dvec3(0);accumulator=0;previous_position=pos;flight_tap=-1;}
+        else flight_tap=now;
+    }
+}
+bool Player::place_selected(Chunk* c,ivec3 local,ivec3 normal){
+    auto& stack=hotbar.slots[hotbar.index].value();
+    if(stack.empty() || !Items::block(stack.id))return false;
+    BlockState bs{char(stack.id),0,0};
+    if(bs.id==LOG)bs.data1=normal.x?0:(normal.y?1:2);
+    if(bs.id==TORCH){if(normal.y<0)return false;bs.data1=normal.y?0:(normal.z==1?1:(normal.z==-1?2:(normal.x==1?3:4)));}
+    Hitbox cube(dvec3(local)+chunk_pos_to_world_hp(c->pos)-pos,dvec3(1));
+    if(intersect(cube,hitbox))return false;
+    if(!world->place_block(c,local,&bs))return false;
+    if(survival_mode){--stack.count;Items::normalize(stack);}return true;
+}
+void Player::handle_clicks(){
+    action_delay=std::max(0.,action_delay-delta_time);
+    if(show_inventory){hit_info.hit=false;break_progress=eat_progress=0;return;}
+    vec3 origin=vec3(pos)+cam.pos;
+    hit_info=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin));
+    bool attack=is_button_down(0) || is_button_pressed(0);
+    if(hit_info.hit){
+        int id=hit_info.chunk->get(hit_info.block_pos)->id;
+        ivec3 target=ivec3(chunk_pos_to_world_hp(hit_info.chunk->pos))+hit_info.block_pos;
+        if(attack && action_delay<=0){
+            if(mining_position!=target || mining_tool!=hotbar.get_item()){break_progress=0;mining_position=target;mining_tool=hotbar.get_item();}
+            break_duration=survival_mode?Items::break_seconds(id,hotbar.get_item(),grounded):0;
+            if(break_duration>=0){break_progress+=delta_time;
+                if(break_progress>=break_duration){
+                    static std::mt19937 random(81421);
+                    auto loot=survival_mode?Items::drop(id,hotbar.get_item(),random()):Items::Stack{};
+                    world->remove_block(hit_info.chunk,hit_info.block_pos,!survival_mode);
+                    if(!loot.empty())drops.push_back({loot,dvec3(target)+dvec3(.5),dvec3(0,2,0),0});
+                    if(survival_mode){vitals.exhaust(.005f);auto& tool=hotbar.slots[hotbar.index].value();int max=Items::durability(tool.id);if(max && ++tool.damage>max)tool.clear();}
+                    break_progress=0;action_delay=.25;
                 }
             }
         }
+        if(is_button_down(1)){
+            int i=hotbar.find_item(id);if(i!=-1)hotbar.set_index(i);else if(!survival_mode)hotbar.set_item(id);
+        }
+        if(is_button_down(2) && id==CRAFTING_TABLE && survival_mode && !is_key_pressed(SDLK_LSHIFT)){Game::inventory(true,true);return;}
+    }else break_progress=0;
+    if(!attack)break_progress=0;
+    bool use=is_button_down(2) || is_button_pressed(2);
+    int held=hotbar.get_item();
+    bool edible=survival_mode && (held==Items::APPLE || held==Items::BREAD) && vitals.food<20;
+    if(use && edible){
+        if(eating_item!=held){eating_item=held;eat_progress=0;}
+        eat_progress+=delta_time;
+        if(eat_progress>=1.6){auto& stack=hotbar.slots[hotbar.index].value();if(vitals.eat(stack.id)){--stack.count;Items::normalize(stack);}eat_progress=0;}
+        return;
+    }
+    eat_progress=0;
+    if(use && action_delay<=0){
+        if(hit_info.hit && place_selected(hit_info.chunk,hit_info.block_pos+hit_info.face_normal,hit_info.face_normal))action_delay=.2;
+    }
+}
+void Player::drop_item(Items::Stack s){if(!s.empty())drops.push_back({s,pos+dvec3(cam.forward)*.7+dvec3(0,1.2,0),dvec3(cam.forward)*2.+dvec3(0,1,0),-1});}
+void Player::update_drops(){
+    for(auto it=drops.begin();it!=drops.end();){
+        it->age+=delta_time;if(it->age>300){it=drops.erase(it);continue;}
+        dvec3 next=it->position+it->velocity*delta_time;it->velocity.y-=9.8*delta_time;
+        auto* c=world->get_chunk_from_pos(next);
+        if(c && next.y>=0 && next.y<CHUNK_HEIGHT){
+            ivec3 local=ivec3(floor(next))-ivec3(chunk_pos_to_world_hp(c->pos));int id=c->get(local)->id;
+            if(id!=AIR && id!=GRASS && id!=TORCH){if(it->velocity.y<0){next.y=floor(next.y)+1.15;it->velocity=dvec3(0);}}
+            it->position=next;
+        }
+        if(it->age>.4 && length(it->position-(pos+dvec3(0,.8,0)))<1.6){it->stack.count=inventory.data().add(it->stack);if(it->stack.count==0){it=drops.erase(it);continue;}}
+        ++it;
     }
 }
 
@@ -145,11 +131,6 @@ void Player::move()
     }
     vec3 input = show_inventory ? vec3(0) : get_input();
     double dt = std::min(delta_time,.05);
-    if (!survival_mode) {
-        vel = dvec3(0);
-        if (length(input)>0) pos += dvec3(right*input.x + cam.up*input.y + cam.forward*input.z) * (is_key_pressed(SDLK_LSHIFT)?20.:7.) * dt;
-        return;
-    }
     dvec3 direction = dvec3(right)*double(input.x) + normalize(dvec3(cam.forward.x,0,cam.forward.z))*double(input.z);
     if (length(direction)>1) direction = normalize(direction);
     auto solid = [](int x,int y,int z) {
@@ -161,14 +142,30 @@ void Player::move()
         int id = c->get(local)->id;
         return id != AIR && id != GRASS && id != TORCH;
     };
+    if(!survival_mode && flying){
+        dvec3 flight=dvec3(right)*double(input.x)+normalize(dvec3(cam.forward.x,0,cam.forward.z))*double(input.z);
+        flight.y=(!show_inventory && is_key_pressed(SDLK_SPACE)?1.:0.)-(!show_inventory && is_key_pressed(SDLK_LSHIFT)?1.:0.);
+        if(length(flight)>1)flight=normalize(flight);
+        flight*=is_key_pressed(SDLK_LCTRL)?21.8:10.9;
+        previous_position=pos;
+        for(int axis=0;axis<3;++axis){double amount=flight[axis]*dt;int n=std::max(1,int(ceil(abs(amount)/.1)));for(int i=0;i<n;++i){auto next=pos;next[axis]+=amount/n;if(!Movement::overlaps(next,solid))pos=next;}}
+        vel=flight;vitals.fallen=0;return;
+    }
     const bool sneak=!show_inventory && is_key_pressed(SDLK_LSHIFT);
-    const bool sprint=!show_inventory && is_key_pressed(SDLK_LCTRL) && input.z>0 && !sneak;
+    const bool sprint=!show_inventory && is_key_pressed(SDLK_LCTRL) && input.z>0 && !sneak && (!survival_mode || vitals.food>6);
     const bool jump=!show_inventory && is_key_pressed(SDLK_SPACE);
     accumulator += dt;
     Movement::State state{pos,vel,grounded,jump_cooldown};
     while (accumulator >= .05) {
         previous_position=state.position;
+        double old_y=state.position.y;
+        bool was_grounded=state.grounded;
         Movement::tick(state,dvec2(direction.x,direction.z),jump,sprint,sneak,solid);
+        if(survival_mode){
+            vitals.landing(old_y-state.position.y,state.grounded);
+            if(jump && was_grounded && state.velocity.y>0)vitals.exhaust(sprint?.2f:.05f);
+            if(sprint && state.grounded)vitals.exhaust(float(length(dvec2(state.velocity.x,state.velocity.z))*.05*.1));
+        }
         accumulator -= .05;
     }
     pos = state.position; vel = state.velocity; grounded = state.grounded;jump_cooldown=state.jump_cooldown;
@@ -176,7 +173,7 @@ void Player::move()
 }
 
 dvec3 Player::render_position() const {
-    if(!survival_mode || length(pos-previous_position)>3.)return pos;
+    if(flying || length(pos-previous_position)>3.)return pos;
     return mix(previous_position,pos,clamp(accumulator/.05,0.,1.));
 }
 
@@ -202,9 +199,8 @@ Camera Player::view_camera() {
 void Player::update()
 {
     if (!world->spawned) return;
-    handle_keys();
-    handle_clicks();
-    move();
+    handle_keys();handle_clicks();move();update_drops();
+    if(survival_mode){vital_clock+=delta_time;while(vital_clock>=.05){vitals.tick();vital_clock-=.05;}if(pos.y<0)vitals.hurt(4);if(vitals.health<=0)Game::die();}
 }
 
 void Player::draw()
@@ -246,8 +242,38 @@ void Player::destroy()
 {
     hotbar.s_hotbar.destroy();
     hotbar.s_selector.destroy();
-    inventory.s_inventory.destroy();
-    inventory.s_highlight.destroy();
     inventory.tooltip.destroy();
     delete this;
+}
+
+void Player::draw_drops(){
+    Camera view=view_camera();mat4 matrix=view.matrix(vec3(render_position()));
+    glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);
+    for(auto& d:drops){
+        vec3 target=vec3(d.position)+vec3(0,.12f*sin(float(d.age)*3),0);
+        vec4 clip=matrix*vec4(target,1);if(clip.w<.1)continue;vec3 ndc=vec3(clip)/clip.w;
+        if(abs(ndc.x)>1.1 || abs(ndc.y)>1.1 || ndc.z>1)continue;
+        vec3 origin=vec3(pos)+view.pos,direction=target-origin;float distance=length(direction);if(distance>32)continue;
+        auto hit=raycast(origin,normalize(direction),std::max(.01f,distance-.3f),world->get_chunk_from_pos(origin));if(hit.hit)continue;
+        float size=clamp(240.f/std::max(1.f,distance),10.f,48.f);
+        Ui::item(d.stack,(ndc.x*.5f+.5f)*win_size.x-size/2,(.5f-ndc.y*.5f)*win_size.y-size/2,size,false);
+    }
+    glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);
+}
+void Player::draw_hud(){
+    glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);
+    int bottom=int(win_size.y)-100;
+    if(survival_mode){
+        for(int i=0;i<10;++i){int x=int(win_size.x)/2-270+i*24;
+            Ui::image(Ui::icons_texture(),float(x),float(bottom),24,24,vec4(16,0,9,9));
+            if(vitals.health>i*2)Ui::image(Ui::icons_texture(),float(x),float(bottom),24,24,vec4(vitals.health>=i*2+2?52:61,0,9,9));
+            x=int(win_size.x)/2+246-i*24;Ui::image(Ui::icons_texture(),float(x),float(bottom),24,24,vec4(16,27,9,9));
+            if(vitals.food>i*2)Ui::image(Ui::icons_texture(),float(x),float(bottom),24,24,vec4(vitals.food>=i*2+2?52:61,27,9,9));
+        }
+    }
+    Ui::text("mode",survival_mode?"Survival":"Creative",10,10,2);
+    if(break_progress>0 && break_duration>0){float f=float(std::min(1.,break_progress/break_duration));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150*f,6,vec4(1));}
+    if(eat_progress>0){Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,float(eat_progress/1.6)*150,6,vec4(.5,1,.3,1));}
+    int id=hotbar.get_item();std::string title=Items::name(id);Ui::text("hand",title,int(win_size.x)/2-int(title.size())*6,bottom-26,2);
+    glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);
 }

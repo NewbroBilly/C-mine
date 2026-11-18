@@ -10,10 +10,10 @@ Chunk* World::get_chunk_from_pos(const vec3 pos) {
     const auto it = chunk_map.find(world_pos_to_chunk(pos));
     return it == chunk_map.end() ? nullptr : it->second;
 }
-void World::remove_block(Chunk* chunk, const ivec3& pos) {
+void World::remove_block(Chunk* chunk, const ivec3& pos,bool creative) {
     if (!chunk || !chunk->can_draw || !in_chunk(pos)) return;
     BlockState previous = *chunk->get(pos);
-    if (previous.id == AIR || previous.id == BEDROCK) return;
+    if (previous.id == AIR || (previous.id == BEDROCK && !creative)) return;
     BlockState air = { AIR, 0, 0 };
     chunk->set(pos, &air);
     update_lighting(chunk, pos, false, &previous);

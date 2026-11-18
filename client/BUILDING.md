@@ -17,9 +17,9 @@ cmake --install build/client --config Release --prefix dist/MineCppClone
 Run MineCppClone.exe from the installed directory. Shaders and textures are
 resolved relative to the executable. Requires OpenGL 3.3.
 
-WASD moves; mouse looks; Space/Left Ctrl moves vertically in creative mode.
-Left click removes, right click places, middle click picks a block.
-Mouse wheel or 1-9 selects the hotbar, I opens inventory, Tab toggles survival, F11 fullscreen.
+WASD moves; mouse looks; double Space toggles creative flight, Space/Shift ascends/descends.
+Hold left click to mine; right click places/uses; middle click selects an existing block (creates it in creative).
+Mouse wheel or 1-9 selects the hotbar, E/I opens inventory, Tab switches mode, F11 fullscreen.
 Gravity/collisions are enabled by default. Space jumps; Ctrl sprints while moving forward; Shift sneaks and protects ledges.
 Escape pauses/resumes (or closes inventory). Losing window focus also pauses.
 F5 cycles first person, third person behind, and third person front; F7 wireframe.
@@ -39,8 +39,8 @@ python tools/import_textures.py CLIENT.jar --output dist/MineCppClone/resource_p
 ```
 
 This imports the blocks supported by the client, with grass/foliage tint and
-separate grass/log faces. Existing GUI and light maps remain from the supplied
-source. Imported files stay local and are ignored by Git.
+separate grass/log faces, inventory/crafting GUI images, item icons and Steve.
+Imported files stay local and are ignored by Git.
 
 ## Nintendo Switch homebrew
 
@@ -50,11 +50,12 @@ its shaders and supplied textures are embedded as RomFS.
 The GitHub workflow also builds this target. Hardware behavior requires a Switch
 test; successful cross-compilation alone does not confirm it.
 
-Left stick moves; right stick looks; A jumps/ascends; B descends; click left stick
+Left stick moves; right stick looks; A jumps/ascends (double-tap to fly in creative); B crouches/descends; click left stick
 to sprint; B sneaks in survival/descends in creative; X opens inventory; Y toggles survival; L/R changes hotbar slot;
 ZR removes; ZL places; Plus pauses/resumes; right-stick click changes camera.
-Menus: D-pad Up/Down selects, A confirms. Inventory selection currently needs touch or
-mouse input; the default hotbar is available with L/R.
+Menus: D-pad Up/Down selects, A confirms. In inventories, D-pad moves the
+selection, A moves stacks, ZL splits/deposits one, L+A quick-moves; R switches
+creative catalog pages. L/R changes hotbar slot outside inventories.
 
 ## Graphics smoke test
 
@@ -64,7 +65,7 @@ and removal, and return-to-title/restart. It checks GL errors and writes BMP fra
 The cave regression scene also checks the bedrock floor and torch geometry.
 `client_movement_tests` checks falls, jumps, walls, ceilings, high-speed collision,
 torch bounds, axis-aligned block selection and the 4.5-block reach limit.
-It exits after 112 frames and requires a real OpenGL context.
+It exits after 340 frames and requires a real OpenGL context.
 
 ## PrismLauncher resource source
 
@@ -78,7 +79,7 @@ instance are not modified.
 Switch can load imported atlases from `sdmc:/switch/C-mine/resource_pack/`.
 Copy the supplied `switch` folder from the local Switch ZIP onto the SD card root.
 The NRO has built-in fallback textures when that folder is absent.
-The lowest terrain layer is unbreakable bedrock, and unloaded chunk boundaries
+The lowest terrain layer is unbreakable bedrock in survival, and unloaded chunk boundaries
 keep their exposed faces until the neighboring chunk arrives.
 
 ## 1.12.2 behavior references
@@ -100,17 +101,49 @@ fullscreen and mouse Y inversion apply immediately and persist. Windows stores
 preferences in SDL's C-mine application-data folder; Switch uses
 `sdmc:/switch/C-mine/options.txt`. F11 and F6 update the same preferences.
 
-I opens the block inventory. Mouse hover shows a block name; click to copy it to
-the selected hotbar slot. Arrow keys and Enter also work; on Switch use D-pad/A.
-There are 45 selectable blocks including sand, glowstone, cobblestone, gravel,
-bricks, stone bricks, mossy cobblestone, obsidian, netherrack, soul sand, end stone,
-seven ores, six mineral blocks, snow, sandstone, nether bricks, quartz, three wool
-colors, spruce/birch planks, clay, bookshelf and prismarine bricks.
-Sand and gravel are currently static building blocks; ores do not drop items,
-and soul sand does not yet alter movement speed. Glowstone emits block light.
+E or I opens inventory; Escape/E/I closes it. Survival starts empty, with
+36 main slots (nine in the hotbar), offhand storage, and 2x2 personal crafting.
+Left click picks up, merges or swaps a stack. Right click takes the larger half
+or deposits one. Shift-click transfers between the main inventory and hotbar.
+Number keys swap the hovered slot with a hotbar slot. Arrow keys/Enter also work.
+Closing returns carried/crafting items; overflow drops into the world.
+Craft logs into four planks, two vertical planks into sticks, or four planks into
+a crafting table. Place and right-click the table for 3x3 crafting: three planks
+above two sticks make a wooden pickaxe. Cobblestone, iron and diamond pickaxes,
+torches, bread, sandstone and selected block compression recipes are supported.
+Shift-click the output to craft as much as inventory capacity allows.
+
+Select Survival or Creative at the title screen. Tab/Y or the pause menu changes
+mode in the current world, preserving separate survival and creative inventories.
+Survival spends blocks only after successful placement. Hold LMB/ZR to mine;
+hardness, harvest tier, tool speed and durability affect mining and loot. Ground
+items have gravity, a pickup delay, automatic collection and a five-minute life.
+The HUD shows 20 health and 20 hunger points, fall damage above three blocks,
+exhaustion, saturation, regeneration and Normal-difficulty starvation (to one HP).
+Hold RMB/ZL for 1.6 seconds to eat an apple/bread. Death drops the inventory;
+Respawn restores health/food at the surface without replacing the current world.
+Creative has free items, instant breaking, no item consumption/damage/hunger,
+and collision-aware flight (double Space/A; Space/A up, Shift/B down).
+
+Creative has 47 building blocks (including bedrock and the crafting table) and
+19 resource/tool/food items. P/R changes the catalog page; Shift-click gives a
+full stack to the selected hotbar slot. Normal catalog clicks take a cursor item;
+click again for a full stack, or press 1-9 over a catalog item to fill that slot.
+Original inventory/crafting backgrounds, icons and item textures are imported
+from the local 1.12.2 JAR. The creative background is extended to six catalog rows.
+
+Current limits: no world/inventory save files, mobs/combat, armor equipment,
+furnace/smelting, full recipe registry, farming, fluids or multiplayer. The armor
+slots are part of the original background; offhand is storage only. Sand/gravel
+are static and soul sand has no slowdown. This is a C++ subset of 1.12.2 behavior.
 
 `include/extra_blocks.def` is shared by the block registry and the texture importer.
 Local packages import each face from the user's 1.12.2 JAR; the repository contains
 custom fallback tiles for builds without the resource pack. The extended smoke
 test covers settings navigation/persistence, all block mesh/place/remove paths,
 glowstone light and keyboard/controller-style inventory selection.
+
+`client_items_tests` checks stack conservation, partial transfers, failed crafting,
+recipes, tool tiers, food and fall damage. The GL smoke additionally checks
+separate inventories, actual block spending, held-button mining, item drops/pickup,
+crafting screens, death/respawn, creative flight and timed food consumption.
