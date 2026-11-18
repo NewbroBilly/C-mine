@@ -174,6 +174,7 @@ void Game::load_world(int index){
     if(index<0 || index>=int(saved_worlds.size()))return;Saves::Data d;auto path=saved_worlds[index].path;
     if(!Saves::load(path,d)){message="This save could not be read.";return;}
     start(d.survival);current_save=d;world->seed=d.seed;world->save_path=path;world->spawned=d.spawned;
+    world->day_ticks=d.day_ticks;world->spawn_point=dvec3(d.spawn_point[0],d.spawn_point[1],d.spawn_point[2]);world->spawn_known=d.spawned;
     player->pos=player->previous_position=dvec3(d.position[0],d.position[1],d.position[2]);
     player->cam.forward=vec3(d.forward[0],d.forward[1],d.forward[2]);player->vitals=d.vitals;player->air=d.air;
     player->vel=dvec3(d.velocity[0],d.velocity[1],d.velocity[2]);player->flying=!survival_mode && d.flying;
@@ -184,6 +185,7 @@ void Game::load_world(int index){
 bool Game::save_world(){
     if(!world || world->save_path.empty())return true;
     auto& d=current_save;d.survival=survival_mode;d.spawned=world->spawned;d.vitals=player->vitals;d.air=player->air;
+    d.day_ticks=world->day_ticks;d.spawn_point={world->spawn_point.x,world->spawn_point.y,world->spawn_point.z};
     for(int i=0;i<3;++i){d.position[i]=player->pos[i];d.forward[i]=player->cam.forward[i];d.velocity[i]=player->vel[i];}d.flying=player->flying;
     d.inventory=player->inventory.survival;d.creative=player->inventory.creative;d.hotbar=player->hotbar.index;d.drops.clear();
     for(auto& a:player->drops)d.drops.push_back({a.stack,{a.position.x,a.position.y,a.position.z},{a.velocity.x,a.velocity.y,a.velocity.z},a.age});

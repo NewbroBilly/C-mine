@@ -79,7 +79,7 @@ void Player::handle_clicks(){
                     auto loot=survival_mode?Items::drop(id,hotbar.get_item(),random()):Items::Stack{};
                     world->remove_block(hit_info.chunk,hit_info.block_pos,!survival_mode);
                     if(!loot.empty())drops.push_back({loot,dvec3(target)+dvec3(.5),dvec3(0,2,0),0});
-                    if(survival_mode){vitals.exhaust(.005f);auto& tool=hotbar.slots[hotbar.index].value();int max=Items::durability(tool.id);if(max && ++tool.damage>max)tool.clear();}
+                    if(survival_mode){vitals.exhaust(.005f);auto& tool=hotbar.slots[hotbar.index].value();Items::wear(tool,Items::mining_wear(id,tool.id));}
                     break_progress=0;action_delay=.25;
                 }
             }
@@ -92,6 +92,39 @@ void Player::handle_clicks(){
     if(!attack)break_progress=0;
     bool use=is_button_down(2) || is_button_pressed(2);
     int held=hotbar.get_item();
+    if(is_button_down(2) && action_delay<=0 && held==Items::FISHING_ROD){
+        if(fishing){
+            if(fish_bite>0){Items::Stack catch_item{Items::RAW_FISH,1};if(inventory.data().add(catch_item))drop_item(catch_item);if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());}
+            fishing=false;
+        }else{
+            for(double t=.5;t<=12.;t+=.2){
+                auto p=dvec3(origin)+dvec3(cam.forward)*t;int level=world->fluid({int(floor(p.x)),int(floor(p.y)),int(floor(p.z))});
+                if(Water::liquid(level)){
+                    bobber=dvec3(p.x,floor(p.y)+Water::height(level),p.z);
+                    while(Water::liquid(world->fluid({int(floor(bobber.x)),int(floor(bobber.y))+1,int(floor(bobber.z))})))bobber.y+=1.;
+                    fishing=true;fish_timer=5.+(SDL_GetTicks()%7000)/1000.;fish_bite=0;break;
+                }
+                if(level==Water::Solid || level==Water::Unloaded)break;
+            }
+        }action_delay=.3;return;
+    }
+    if(use && hit_info.hit && action_delay<=0){
+        auto* c=hit_info.chunk;auto p=hit_info.block_pos;
+        auto above=p+ivec3(0,1,0);auto* top=get_neighbor_chunk(c,above);
+        bool air=top && top->get(above)->id==AIR;
+        int replacement=Items::use_on_block(c->get(p)->id,held,air,hit_info.face_normal.y<0);
+        if(replacement!=-1){
+            BlockState b{char(replacement),0,0};c->set(p,&b);world->notify_water(c,p);world->rebuild_dirty();
+            if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;return;
+        }
+        if(held==Items::FLINT_AND_STEEL){
+            BlockState fire{FIRE,0,0};
+            auto target=p+hit_info.face_normal;auto* n=get_neighbor_chunk(c,target);
+            if(n && n->get(target)->id!=WATER && world->place_block(c,p+hit_info.face_normal,&fire)){
+                if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;
+            }return;
+        }
+    }
     if(use && action_delay<=0 && (held==Items::BUCKET || held==Items::WATER_BUCKET)){
         auto hit=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin),held==Items::BUCKET);
         if(hit.hit){auto& stack=hotbar.slots[hotbar.index].value();bool done=false;int result=Items::BUCKET;
@@ -100,7 +133,7 @@ void Player::handle_clicks(){
             if(done){if(survival_mode){--stack.count;Items::normalize(stack);Items::Stack out{result,1};if(stack.empty())stack=out;else if(inventory.data().add(out))drop_item(out);}else if(held==Items::BUCKET)stack={Items::WATER_BUCKET,1};action_delay=.25;}
         }return;
     }
-    bool edible=survival_mode && (held==Items::APPLE || held==Items::BREAD) && vitals.food<20;
+    bool edible=survival_mode && (held==Items::APPLE || held==Items::BREAD || held==Items::RAW_FISH) && vitals.food<20;
     if(use && edible){
         if(eating_item!=held){eating_item=held;eat_progress=0;}
         eat_progress+=delta_time;
@@ -113,6 +146,13 @@ void Player::handle_clicks(){
     }
 }
 void Player::drop_item(Items::Stack s){if(!s.empty())drops.push_back({s,pos+dvec3(cam.forward)*.7+dvec3(0,1.2,0),dvec3(cam.forward)*2.+dvec3(0,1,0),-1});}
+void Player::update_fishing(){
+    if(!fishing)return;
+    Water::Pos p{int(floor(bobber.x)),int(floor(bobber.y-.01)),int(floor(bobber.z))};
+    if(hotbar.get_item()!=Items::FISHING_ROD || length(pos-bobber)>32. || !Water::liquid(world->fluid(p))){fishing=false;return;}
+    if(fish_bite>0){fish_bite-=delta_time;if(fish_bite<=0)fish_timer=5.+(SDL_GetTicks()%7000)/1000.;}
+    else{fish_timer-=delta_time;if(fish_timer<=0)fish_bite=1.5;}
+}
 void Player::update_drops(){
     for(auto it=drops.begin();it!=drops.end();){
         it->age+=delta_time;if(it->age>300){it=drops.erase(it);continue;}
@@ -121,7 +161,7 @@ void Player::update_drops(){
         if(c && next.y>=0 && next.y<CHUNK_HEIGHT){
             ivec3 local=ivec3(floor(next))-ivec3(chunk_pos_to_world_hp(c->pos));int id=c->get(local)->id;
             if(id==WATER){auto flow=Water::flow({int(floor(next.x)),int(floor(next.y)),int(floor(next.z))},[&](Water::Pos p){return world->fluid(p);});it->velocity*=pow(.8,delta_time*20);it->velocity+=dvec3(flow[0],flow[1],flow[2])*delta_time*5.;}
-            else if(id!=AIR && id!=GRASS && id!=TORCH){if(it->velocity.y<0){next.y=floor(next.y)+1.15;it->velocity=dvec3(0);}}
+            else if(id!=AIR && id!=GRASS && id!=TORCH && id!=FIRE){if(it->velocity.y<0){next.y=floor(next.y)+1.15;it->velocity=dvec3(0);}}
             it->position=next;
         }
         if(it->age>.4 && length(it->position-(pos+dvec3(0,.8,0)))<1.6){it->stack.count=inventory.data().add(it->stack);if(it->stack.count==0){it=drops.erase(it);continue;}}
@@ -149,7 +189,7 @@ void Player::move()
         if (!c) return true;
         ivec3 local = dvec3(x,y,z)-chunk_pos_to_world_hp(c->pos);
         int id = c->get(local)->id;
-        return id != AIR && id != GRASS && id != TORCH && id!=WATER;
+        return id != AIR && id != GRASS && id != TORCH && id!=WATER && id!=FIRE;
     };
     if(!survival_mode && flying){
         dvec3 flight=dvec3(right)*double(input.x)+normalize(dvec3(cam.forward.x,0,cam.forward.z))*double(input.z);
@@ -204,7 +244,7 @@ Camera Player::view_camera() {
         if (!c || p.y<0 || p.y>=CHUNK_HEIGHT) break;
         ivec3 local = floor(p)-chunk_pos_to_world_hp(c->pos);
         int id=c->get(local)->id;
-        if (id!=AIR && id!=GRASS && id!=TORCH && id!=WATER) break;
+        if (id!=AIR && id!=GRASS && id!=TORCH && id!=WATER && id!=FIRE) break;
         fraction=t;
     }
     view.pos += offset*fraction;
@@ -216,7 +256,12 @@ Camera Player::view_camera() {
 void Player::update()
 {
     if (!world->spawned) return;
-    handle_keys();handle_clicks();move();update_drops();
+    handle_keys();handle_clicks();move();update_drops();update_fishing();
+    bool burning=false;
+    if(survival_mode)for(int x=int(floor(pos.x-.3));x<=int(floor(pos.x+.3));++x)
+        for(int y=int(floor(pos.y));y<=int(floor(pos.y+1.8));++y)for(int z=int(floor(pos.z-.3));z<=int(floor(pos.z+.3));++z){
+            auto* c=world->get_chunk_from_pos(dvec3(x,y,z));if(c && y>=0 && y<256){ivec3 p=ivec3(x,y,z)-ivec3(chunk_pos_to_world_hp(c->pos));if(c->get(p)->id==FIRE)burning=true;}}
+    if(burning){burn_clock+=delta_time;if(burn_clock>=1){vitals.hurt(1);burn_clock=0;}}else burn_clock=0;
     vital_clock+=delta_time;while(vital_clock>=.05){
         if(survival_mode){vitals.tick();if(world->underwater(pos+dvec3(cam.pos))){if(--air<=-20){air=0;vitals.hurt(2);}}else air=300;}
         else{air=300;if(vitals.hurt_ticks>0)--vitals.hurt_ticks;}
@@ -232,6 +277,14 @@ void Player::draw()
     if (third_person) Avatar::draw(render_position(),cam.forward,walk_phase,cam_mat,float(length(dvec2(vel.x,vel.z))/5.6));
     line_shader.bind();
     line_shader.upload_mat4("cam_mat", cam_mat);
+    if(fishing){
+        dvec3 tip=bobber+dvec3(0,fish_bite>0?-.15:std::sin(SDL_GetTicks()*.004)*.03,0);
+        line_shader.upload_vec4("color",vec4(1,.15,.1,1));Hitbox(tip-dvec3(.07,0,.07),dvec3(.14)).draw();
+        vec3 line[2]={vec3(render_position())+cam.pos+cam.forward*.5f-vec3(0,.2,0),vec3(tip)};
+        GLuint vao,vbo;glGenVertexArrays(1,&vao);glBindVertexArray(vao);glGenBuffers(1,&vbo);glBindBuffer(GL_ARRAY_BUFFER,vbo);
+        glBufferData(GL_ARRAY_BUFFER,sizeof(line),line,GL_STREAM_DRAW);glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(vec3),nullptr);glEnableVertexAttribArray(0);
+        line_shader.upload_vec4("color",vec4(.15,.15,.15,1));glDrawArrays(GL_LINES,0,2);glDeleteBuffers(1,&vbo);glDeleteVertexArrays(1,&vao);
+    }
 
     if (hit_info.hit)
     {
@@ -295,6 +348,7 @@ void Player::draw_hud(){
         }
     }
     Ui::text("mode",survival_mode?"Survival":"Creative",10,10,2);
+    Ui::text("fishing",fishing?(fish_bite>0?"Bite! Right click to reel in":"Fishing..."):"",10,36,2);
     if(break_progress>0 && break_duration>0){float f=float(std::min(1.,break_progress/break_duration));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150*f,6,vec4(1));}
     if(eat_progress>0){Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,float(eat_progress/1.6)*150,6,vec4(.5,1,.3,1));}
     int id=hotbar.get_item();std::string title=Items::name(id);Ui::text("hand",title,int(win_size.x)/2-int(title.size())*6,bottom-26,2);

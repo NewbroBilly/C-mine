@@ -28,7 +28,7 @@ void inventory(std::ostream& f,const Items::Inventory& d){for(auto s:d.main)stac
 bool inventory(std::istream& f,Items::Inventory& d){for(auto& s:d.main)if(!stack(f,s))return false;for(auto& s:d.craft)if(!stack(f,s))return false;for(auto& s:d.armor)if(!stack(f,s))return false;return stack(f,d.offhand) && stack(f,d.cursor);}
 bool read(const std::filesystem::path& file,Data& result){
     std::ifstream f(file);std::string magic;int version;Data d;
-    if(!(f>>magic>>version) || magic!="CMINE" || version!=1)return false;
+    if(!(f>>magic>>version) || magic!="CMINE" || (version!=1 && version!=2))return false;
     if(!(f>>std::quoted(d.name)>>d.seed>>d.survival>>d.spawned) || d.name.empty() || d.name.size()>80)return false;
     for(auto& v:d.position)if(!(f>>v) || !std::isfinite(v) || std::abs(v)>30000000)return false;
     double length=0;for(auto& v:d.forward){if(!(f>>v) || !std::isfinite(v))return false;length+=v*v;}if(length<.99 || length>1.01 || d.forward[0]*d.forward[0]+d.forward[2]*d.forward[2]<1e-12)return false;
@@ -44,17 +44,22 @@ bool read(const std::filesystem::path& file,Data& result){
         for(auto& n:a.velocity)if(!(f>>n) || !std::isfinite(n) || std::abs(n)>10000)return false;
         if(!(f>>a.age) || !std::isfinite(a.age) || a.age< -1 || a.age>301)return false;d.drops.push_back(a);
     }
+    if(version>=2){
+        if(!(f>>d.day_ticks) || !std::isfinite(d.day_ticks) || d.day_ticks<0 || d.day_ticks>=24000)return false;
+        for(auto& n:d.spawn_point)if(!(f>>n) || !std::isfinite(n) || std::abs(n)>30000000)return false;
+    }
     f>>std::ws;if(!f.eof())return false;result=d;return true;
 }
 std::filesystem::path chunk_path(const std::filesystem::path& root,int x,int z){return root/"chunks"/(std::to_string(x)+"_"+std::to_string(z)+".cmc");}
 }
 bool load(const std::filesystem::path& path,Data& data){return read(path/"world.txt",data) || read(path/"world.txt.bak",data);}
 bool save(const std::filesystem::path& path,const Data& d){
-    std::ostringstream f;f<<std::setprecision(17)<<"CMINE 1\n"<<std::quoted(d.name)<<'\n'<<d.seed<<' '<<d.survival<<' '<<d.spawned<<'\n';
+    std::ostringstream f;f<<std::setprecision(17)<<"CMINE 2\n"<<std::quoted(d.name)<<'\n'<<d.seed<<' '<<d.survival<<' '<<d.spawned<<'\n';
     for(auto v:d.position)f<<v<<' ';for(auto v:d.forward)f<<v<<' ';for(auto v:d.velocity)f<<v<<' ';f<<d.flying;
     const auto& v=d.vitals;f<<'\n'<<v.health<<' '<<v.food<<' '<<v.saturation<<' '<<v.exhaustion<<' '<<v.timer<<' '<<v.fallen<<' '<<d.hotbar<<' '<<d.air<<'\n';
     inventory(f,d.inventory);inventory(f,d.creative);f<<d.drops.size()<<'\n';
     for(auto& a:d.drops){stack(f,a.stack);for(auto n:a.position)f<<n<<' ';for(auto n:a.velocity)f<<n<<' ';f<<a.age<<'\n';}
+    f<<d.day_ticks<<' ';for(auto n:d.spawn_point)f<<n<<' ';f<<'\n';
     return commit(path/"world.txt",f.str());
 }
 std::vector<Entry> list(const std::filesystem::path& root){

@@ -38,6 +38,43 @@ int main(){try{
     require(break_seconds(STONE,WOOD_PICKAXE,true)<break_seconds(STONE,-1,true),"Pickaxe speeds stone mining");
     require(drop(STONE,-1,0).empty() && drop(STONE,WOOD_PICKAXE,0).id==COBBLESTONE,"Correct stone loot");
     require(drop(BEDROCK,DIAMOND_PICKAXE,0).empty(),"No survival bedrock loot");
+    const int resources[]={PLANKS,COBBLESTONE,IRON_INGOT,DIAMOND,GOLD_INGOT};
+    const int picks[]={WOOD_PICKAXE,STONE_PICKAXE,IRON_PICKAXE,DIAMOND_PICKAXE,GOLD_PICKAXE};
+    const int maxes[]={59,131,250,1561,32};
+    struct Pattern{const char* shape;int width,first;};
+    for(int material=0;material<5;++material){
+        for(auto pattern:{Pattern{"RRR S  S ",3,0},Pattern{"RRRS S",2,WOOD_AXE},Pattern{"RSS",1,WOOD_SHOVEL},Pattern{"RR S S",2,WOOD_HOE},Pattern{"RRS",1,WOOD_SWORD}}){
+            for(bool mirror:{false,true}){
+                inv={};int xoff=3-pattern.width;
+                for(int y=0;y<3;++y)for(int x=0;x<pattern.width;++x){char symbol=pattern.shape[y*pattern.width+(mirror?pattern.width-1-x:x)];
+                    if(symbol!=' ')inv.craft[y*3+x+xoff]={symbol=='S'?int(STICK):resources[material],1};}
+                int expected=pattern.first?pattern.first+material:picks[material];
+                require(recipe(inv.craft,3).output.id==expected,"Tool recipe, mirrored and offset");
+                require(limit(expected)==1 && durability(expected)==maxes[material],"Tool stack limit and durability");
+                require(inv.take_result(3,true) && total(inv,expected)==1,"Tool craft consumption");
+                for(auto s:inv.craft)require(s.empty(),"Tool recipe consumes each ingredient once");
+            }
+        }
+    }
+    require(!harvestable(IRON_ORE,GOLD_PICKAXE) && !harvestable(DIAMOND_ORE,GOLD_PICKAXE),"Gold has wood harvest tier");
+    require(harvestable(OBSIDIAN,DIAMOND_PICKAXE) && !harvestable(OBSIDIAN,IRON_PICKAXE),"Obsidian needs diamond");
+    require(break_seconds(STONE,GOLD_PICKAXE,true)<break_seconds(STONE,DIAMOND_PICKAXE,true),"Gold has fastest base mining speed");
+    require(break_seconds(LOG,WOOD_AXE,true)<break_seconds(LOG,DIAMOND_PICKAXE,true),"Axe speeds wood rather than pickaxe");
+    require(break_seconds(DIRT,WOOD_SHOVEL,true)<break_seconds(DIRT,DIAMOND_PICKAXE,true),"Shovel speeds soil");
+    require(drop(LEAVES,SHEARS,1).id==LEAVES && drop(SNOW_BLOCK,WOOD_SHOVEL,1).count==4,"Shears and shovel loot");
+    require(use_on_block(DIRT,IRON_HOE,true,false)==FARMLAND && use_on_block(GRASS_BLOCK,GOLD_SHOVEL,true,false)==GRASS_PATH,"Hoe and shovel use");
+    require(use_on_block(DIRT,IRON_HOE,false,false)==-1 && use_on_block(DIRT,IRON_HOE,true,true)==-1,"Tilling requires air above and a valid face");
+    tool={GOLD_PICKAXE,1,32};wear(tool);require(tool.empty(),"Tool breaks after exhausted durability");
+    require(mining_wear(LOG,WOOD_SWORD)==2 && mining_wear(LOG,WOOD_AXE)==1 && mining_wear(LOG,WOOD_HOE)==0 && mining_wear(STONE,FISHING_ROD)==0,"Tool-specific mining wear");
+    inv={};inv.craft[0]={IRON_INGOT,1};inv.craft[3]={FLINT,1};require(recipe(inv.craft,2).output.id==FLINT_AND_STEEL,"Flint and steel shapeless recipe");
+    inv={};inv.craft[0]={IRON_INGOT,1};inv.craft[3]={IRON_INGOT,1};require(recipe(inv.craft,2).output.id==SHEARS,"Shears recipe");
+    inv={};for(int i:{2,4,6})inv.craft[i]={STICK,1};for(int i:{5,8})inv.craft[i]={STRING,1};require(recipe(inv.craft,3).output.id==FISHING_ROD,"Fishing rod recipe");
+    inv={};for(int i:{1,3,5,7})inv.craft[i]={IRON_INGOT,1};inv.craft[4]={REDSTONE_DUST,1};require(recipe(inv.craft,3).output.id==COMPASS,"Compass recipe");
+    for(int i:{1,3,5,7})inv.craft[i]={GOLD_INGOT,1};require(recipe(inv.craft,3).output.id==CLOCK,"Clock recipe");
+    inv={};inv.craft[0]={IRON_AXE,1,200};inv.craft[1]={IRON_AXE,1,150};auto repaired=recipe(inv.craft,2).output;
+    require(repaired.id==IRON_AXE && repaired.damage==88,"Two tools repair with five-percent bonus");
+    require(clock_frame(6000)==0 && clock_frame(18000)==16 && clock_frame(24000)==clock_frame(0),"Clock noon, midnight and wrap");
+    require(compass_frame(0,1,0,1)==16 && compass_frame(1,0,0,1)==24 && compass_frame(0,-1,0,1)==0 && compass_frame(-1,0,0,1)==8,"Compass front, right, back and left");
     Vitals v;v.landing(4.5,false);v.landing(.5,true);require(v.health==18,"Five-block fall deals two damage");
     v={};v.landing(3,true);require(v.health==20,"Three-block fall is safe");
     v.food=10;v.saturation=0;require(v.eat(APPLE) && v.food==14 && v.saturation>2.3,"Apple nutrition");

@@ -2,6 +2,7 @@
 #include <blocks.h>
 #include <text.h>
 #include <map>
+#include <player.h>
 namespace {
 Shader shader;GLuint vao,vbo;
 Texture inventory,creative,table,items,icons,tabs;
@@ -27,7 +28,13 @@ void Ui::text(const std::string& key,const std::string& value,int x,int y,int si
 void Ui::item(const Items::Stack& s,float x,float y,float size,bool count,const std::string& key){
 if(s.empty())return;
 if(Items::block(s.id)){Sprite& icon=get_block_by_id(s.id)->icon;image(*icon.tex,x,y,size,size,vec4(icon.uv.x,icon.uv.y-icon.size.y,icon.size.x,icon.size.y));}
-else{int n=s.id-Items::ITEM_START-1;image(items,x,y,size,size,vec4((n%16)*16,(n/16)*16,16,16));}
+else{int n=s.id-Items::ITEM_START-1;
+    if(s.id==Items::CLOCK && world)n=64+Items::clock_frame(world->day_ticks);
+    if(s.id==Items::COMPASS && world && player){
+        auto d=world->spawn_point-player->pos;n=96+Items::compass_frame(d.x,d.z,player->cam.forward.x,player->cam.forward.z);
+    }
+    if(s.id==Items::FISHING_ROD && player && player->fishing)n=128;
+    image(items,x,y,size,size,vec4((n%16)*16,(n/16)*16,16,16));}
 if(count && s.count>1){std::string str=std::to_string(s.count);text(key.empty()?"count"+std::to_string(int(x))+":"+std::to_string(int(y)):key,str,int(x+size-str.size()*12),int(y+size-18),2);}
 int durability=Items::durability(s.id);if(durability && s.damage){float f=std::max(0.f,1.f-s.damage/float(durability));rect(x,y+size-5,size,5,vec4(0,0,0,1));rect(x+1,y+size-4,(size-2)*f,3,vec4(1-f,f,0,1));}}
 Texture& Ui::inventory_texture(bool c,bool t){return t?table:(c?creative:inventory);}

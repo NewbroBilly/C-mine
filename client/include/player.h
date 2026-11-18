@@ -39,6 +39,11 @@ struct Player
     Items::Vitals vitals;
     bool flying=false;
     int air=300;
+    bool fishing=false;
+    dvec3 bobber{0};
+    double fish_timer=0,fish_bite=0;
+    double burn_clock=0;
+    void update_fishing();
     double flight_tap=-1,vital_clock=0,break_progress=0,break_duration=0,action_delay=0,eat_progress=0;
     int eating_item=-1;
     ivec3 mining_position{-1000000};

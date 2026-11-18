@@ -13,6 +13,8 @@ struct Data {
     std::array<double,3> position{8.5,122,8.5},forward{0,0,1};
     std::array<double,3> velocity{};
     bool flying=false;
+    double day_ticks=6000;
+    std::array<double,3> spawn_point{8.5,122,8.5};
     Items::Vitals vitals;
     Items::Inventory inventory,creative;
     int hotbar=0,air=300;

@@ -21,6 +21,15 @@ const char* name(int id);
 bool valid(int id);
 bool block(int id);
 bool pickaxe(int id);
+enum class Tool {None,Pickaxe,Axe,Shovel,Hoe,Sword,Shears};
+Tool tool_kind(int id);
+int tool_tier(int id);
+double tool_speed(int id);
+void wear(Stack& stack,int amount=1);
+int mining_wear(int block_id,int tool);
+int use_on_block(int block_id,int tool,bool air_above,bool bottom_face);
+int clock_frame(double day_ticks);
+int compass_frame(double dx,double dz,double forward_x,double forward_z);
 void normalize(Stack& s);
 void click(Stack& slot,Stack& cursor,bool right);
 // Returns the number still uninserted; merges existing stacks before empty slots.

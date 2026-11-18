@@ -126,8 +126,11 @@ Number keys swap the hovered slot with a hotbar slot. Arrow keys/Enter also work
 Closing returns carried/crafting items; overflow drops into the world.
 Craft logs into four planks, two vertical planks into sticks, or four planks into
 a crafting table. Place and right-click the table for 3x3 crafting: three planks
-above two sticks make a wooden pickaxe. Cobblestone, iron and diamond pickaxes,
-torches, bread, sandstone and selected block compression recipes are supported.
+above two sticks make a wooden pickaxe. Wood, stone, iron, gold and diamond
+pickaxes, axes, shovels, hoes and swords use their 1.12.2 crafting patterns
+(including mirrored axes/hoes). Shears, flint and steel, fishing rods, clocks,
+compasses, tool repair, torches, bread, sandstone and selected block compression
+recipes are supported.
 Shift-click the output to craft as much as inventory capacity allows.
 
 Choose Survival or Creative when creating a world in Singleplayer. Tab/Y or the pause menu changes
@@ -142,7 +145,7 @@ Respawn restores health/food at the surface without replacing the current world.
 Creative has free items, instant breaking, no item consumption/damage/hunger,
 and collision-aware flight (double Space/A; Space/A up, Shift/B down).
 
-Creative has 47 blocks plus 21 items, including empty/water buckets. The original
+Creative has 49 blocks plus 49 items, including empty/water buckets. The original
 five-by-nine catalog has 12 tabs: Building, Decoration, Redstone, Transportation,
 Miscellaneous, Search, Food, Tools, Combat, Brewing, Materials and Player Inventory.
 Tabs with no implemented items are empty. Click a tab, press P or [ / ], or use
@@ -169,8 +172,44 @@ submerged eyes consume 300 air ticks before two drowning damage every 20 ticks.
 The view uses blue underwater fog, narrower underwater FOV, animated translucent
 water and the original 1.12.2 hurt-time camera tilt.
 
+## Tools and underground ores
+
+All five tool materials retain their own mining speed, harvest tier and durability.
+Gold is fast but has the wooden harvest tier. Axes speed wood, shovels speed soil,
+and shears collect leaves/grass and speed wool. Swords are in Combat; the other
+tools and utility items are in Tools. Breaking blocks with a sword uses two
+durability, while hoes/rods/igniters wear on successful use. Two matching tools can
+be repaired together in a crafting grid, with the 5% durability bonus.
+
+Right-click exposed dirt/grass with a hoe for farmland, or grass with a shovel for
+a path. These soil blocks currently use full voxel collision; crops, hydration
+and trampling are not implemented. Flint and steel starts an animated, light-emitting
+fire that causes contact damage and expires after 30 active seconds. Water
+extinguishes it; fire does not spread or burn down neighboring blocks.
+
+Aim the fishing rod at water and right-click to cast. A visible float and line
+remain in the water; right-click during the `Bite!` window to catch a raw fish.
+Fishing currently uses a simple 5-12 second waiting period and fish-only loot,
+without enchantments, weather or the full vanilla treasure/junk tables. Changing
+the held item or moving more than 32 blocks away cancels the cast.
+
+Clock faces track the 20-minute world day; compass needles point toward the saved
+world spawn. Time pauses with the game and persists with the spawn position.
+Metadata version 2 reads version 1 worlds, retaining all existing item/block IDs.
+
+New terrain contains coal, iron, gold, redstone, diamond, lapis and emerald ore.
+Veins use overlapping ellipsoids and seeded randomness: coal has 20 attempts
+below Y=128, iron 20 below 64, gold 2 below 32, redstone 8 below 16, diamond 1
+below 16, and lapis 1 with a triangular distribution centered around Y=16.
+Vein ellipsoids can extend slightly past the sampled height. Emeralds use 3-8
+single-block attempts between Y=4 and 31; there are no biome restrictions yet.
+Only stone is replaced: caves, water, bedrock and surface soils are preserved.
+Veins continue across chunk boundaries independently of chunk loading order.
+Existing saved chunk snapshots are kept; explore new chunks for ores in old worlds.
+This generator is deterministic but does not reproduce Java worlds from the same seed.
+
 Current limits: no mobs/combat, armor equipment, furnace/smelting, full recipe
-registry, farming, lava or multiplayer. The armor slots are part of the original
+registry, crops, lava or multiplayer. The armor slots are part of the original
 background; offhand is storage only. Sand/gravel are static and soul sand has no
 slowdown. Liquid collision uses voxel terrain; no depth-strider, boats, lava/water
 reactions or special redstone/door fluid interactions. Terrain/biomes and save

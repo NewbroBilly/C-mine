@@ -23,10 +23,15 @@ struct World
     ivec2 old_p;
     int old_distance=-1;
     bool spawned = false;
+    bool spawn_known=false;
+    dvec3 spawn_point{8.5,122,8.5};
+    double day_ticks=6000;
     int64_t seed=0;
     std::filesystem::path save_path;
     Water::Simulator water;
     double water_clock=0;
+    double fire_clock=0;
+    std::map<Water::Pos,int> fires;
     int fluid(Water::Pos p) const;
     void set_fluid(Water::Pos p,int level);
     void notify_water(Chunk* chunk,ivec3 pos);

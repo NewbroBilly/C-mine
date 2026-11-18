@@ -338,6 +338,11 @@ int main(int argc, char** argv)
                     }
                 if(!natural_water || world->water.pending()!=0)return 61;
                 SDL_Log("Generation regression passed: %zu settled water blocks, zero scheduled fluid updates",natural_water);
+                int ores[BLOCK_COUNT]={};
+                for(auto* c:world->chunk_vector)for(auto& column:c->blocks)for(auto& row:column)for(auto b:row)++ores[int(b.id)];
+                for(int id:{COAL_ORE,IRON_ORE,GOLD_ORE,DIAMOND_ORE,REDSTONE_ORE,LAPIS_ORE,EMERALD_ORE})if(ores[id]==0)return 62;
+                Game::inventory(true);player->inventory.tab(7);Game::draw();save_frame("smoke-all-tools.bmp");
+                player->inventory.tab(8);Game::draw();save_frame("smoke-swords.bmp");Game::inventory(false);
                 auto* c=world->get_chunk_from_pos(player->pos);water_chunk=c->pos;
                 for(int x=2;x<=14;++x)for(int z=2;z<=14;++z){BlockState b{STONE,0,0};c->set(ivec3(x,229,z),&b);
                     for(int y=230;y<=236;++y){BlockState a{AIR,0,0};c->set(ivec3(x,y,z),&a);}}
@@ -387,6 +392,32 @@ int main(int argc, char** argv)
                 Game::set_mode(true);player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,232.5,8.5);
                 player->inventory.survival.main[0]={Items::WATER_BUCKET,1};player->action_delay=0;buttons[2]=Input::DOWN;player->handle_clicks();buttons[2]=Input::NONE;
                 if(player->hotbar.get_item()!=Items::BUCKET || c->get(ivec3(8,230,8))->data1!=0)return 58;
+                // Exercise right-click tool actions on a safe, isolated pad.
+                auto use_tool=[&](int id){player->inventory.survival.main[0]={id,1};player->action_delay=0;buttons[2]=Input::DOWN;player->handle_clicks();buttons[2]=Input::NONE;};
+                player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(5.5,232,5.5);player->cam.forward=normalize(vec3(0,-1,.001));
+                BlockState grass{GRASS_BLOCK,0,0};c->set(ivec3(5,230,5),&grass);
+                use_tool(Items::IRON_HOE);
+                if(c->get(ivec3(5,230,5))->id!=FARMLAND || player->inventory.survival.main[0].damage!=1)return 63;
+                c->set(ivec3(5,230,5),&grass);use_tool(Items::DIAMOND_SHOVEL);
+                if(c->get(ivec3(5,230,5))->id!=GRASS_PATH || player->inventory.survival.main[0].damage!=1)return 64;
+                use_tool(Items::FLINT_AND_STEEL);
+                if(c->get(ivec3(5,231,5))->id!=FIRE || player->inventory.survival.main[0].damage!=1 || c->get_block_light(ivec3(5,232,5))<14)return 65;
+                player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(5.5,232,2.5);player->cam.forward=normalize(vec3(0,-.65,1));player->vitals.hurt_ticks=0;
+                Game::draw();save_frame("smoke-tools-fire.bmp");player->cam.forward=normalize(vec3(0,-1,.001));
+                ivec3 flame=ivec3(chunk_pos_to_world_hp(c->pos))+ivec3(5,231,5);
+                world->set_fluid({flame.x,flame.y,flame.z},0);
+                if(c->get(ivec3(5,231,5))->id!=WATER || c->get_block_light(ivec3(5,232,5))!=0)return 66;
+                BlockState source{WATER,0,1};c->set(ivec3(12,230,12),&source);
+                player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(12.5,232,12.5);
+                use_tool(Items::FISHING_ROD);if(!player->fishing)return 67;
+                player->fish_timer=.001;delta_time=.05;player->update_fishing();delta_time=original_dt;
+                if(player->fish_bite<=0)return 68;
+                Game::draw();save_frame("smoke-fishing.bmp");
+                int old_fish=0;for(auto s:player->inventory.survival.main)if(s.id==Items::RAW_FISH)old_fish+=s.count;
+                player->action_delay=0;buttons[2]=Input::DOWN;player->handle_clicks();buttons[2]=Input::NONE;
+                int new_fish=0;for(auto s:player->inventory.survival.main)if(s.id==Items::RAW_FISH)new_fish+=s.count;
+                if(player->fishing || new_fish!=old_fish+1 || player->inventory.survival.main[0].damage!=1)return 69;
+                SDL_Log("Tools/ores smoke passed: all seven ore kinds, creative tools/swords, tilling, paths, fire/light/extinguishing and fishing catch/durability");
                 Game::set_mode(false);player->flying=true;player->vitals.health=13;player->vitals.hurt_ticks=0;
                 // Restore a known source and persist the edits, both bags and player pose.
                 BlockState water{WATER,0,0};world->place_block(c,ivec3(8,232,8),&water);
@@ -404,6 +435,7 @@ int main(int argc, char** argv)
                 if(survival_mode || length(player->pos-saved_position)>.01 || player->inventory.survival.main[2].damage!=17 || player->hotbar.index!=2 || player->vitals.health!=13)return 55;
                 c=world->get_chunk_from_pos(player->pos);if(!c || c->get(ivec3(8,232,8))->id!=WATER || world->water.pending()==0)return 56;
                 SDL_Log("Water/menu/save smoke passed: create/name/seed/mode, flowing/falling water, creative categories/search, source bucket pickup, hurt roll, underwater, chunk unload/reload, world save/reopen and both inventories");
+                if(glGetError()!=GL_NO_ERROR)return 70;
                 closed=true;
             }
         }

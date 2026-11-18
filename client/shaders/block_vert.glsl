@@ -67,6 +67,7 @@ void main()
     int v = (data >> 20) & 0x1f;
     water=(data>>25)&1;
     if(water==1)u=int(water_time*8.0) % 32;
+    if(((data>>26)&1)==1)u=int(water_time*16.0) % 32;
 
     uv = (vec2(u, v) + uv_offsets[vi]) / 32.0f;
 }

@@ -52,7 +52,7 @@ def build_atlas(archive):
             image = image.crop((7, 6, 9, 16)).resize((16, 16), Image.Resampling.NEAREST)
         atlas.paste(image, (x * 16, y * 16))
     # Keep all 32 vanilla water animation frames; the renderer selects at 8 fps.
-    for row, name in [(5, "water_still"), (6, "water_flow")]:
+    for row, name in [(5, "water_still"), (6, "water_flow"), (7, "fire_layer_0")]:
         strip = Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/blocks/{name}.png"))).convert("RGBA")
         frames = strip.height // strip.width
         for frame in range(32):
@@ -86,6 +86,12 @@ def main():
             fields = next(csv.reader([re.fullmatch(r"ITEM\((.*)\)", line)[1]]))
             image = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/" + fields[2] + ".png"))).convert("RGBA")
             items.paste(image.crop((0, 0, 16, 16)), ((i % 16)*16, (i // 16)*16))
+        for start, prefix in [(64,"clock"),(96,"compass")]:
+            for frame in range(32):
+                image=Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/items/{prefix}_{frame:02d}.png"))).convert("RGBA")
+                n=start+frame;items.paste(image.crop((0,0,16,16)),((n%16)*16,(n//16)*16))
+        image=Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/fishing_rod_cast.png"))).convert("RGBA")
+        items.paste(image.crop((0,0,16,16)),(0,128))
         items.save(args.output / "items.png")
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "player.png").write_bytes(skin)

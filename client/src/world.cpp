@@ -11,7 +11,7 @@ int World::fluid(Water::Pos p)const{
     if(it==chunk_map.end())return Water::Unloaded;
     auto* bs=it->second->get(ivec3(p[0]-cp.x*16,p[1],p[2]-cp.y*16));
     if(bs->id==WATER)return bs->data1&15;
-    return bs->id==AIR || bs->id==GRASS || bs->id==TORCH?Water::Air:Water::Solid;
+    return bs->id==AIR || bs->id==GRASS || bs->id==TORCH || bs->id==FIRE?Water::Air:Water::Solid;
 }
 void World::notify_water(Chunk* c,ivec3 p){
     ivec3 q=ivec3(chunk_pos_to_world_hp(c->pos))+p;
@@ -28,10 +28,10 @@ void World::notify_water(Chunk* c,ivec3 p){
 void World::set_fluid(Water::Pos p,int level){
     auto* c=get_chunk_from_pos(vec3(p[0],p[1],p[2]));if(!c || p[1]<0 || p[1]>=256)return;
     ivec3 local=ivec3(p[0],p[1],p[2])-ivec3(chunk_pos_to_world_hp(c->pos));auto old=*c->get(local);
-    if(level!=Water::Air && old.id!=AIR && old.id!=WATER && old.id!=GRASS && old.id!=TORCH)return;
+    if(level!=Water::Air && old.id!=AIR && old.id!=WATER && old.id!=GRASS && old.id!=TORCH && old.id!=FIRE)return;
     if(old.id==TORCH || old.id==GRASS){auto loot=Items::drop(old.id,-1,0);if(!loot.empty())player->drops.push_back({loot,dvec3(p[0]+.5,p[1]+.5,p[2]+.5),dvec3(0),0});}
     BlockState b{char(level==Water::Air?AIR:WATER),char(level&15),char(level==Water::Air?0:1)};c->set(local,&b);
-    if(old.id==TORCH)update_lighting(c,local,false,&old);
+    if(old.id==TORCH || old.id==FIRE)update_lighting(c,local,false,&old);
 }
 bool World::underwater(dvec3 p)const{return Water::contains({p.x,p.y,p.z},[&](Water::Pos q){return fluid(q);});}
 bool World::submerged(dvec3 p,dvec3* current)const{
@@ -68,9 +68,10 @@ bool World::place_block(Chunk* chunk, const ivec3& pos, BlockState* bs) {
     if (!chunk || !bs || pos.y < 0 || pos.y >= CHUNK_HEIGHT) return false;
     ivec3 local = pos;
     chunk = get_neighbor_chunk(chunk, local);
-    if (!chunk || (chunk->get(local)->id != AIR && chunk->get(local)->id != WATER)) return false;
+    if (!chunk || (chunk->get(local)->id != AIR && chunk->get(local)->id != WATER && chunk->get(local)->id!=FIRE && !(bs->id==FIRE && chunk->get(local)->id==GRASS))) return false;
     auto old=*chunk->get(local);
     chunk->set(local, bs);
+    if(bs->id==FIRE){ivec3 p=ivec3(chunk_pos_to_world_hp(chunk->pos))+local;fires[{p.x,p.y,p.z}]=0;}
     if(old.id!=AIR)update_lighting(chunk,local,false,&old);
     notify_water(chunk,local);
     update_lighting(chunk, local, true, bs);
@@ -86,6 +87,8 @@ void World::rebuild_dirty() {
         }
 }
 void World::update() {
+    day_ticks=std::fmod(day_ticks+delta_time*20.,24000.);
+    global_light=std::clamp(int(10.+5.*std::cos((day_ticks-6000.)/24000.*6.283185307179586)),5,15);
     const ivec2 center = world_pos_to_chunk(player->pos);
     const int render_distance=Settings::options.distance;
     if (center != old_p || old_distance!=render_distance) {
@@ -112,16 +115,29 @@ void World::update() {
     update2();
     water_clock+=std::min(delta_time,.05);
     while(water_clock>=.05){water.tick([&](Water::Pos p){return fluid(p);},[&](Water::Pos p,int l){set_fluid(p,l);});water_clock-=.05;}
+    fire_clock+=delta_time;
+    while(fire_clock>=1){
+        fire_clock-=1;
+        for(auto it=fires.begin();it!=fires.end();){
+            auto p=it->first;auto* c=get_chunk_from_pos(vec3(p[0],p[1],p[2]));
+            if(!c){it=fires.erase(it);continue;}
+            ivec3 local=ivec3(p[0],p[1],p[2])-ivec3(chunk_pos_to_world_hp(c->pos));auto* b=c->get(local);
+            if(b->id!=FIRE){it=fires.erase(it);continue;}
+            int age=++it->second;b->data1=char(age);c->modified=true;
+            if(age>=30){remove_block(c,local,true);it=fires.erase(it);}else ++it;
+        }
+    }
     rebuild_dirty();
     if (!spawned) {
         // Try the starting column first, then dry surface columns in loaded chunks.
         auto spawn_at=[&](Chunk* c,int x,int z){
             for(int y=253;y>=0;--y){int id=c->blocks[x][y][z].id;
-                if(id==AIR || id==WATER || id==GRASS || id==TORCH)continue;
+                if(id==AIR || id==WATER || id==GRASS || id==TORCH || id==FIRE)continue;
                 int a=c->blocks[x][y+1][z].id,b=c->blocks[x][y+2][z].id;
                 if((a!=AIR && a!=GRASS) || (b!=AIR && b!=GRASS))return false;
                 player->pos=chunk_pos_to_world_hp(c->pos)+dvec3(x+.5,y+1,z+.5);
                 player->previous_position=player->pos;player->vel=dvec3(0);player->grounded=true;spawned=true;
+                if(!spawn_known){spawn_point=player->pos;spawn_known=true;}
                 SDL_Log("Surface spawn: %.1f %.1f %.1f",player->pos.x,player->pos.y,player->pos.z);return true;
             }return false;
         };
@@ -174,7 +190,7 @@ void World::update2() {
         if(chunk->west)resume(chunk->west,15,y,a);
     }
     // Saved emitting blocks need their block light restored too.
-    for(int x=0;x<16;++x)for(int y=0;y<256;++y)for(int z=0;z<16;++z){auto b=chunk->blocks[x][y][z];if(get_block_by_id(b.id)->light>0)update_lighting(chunk,ivec3(x,y,z),true,&b);}
+    for(int x=0;x<16;++x)for(int y=0;y<256;++y)for(int z=0;z<16;++z){auto b=chunk->blocks[x][y][z];if(b.id==FIRE)fires[{p.x*16+x,y,p.y*16+z}]=b.data1;if(get_block_by_id(b.id)->light>0)update_lighting(chunk,ivec3(x,y,z),true,&b);}
 }
 void World::draw() {
     Camera view = player->view_camera();

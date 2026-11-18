@@ -1,6 +1,7 @@
 #include <chunk.h>
 #include <oak_tree.h>
 #include <world.h>
+#include <ores.h>
 
 Chunk::Chunk(const ivec2& _pos)
 {
@@ -106,6 +107,9 @@ void Chunk::load()
         int height=height_at(wx,wz);
         for(int y=0;y<CHUNK_HEIGHT;++y)blocks[x][y][z].id=terrain(wx,y,wz,height);
     }
+    Ores::generate(pos.x,pos.y,seed,
+        [&](int x,int y,int z){return int(blocks[x-pos.x*16][y][z-pos.y*16].id);},
+        [&](int x,int y,int z,int id){blocks[x-pos.x*16][y][z-pos.y*16]={char(id),0,0};});
     // Each nearby eight-block cell owns one candidate. Query base terrain in
     // world coordinates and clip writes, so crowns continue across chunk seams.
     for(int gx=pos.x*2-1;gx<=pos.x*2+2;++gx)for(int gz=pos.y*2-1;gz<=pos.y*2+2;++gz){

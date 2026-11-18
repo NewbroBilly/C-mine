@@ -606,10 +606,13 @@ struct WaterBlock : public Block {
 struct CatalogBlock : public Block {
     ivec2 side,top,bottom;
     CatalogBlock(ivec2 s,ivec2 t,ivec2 b,int emission):side(s),top(t),bottom(b){
-        opacity=15;light=char(emission);icon=Sprite(vec2(0),vec2(16),vec2(s.x*16,(s.y+1)*16),&texture_atlas);
+        opacity=s==ivec2(0,7)?0:15;light=char(emission);icon=Sprite(vec2(0),vec2(16),vec2(s.x*16,(s.y+1)*16),&texture_atlas);
     }
     vec2 get_texture(Chunk*,const ivec3&,int face) override {return face==TOP_FACE?top:(face==BOTTOM_FACE?bottom:side);}
-    void build(Chunk* c,const ivec3& p,std::vector<Vertex>& v,std::vector<int>& i,int& n) override {build_cube(this,c,p,v,i,n);}
+    void build(Chunk* c,const ivec3& p,std::vector<Vertex>& v,std::vector<int>& i,int& n) override {
+        if(c->get(p)->id==FIRE){auto start=v.size();build_cross(this,c,p,v,i,n);for(size_t a=start;a<v.size();++a)v[a].data|=1<<26;}
+        else build_cube(this,c,p,v,i,n);
+    }
 };
 
 void blocks_init()
