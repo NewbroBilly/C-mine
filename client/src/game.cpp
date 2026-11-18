@@ -1,4 +1,5 @@
 #include <language.h>
+#include <generation.h>
 #include <game.h>
 #include <vector>
 #include <keys.h>
@@ -168,8 +169,11 @@ void Game::start(bool survival) {
 void Game::select_worlds(){saved_worlds=Saves::list(save_root());world_index=std::clamp(world_index,0,std::max(0,int(saved_worlds.size())-1));screen=Screen::Worlds;message.clear();capture(false);}
 void Game::create_world(){
     Saves::Data d;d.name=world_name.empty()?Language::tr("New World"):world_name;d.seed=Saves::seed_from_text(world_seed);d.survival=new_survival;d.generator_version=1;
+    if(!Generation::find_spawn(uint64_t(d.seed),d.position)){message=Language::tr("No safe spawn found. Try another seed.");return;}
+    d.spawn_point=d.position;
     auto path=Saves::unique_path(save_root());if(!Saves::save(path,d)){message=Language::tr("Could not create save. Check free space.");return;}
     start(d.survival);current_save=d;world->seed=d.seed;world->generator_version=d.generator_version;world->save_path=path;
+    player->pos=player->previous_position=dvec3(d.position[0],d.position[1],d.position[2]);
 }
 void Game::load_world(int index){
     if(index<0 || index>=int(saved_worlds.size()))return;Saves::Data d;auto path=saved_worlds[index].path;

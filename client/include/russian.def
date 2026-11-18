@@ -1,4 +1,5 @@
 // UTF-8 display strings. Keep English keys stable for search aliases.
+{"No safe spawn found. Try another seed.","Не удалось найти место появления. Попробуйте другой сид."},
 {"SELECT WORLD","ВЫБОР МИРА"},
 {"CREATE NEW WORLD","СОЗДАНИЕ МИРА"},
 {"OPTIONS","НАСТРОЙКИ"},

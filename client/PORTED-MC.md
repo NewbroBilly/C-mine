@@ -31,6 +31,9 @@ Generation is deterministic within this version. The 36-chunk terrain cache
 contains pristine terrain, never player edits or already decorated neighbors.
 Features replay the original 3x3 neighborhood streams, preserving crowns across
 chunk boundaries. Water is written as settled sources with no initial flood.
+Before streaming a new world, the supplied game's climate search locates dry
+land; actual generated blocks then confirm solid ground and two free blocks.
+This also handles seeds whose origin lies in the middle of an ocean.
 
 Only supported blocks enter our world: deep ores map to their normal variants;
 deepslate, tuff and copper ore map to stone; lava maps to obsidian; unsupported

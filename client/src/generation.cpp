@@ -83,4 +83,27 @@ std::vector<unsigned char> generate(uint64_t seed,int cx,int cz){
     }
     g.trim();return out;
 }
+bool find_spawn(uint64_t seed,std::array<double,3>& position){
+    mc::TerrainGenerator terrain(seed);
+    // Follow the supplied game's dry-land search before starting chunk streaming.
+    // Validate actual decorated blocks: a climate height alone can hide a cave.
+    for(int r=0;r<160;++r)for(int k=0;k<(r?8:1);++k){
+        double angle=k*.785398+r*.3;int wx=r?int(std::cos(angle)*r*24):8,wz=r?int(std::sin(angle)*r*24):8;
+        auto c=terrain.column(wx,wz);
+        if(mc::isOceanBiome(c.biome) || c.biome==mc::Biome::River || c.biome==mc::Biome::FrozenRiver || c.height<65 || c.height>=100)continue;
+        int cx=mc::floorDiv(wx,16),cz=mc::floorDiv(wz,16);auto data=generate(seed,cx,cz);
+        auto at=[&](int x,int y,int z){return data[((x*256+y)*16+z)*3];};
+        for(int i=0;i<256;++i){int x=(mc::floorMod(wx,16)+i%16)%16,z=(mc::floorMod(wz,16)+i/16)%16;
+            for(int y=253;y>0;--y){int id=at(x,y,z);
+                if(id==AIR || id==GRASS)continue;
+                bool ground=id==GRASS_BLOCK || id==DIRT || id==SAND || id==RED_SAND || id==STONE || id==GRAVEL || id==PODZOL || id==MYCELIUM || id==SNOW_BLOCK;
+                if(ground && (at(x,y+1,z)==AIR || at(x,y+1,z)==GRASS) && (at(x,y+2,z)==AIR || at(x,y+2,z)==GRASS)){
+                    position={cx*16+x+.5,double(y+1),cz*16+z+.5};return true;
+                }
+                break; // underwater columns and tree crowns are not spawn ground
+            }
+        }
+    }
+    return false;
+}
 }

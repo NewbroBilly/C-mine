@@ -44,6 +44,19 @@ int main(){
     check(tree_b==Generation::generate(12345,forest_x+1,forest_z) && tree_a==Generation::generate(12345,forest_x,forest_z),"forest crowns at chunk boundaries remain independent of loading order");
     auto high=Generation::generate(0x100003039ULL,0,0);
     check(high!=b,"full 64-bit seed must influence imported generation");
+    int ocean_seeds=0;
+    for(uint64_t seed=0;seed<64 && ocean_seeds<4;++seed){
+        mc::TerrainGenerator probe(seed);auto origin=probe.column(8,8);
+        if(!mc::isOceanBiome(origin.biome))continue;
+        ++ocean_seeds;std::array<double,3> spawn;
+        check(Generation::find_spawn(seed,spawn),"ocean-origin worlds must find dry surface before streaming");
+        int wx=int(std::floor(spawn[0])),wz=int(std::floor(spawn[2]));int cx=mc::floorDiv(wx,16),cz=mc::floorDiv(wz,16),x=mc::floorMod(wx,16),z=mc::floorMod(wz,16),y=int(spawn[1]);
+        auto data=Generation::generate(seed,cx,cz);
+        check(y>0 && y<254 && cell(data,x,y-1,z)!=WATER && cell(data,x,y-1,z)!=AIR && (cell(data,x,y,z)==AIR || cell(data,x,y,z)==GRASS) && (cell(data,x,y+1,z)==AIR || cell(data,x,y+1,z)==GRASS),"spawn has dry ground and two free blocks above it");
+        Generation::clear_cache();std::array<double,3> repeat;
+        check(Generation::find_spawn(seed,repeat) && repeat==spawn,"spawn choice is deterministic after cache reset");
+    }
+    check(ocean_seeds>=3,"exercise several ocean-origin seeds");
     Generation::clear_cache();
     std::cout<<"Generation passed: "<<biomes.size()<<" biomes, "<<water<<" settled water, "<<cave<<" cave air, "<<ore<<" ores, "<<logs<<" logs; "
         <<std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count()<<" seconds\n";
