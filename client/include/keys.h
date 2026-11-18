@@ -1,6 +1,7 @@
 #pragma once
 
 #include <game.h>
+#include <settings.h>
 
 void toggle_mouse_control()
 {
@@ -13,31 +14,8 @@ void toggle_mouse_control()
 
 void toggle_fullscreen()
 {
-    is_fullscreen = !is_fullscreen;
-
-    if (is_fullscreen)
-    {
-        win_size = uvec2(1920, 1080);
-        SDL_SetWindowSize(win, win_size.x, win_size.y);
-        SDL_SetWindowFullscreen(win, SDL_WINDOW_FULLSCREEN);
-    }
-    else
-    {
-        win_size = uvec2(800, 600);
-        SDL_SetWindowFullscreen(win, 0);
-        SDL_SetWindowSize(win, win_size.x, win_size.y);
-    }
-
-    glViewport(0, 0, win_size.x, win_size.y);
-    if (player) player->cam.aspect_ratio = win_size.x / (float)win_size.y;
-
-    font_shader.bind();
-    font_shader.upload_int("win_width", win_size.x);
-    font_shader.upload_int("win_height", win_size.y);
-
-    gui_shader.bind();
-    gui_shader.upload_int("win_width", win_size.x);
-    gui_shader.upload_int("win_height", win_size.y);
+    Settings::options.fullscreen=!is_fullscreen;
+    Game::apply_options();Game::save_options();
 }
 
 void handle_misc_keys()
@@ -51,7 +29,7 @@ void handle_misc_keys()
         show_wireframe = !show_wireframe;
 
     if (is_key_down(SDLK_F6))
-        show_ao = !show_ao;
+        {show_ao = !show_ao;Settings::options.ao=show_ao;Game::save_options();}
 
     if (is_key_down(SDLK_RIGHTBRACKET))
     {

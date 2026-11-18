@@ -64,7 +64,7 @@ and removal, and return-to-title/restart. It checks GL errors and writes BMP fra
 The cave regression scene also checks the bedrock floor and torch geometry.
 `client_movement_tests` checks falls, jumps, walls, ceilings, high-speed collision,
 torch bounds, axis-aligned block selection and the 4.5-block reach limit.
-It exits after 105 frames and requires a real OpenGL context.
+It exits after 112 frames and requires a real OpenGL context.
 
 ## PrismLauncher resource source
 
@@ -89,3 +89,28 @@ Oak shapes follow the small-oak generator; candidate density and terrain remain
 this project's generator, so seeds do not reproduce vanilla worlds.
 The imported player skin is Steve (64x64), with classic four-pixel arms,
 ModelBox UV layout and the outer skin layers. The bundled fallback is custom art.
+
+## Settings and expanded block inventory
+
+Options is available from the title screen and pause menu. Click a setting or
+select it with Up/Down and use Left/Right or Enter. Escape/Done returns to the
+previous menu; returning from in-game settings keeps the game paused.
+FOV, sensitivity, render distance (2-8 chunks), VSync, ambient occlusion,
+fullscreen and mouse Y inversion apply immediately and persist. Windows stores
+preferences in SDL's C-mine application-data folder; Switch uses
+`sdmc:/switch/C-mine/options.txt`. F11 and F6 update the same preferences.
+
+I opens the block inventory. Mouse hover shows a block name; click to copy it to
+the selected hotbar slot. Arrow keys and Enter also work; on Switch use D-pad/A.
+There are 45 selectable blocks including sand, glowstone, cobblestone, gravel,
+bricks, stone bricks, mossy cobblestone, obsidian, netherrack, soul sand, end stone,
+seven ores, six mineral blocks, snow, sandstone, nether bricks, quartz, three wool
+colors, spruce/birch planks, clay, bookshelf and prismarine bricks.
+Sand and gravel are currently static building blocks; ores do not drop items,
+and soul sand does not yet alter movement speed. Glowstone emits block light.
+
+`include/extra_blocks.def` is shared by the block registry and the texture importer.
+Local packages import each face from the user's 1.12.2 JAR; the repository contains
+custom fallback tiles for builds without the resource pack. The extended smoke
+test covers settings navigation/persistence, all block mesh/place/remove paths,
+glowstone light and keyboard/controller-style inventory selection.

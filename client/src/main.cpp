@@ -1,5 +1,6 @@
 #include <global.h>
 #include <game.h>
+#include <settings.h>
 #ifdef __SWITCH__
 #include <switch.h>
 #include <unistd.h>
@@ -93,6 +94,7 @@ int main(int argc, char** argv)
     SDL_GL_SetSwapInterval(1);
     glViewport(0, 0, win_size.x, win_size.y);
 
+    if(smoke_test){Settings::storage_override="smoke-options.txt";Settings::save(Settings::storage_override,Settings::Options{});}
     Game::init();
     if (smoke_test) {
         mouse_control = false;
@@ -195,6 +197,39 @@ int main(int argc, char** argv)
                 Game::title();Game::start();Game::update();
                 if(!world->spawned) return 6;
                 SDL_Log("Smoke test passed: mouse wheel wrapping, title, pause, Steve, trees, restart, spawn, block edits, bedrock and torch, no GL errors");
+                Game::pause();Game::open_options();paused_position=player->pos;paused_chunks=world->chunk_vector.size();
+            }
+            if(frame>105 && frame<=108 && (player->pos!=paused_position || world->chunk_vector.size()!=paused_chunks))return 12;
+            if(frame==106) {save_frame("smoke-options.bmp");keys[SDLK_RIGHT&~0x40000000]=Input::DOWN;Game::update();}
+            if(frame==107 && (Settings::options.fov!=90 || player->cam.fov!=90))return 13;
+            if(frame==108) {Settings::Options loaded;if(!Settings::load(Settings::storage_override,loaded) || !(loaded==Settings::options))return 14;Game::close_options();}
+            if(frame==109) {if(Game::screen!=Game::Screen::Paused)return 15;Game::resume();}
+            if(frame==110){
+                Chunk* c=world->get_chunk_from_pos(player->pos);
+                // Every registered inventory block must build, place, and remove safely.
+                for(int id=1;id<BLOCK_COUNT;++id){
+                    if(id==WATER || id==BEDROCK)continue;
+                    if(get_block_by_id(id)==get_block_by_id(AIR))return 16;
+                    BlockState block{char(id),0,0};ivec3 p(8,240,8);
+                    if(!world->place_block(c,p,&block))return 17;
+                    if(id==GLOWSTONE && c->get_block_light(ivec3(9,240,8))<14)return 18;
+                    world->remove_block(c,p);if(c->get(p)->id!=AIR)return 19;
+                }
+                show_inventory=true;
+            }
+            if(frame==111){
+                player->inventory.selected=0;player->inventory.keyboard_navigation=true;
+                keys[SDLK_RIGHT&~0x40000000]=Input::DOWN;Game::update();
+                save_frame("smoke-blocks.bmp");
+            }
+            if(frame==112){
+                if(player->inventory.selected!=1)return 20;
+                keys[SDLK_RETURN&~0x40000000]=Input::DOWN;Game::update();
+                if(player->hotbar.get_item()!=DIRT)return 21;
+                Game::title();Game::open_options();Game::draw();save_frame("smoke-options-title.bmp");
+                keys[SDLK_ESCAPE&~0x40000000]=Input::DOWN;Game::update();
+                if(Game::screen!=Game::Screen::Title || world!=nullptr)return 22;
+                SDL_Log("Settings save/reload, options pause freeze, camera FOV, all inventory blocks and glowstone lighting passed");
                 closed=true;
             }
         }

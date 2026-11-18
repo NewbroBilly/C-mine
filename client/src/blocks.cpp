@@ -69,7 +69,7 @@ vec2 uv_offsets[4] =
     vec2(0.0f, 0.0f)
 };
 
-Block* blocks[20];
+Block* blocks[BLOCK_COUNT];
 
 /*bool add_block_light(Chunk* chunk, ivec3& pos, int& sky_sum, int& block_sum, int& n)
 {
@@ -580,6 +580,15 @@ struct Bedrock : public Stone {
     vec2 get_texture(Chunk*,const ivec3&,int) override { return vec2(4,1); }
 };
 
+struct CatalogBlock : public Block {
+    ivec2 side,top,bottom;
+    CatalogBlock(ivec2 s,ivec2 t,ivec2 b,int emission):side(s),top(t),bottom(b){
+        opacity=15;light=char(emission);icon=Sprite(vec2(0),vec2(16),vec2(s.x*16,(s.y+1)*16),&texture_atlas);
+    }
+    vec2 get_texture(Chunk*,const ivec3&,int face) override {return face==TOP_FACE?top:(face==BOTTOM_FACE?bottom:side);}
+    void build(Chunk* c,const ivec3& p,std::vector<Vertex>& v,std::vector<int>& i,int& n) override {build_cube(this,c,p,v,i,n);}
+};
+
 void blocks_init()
 {
     blocks[AIR] = new Air();
@@ -593,9 +602,27 @@ void blocks_init()
     blocks[TORCH] = new Torch();
     blocks[PLANKS] = new Planks();
     blocks[BEDROCK] = new Bedrock();
+#define BASE_BLOCK(id,label,sx,sy,sname,tx,ty,tname,bx,by,bname,emission) blocks[id]=new CatalogBlock(ivec2(sx,sy),ivec2(tx,ty),ivec2(bx,by),emission);
+#define EXTRA_BLOCK BASE_BLOCK
+#include <extra_blocks.def>
+#undef EXTRA_BLOCK
+#undef BASE_BLOCK
 }
 
 Block* get_block_by_id(int id)
 {
-    return blocks[id];
+    return id>=0 && id<BLOCK_COUNT && blocks[id]?blocks[id]:blocks[AIR];
+}
+const char* block_name(int id){
+    switch(id){
+    case AIR:return "Air";case STONE:return "Stone";case DIRT:return "Dirt";case GRASS_BLOCK:return "Grass Block";
+    case LOG:return "Oak Log";case LEAVES:return "Oak Leaves";case GLASS:return "Glass";case GRASS:return "Grass";
+    case TORCH:return "Torch";case PLANKS:return "Oak Planks";case BEDROCK:return "Bedrock";
+#define BASE_BLOCK(id,label,...) case id:return label;
+#define EXTRA_BLOCK BASE_BLOCK
+#include <extra_blocks.def>
+#undef EXTRA_BLOCK
+#undef BASE_BLOCK
+    default:return "";
+    }
 }

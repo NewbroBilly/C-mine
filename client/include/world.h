@@ -19,6 +19,7 @@ struct World
     std::queue<Chunk*> dirty_chunks;
 
     ivec2 old_p;
+    int old_distance=-1;
     bool spawned = false;
 
     World();

@@ -1,6 +1,7 @@
 #include <player.h>
 #include <movement.h>
 #include <avatar.h>
+#include <settings.h>
 
 Player::Player(const dvec3& _pos)
 {
@@ -9,21 +10,17 @@ Player::Player(const dvec3& _pos)
 
     grounded = false;
 
-    cam = Camera(vec3(0, 1.62, 0), 80, win_size.x / (float)win_size.y, 0.1f, 1000.0f);
+    cam = Camera(vec3(0, 1.62, 0), Settings::options.fov, win_size.x / (float)win_size.y, 0.1f, 1000.0f);
 
     hitbox = Hitbox(dvec3(-0.3, 0, -0.3), dvec3(0.6, 1.8, 0.6));
 
     hit_info.hit = false;
 
-    inventory.set_item(0, 0, STONE);
-    inventory.set_item(0, 1, DIRT);
-    inventory.set_item(0, 2, GRASS_BLOCK);
-    inventory.set_item(0, 3, GRASS);
-    inventory.set_item(0, 4, LEAVES);
-    inventory.set_item(0, 5, LOG);
-    inventory.set_item(0, 6, PLANKS);
-    inventory.set_item(0, 7, GLASS);
-    inventory.set_item(0, 8, TORCH);
+    int slot=0;
+    for(int id=1;id<BLOCK_COUNT && slot<54;++id){
+        if(id==WATER || id==BEDROCK)continue;
+        inventory.set_item(slot/9,slot%9,id);++slot;
+    }
     int items[] = {STONE, DIRT, GRASS_BLOCK, GRASS, LEAVES, LOG, PLANKS, GLASS, TORCH};
     for (int i=0;i<9;++i) hotbar.set_item(i, items[i]);
 }
@@ -142,9 +139,9 @@ void Player::move()
     vec3 right = normalize(cross(cam.up, cam.forward));
     if (mouse_control && !show_inventory) {
         int x,y; SDL_GetRelativeMouseState(&x,&y);
-        vec3 f = rotate(cam.forward, radians(.07f*y), right);
+        vec3 f = rotate(cam.forward, radians(.07f*y*(Settings::options.invert_y?-1:1)*Settings::options.sensitivity/100.f), right);
         if (dot(right,cross(cam.up,f)) > .01f) cam.forward = f;
-        cam.forward = rotate(cam.forward, radians(.07f*x), cam.up);
+        cam.forward = rotate(cam.forward, radians(.07f*x*Settings::options.sensitivity/100.f), cam.up);
     }
     vec3 input = show_inventory ? vec3(0) : get_input();
     double dt = std::min(delta_time,.05);
@@ -251,5 +248,6 @@ void Player::destroy()
     hotbar.s_selector.destroy();
     inventory.s_inventory.destroy();
     inventory.s_highlight.destroy();
+    inventory.tooltip.destroy();
     delete this;
 }

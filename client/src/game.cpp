@@ -3,6 +3,7 @@
 #include <keys.h>
 #include <menu.h>
 #include <avatar.h>
+#include <settings.h>
 
 SDL_Window* win;
 uvec2 win_size = uvec2(800, 600);
@@ -38,8 +39,11 @@ Sprite crosshair;
 
 int global_light = 15;
 
+static std::string options_path();
+
 void Game::init()
 {
+    Settings::load(options_path(),Settings::options);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
@@ -88,6 +92,7 @@ void Game::init()
     gui_shader.upload_int("win_width", win_size.x);
     gui_shader.upload_int("win_height", win_size.y);
 
+    apply_options();
     blocks_init();
 
     Menu::init();
@@ -106,6 +111,34 @@ static void capture(bool value) {
     SDL_GetRelativeMouseState(nullptr, nullptr);
     Menu::reset();
 }
+static std::string options_path(){
+    if(!Settings::storage_override.empty())return Settings::storage_override;
+#ifdef __SWITCH__
+    return "sdmc:/switch/C-mine/options.txt";
+#else
+    char* path=SDL_GetPrefPath("C-mine","C-mine");
+    std::string result=path?std::string(path)+"options.txt":"options.txt";
+    if(path)SDL_free(path);return result;
+#endif
+}
+void Game::save_options(){if(!Settings::save(options_path(),Settings::options))SDL_Log("Could not save options");}
+void Game::apply_options(){
+    auto& o=Settings::options;Settings::validate(o);show_ao=o.ao;
+#ifndef __SWITCH__
+    if(is_fullscreen!=o.fullscreen){
+        if(SDL_SetWindowFullscreen(win,o.fullscreen?SDL_WINDOW_FULLSCREEN_DESKTOP:0)==0)is_fullscreen=o.fullscreen;
+        else o.fullscreen=is_fullscreen;
+        if(!is_fullscreen)SDL_SetWindowSize(win,800,600);
+    }
+#endif
+    int w,h;SDL_GetWindowSize(win,&w,&h);win_size=uvec2(w,h);glViewport(0,0,w,h);
+    SDL_GL_SetSwapInterval(o.vsync?1:0);
+    if(player){player->cam.fov=player->cam.target_fov=float(o.fov);player->cam.aspect_ratio=w/float(h);}
+    font_shader.bind();font_shader.upload_int("win_width",w);font_shader.upload_int("win_height",h);
+    gui_shader.bind();gui_shader.upload_int("win_width",w);gui_shader.upload_int("win_height",h);
+}
+void Game::open_options(){screen=Screen::Options;capture(false);}
+void Game::close_options(){save_options();screen=world?Screen::Paused:Screen::Title;capture(false);}
 void Game::start() {
     player = new Player(dvec3(8.5,122,8.5));
     world = new World();
@@ -133,6 +166,7 @@ void Game::update()
 {
     if (is_key_down(SDLK_F11)) toggle_fullscreen();
     if (is_key_down(SDLK_ESCAPE)) {
+        if (screen == Screen::Options) { close_options(); return; }
         if (screen == Screen::Paused) { resume(); return; }
         if (screen == Screen::Playing) {
             if (show_inventory) { show_inventory = false; capture(true); }
@@ -141,10 +175,23 @@ void Game::update()
         }
     }
     if (screen != Screen::Playing) {
-        int button = Menu::update(screen == Screen::Paused);
-        if (button == 0) { if (screen == Screen::Title) start(); else resume(); }
-        else if (button == 1) { if (screen == Screen::Paused) title(); else closed = true; }
-        else if (button == 2) closed = true;
+        const bool options=screen==Screen::Options;
+        int button = Menu::update(world!=nullptr);
+        if(options){
+            if(button==7)close_options();
+            else if(button>=0){
+                auto& o=Settings::options;int direction=is_key_down(SDLK_LEFT)?-1:1;
+                if(button==0)o.fov=o.fov+direction*10<50?110:(o.fov+direction*10>110?50:o.fov+direction*10);
+                if(button==1)o.sensitivity=o.sensitivity+direction*10<10?200:(o.sensitivity+direction*10>200?10:o.sensitivity+direction*10);
+                if(button==2)o.distance=o.distance+direction*2<2?8:(o.distance+direction*2>8?2:o.distance+direction*2);
+                if(button==3)o.vsync=!o.vsync;if(button==4)o.ao=!o.ao;
+                if(button==5)o.fullscreen=!o.fullscreen;if(button==6)o.invert_y=!o.invert_y;
+                apply_options();save_options();
+            }
+        }else if(button==0){if(screen==Screen::Title)start();else resume();}
+        else if(button==1)open_options();
+        else if(button==2){if(screen==Screen::Paused)title();else closed=true;}
+        else if(button==3)closed=true;
         return;
     }
     handle_misc_keys();
@@ -211,7 +258,7 @@ void Game::draw()
     glClearColor(sky_color.x, sky_color.y, sky_color.z, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    if (screen == Screen::Title) { Menu::draw(false); return; }
+    if (!world) { Menu::draw(false); return; }
     world->draw();
     player->draw();
 
@@ -232,7 +279,7 @@ void Game::draw()
 
     if (show_debug)
         debug_text.draw();
-    if (screen == Screen::Paused) Menu::draw(true);
+    if (screen == Screen::Paused || screen == Screen::Options) Menu::draw(true);
 }
 
 void Game::destroy()

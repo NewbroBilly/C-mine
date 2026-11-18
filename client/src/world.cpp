@@ -1,8 +1,9 @@
 #include <world.h>
 #include <limits>
+#include <settings.h>
 
 // World data and GL objects belong to the main thread. Generate nearest first.
-constexpr int render_distance = 4;
+
 World::World() : old_p(std::numeric_limits<int>::max()) {}
 
 Chunk* World::get_chunk_from_pos(const vec3 pos) {
@@ -38,7 +39,9 @@ void World::rebuild_dirty() {
 }
 void World::update() {
     const ivec2 center = world_pos_to_chunk(player->pos);
-    if (center != old_p) {
+    const int render_distance=Settings::options.distance;
+    if (center != old_p || old_distance!=render_distance) {
+        old_distance=render_distance;
         old_p = center;
         load_q = {};
         for (auto it = chunk_vector.begin(); it != chunk_vector.end();) {

@@ -24,7 +24,13 @@ enum BlockID
     GRASS,
     TORCH,
     PLANKS,
-    BEDROCK
+    BEDROCK,
+#define BASE_BLOCK(...)
+#define EXTRA_BLOCK(id, ...) id,
+#include <extra_blocks.def>
+#undef BASE_BLOCK
+#undef EXTRA_BLOCK
+    BLOCK_COUNT
 };
 
 struct Chunk;
@@ -43,6 +49,7 @@ struct Block
 extern Block* blocks[];
 extern ivec3 face_normal[];
 
+const char* block_name(int id);
 void blocks_init();
 
 Block* get_block_by_id(int id);

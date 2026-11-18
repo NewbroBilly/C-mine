@@ -12,8 +12,12 @@
 
 namespace Game
 {
-    enum class Screen { Title, Playing, Paused };
+    enum class Screen { Title, Playing, Paused, Options };
     extern Screen screen;
+    void open_options();
+    void close_options();
+    void apply_options();
+    void save_options();
     void start();
     void pause();
     void resume();

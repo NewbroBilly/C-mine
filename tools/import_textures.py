@@ -4,6 +4,8 @@ Usage: python tools/import_textures.py CLIENT.jar --output GAME/resource_pack
 Requires Pillow. No downloads and no modifications to the source archive.
 """
 import argparse
+import csv
+import re
 import io
 from pathlib import Path
 import zipfile
@@ -30,6 +32,13 @@ def build_atlas(archive):
         (8, 0): "leaves_oak", (10, 0): "glass", (0, 1): "tallgrass",
         (1, 1): "torch_on", (6, 1): "planks_oak", (4, 1): "bedrock",
     }
+    catalog = Path(__file__).resolve().parents[1] / "client/include/extra_blocks.def"
+    for line in catalog.read_text().splitlines():
+        match = re.match(r"(?:EXTRA|BASE)_BLOCK\((.*)\)", line)
+        if match:
+            fields = next(csv.reader([match[1]], skipinitialspace=True))
+            for offset in (2, 5, 8):
+                mapping[(int(fields[offset]), int(fields[offset+1]))] = fields[offset+2]
     grass = (145, 189, 89)
     for (x, y), name in mapping.items():
         image = tile(name)
