@@ -28,7 +28,7 @@ def build_atlas(archive):
         (0, 0): "stone", (1, 0): "dirt", (2, 0): "grass_side",
         (3, 0): "grass_top", (6, 0): "log_oak", (7, 0): "log_oak_top",
         (8, 0): "leaves_oak", (10, 0): "glass", (0, 1): "tallgrass",
-        (1, 1): "torch_on", (6, 1): "planks_oak",
+        (1, 1): "torch_on", (6, 1): "planks_oak", (4, 1): "bedrock",
     }
     grass = (145, 189, 89)
     for (x, y), name in mapping.items():
@@ -42,6 +42,7 @@ def build_atlas(archive):
         elif name == "torch_on":
             image = image.crop((7, 6, 9, 16)).resize((16, 16), Image.Resampling.NEAREST)
         atlas.paste(image, (x * 16, y * 16))
+    atlas.paste(tile("torch_on"), (48, 16))
     torch_top = tile("torch_on").crop((7, 6, 9, 8)).resize((16, 16), Image.Resampling.NEAREST)
     atlas.paste(torch_top, (32, 16))
     return atlas

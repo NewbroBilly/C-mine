@@ -132,6 +132,10 @@ void Chunk::load()
             }
         }
 
+    // Caves must never open into the void at the bottom of the world.
+    for (int x=0;x<CHUNK_WIDTH;++x)
+        for (int z=0;z<CHUNK_WIDTH;++z) blocks[x][0][z].id = BEDROCK;
+
     dirty = true;
     can_draw = true;
 }

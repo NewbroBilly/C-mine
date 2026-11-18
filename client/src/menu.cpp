@@ -84,4 +84,3 @@ void Menu::destroy() {
     for(auto& entry:labels) entry.second.destroy(); labels.clear();
     glDeleteTextures(1,&cube);glDeleteVertexArrays(1,&vao);flat.destroy();panorama.destroy();
 }
-

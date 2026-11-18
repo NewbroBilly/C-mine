@@ -1,97 +1,23 @@
 #include <raycast.h>
-
-// http://gamedev.stackexchange.com/questions/47362/cast-ray-to-select-block-in-voxel-game#comment160436_49423
-
-float intbound(float s, float ds)
-{
-    if (ds < 0 && roundf(s) == s)
-        return 0;
-
-    if (ds > 0)
-        return (ceilf(s) - s) / fabsf(ds);
-
-    return (s - floorf(s)) / fabsf(ds);
-}
-
-vec3 vec3_intbound(const vec3& pos, const vec3& dir)
-{
-    return vec3(intbound(pos.x, dir.x), intbound(pos.y, dir.y), intbound(pos.z, dir.z));
-}
-
-HitInfo raycast(const vec3& origin, const vec3& dir, float max_distance, Chunk* chunk)
-{
-    HitInfo ret;
-    ret.hit = false;
-
-    if (chunk == NULL)
-        return ret;
-
-    vec3 rel_origin = origin - chunk_pos_to_world(chunk->pos);
-    ivec3 pos = ivec3(rel_origin.x, floorf(rel_origin.y), rel_origin.z);
-    ivec3 step = sign(dir);
-
-    vec3 t = vec3_intbound(rel_origin, dir);
-    vec3 t_unit = (vec3)step / dir;
-
-    float distance = 0.0f;
-    ivec3 face;
-
-    while (distance < max_distance)
-    {
-        if (t.x < t.y)
-        {
-            if (t.x < t.z)
-            {
-                pos.x += step.x;
-                distance = t.x;
-                t.x += t_unit.x;
-                face = ivec3(-step.x, 0, 0);
-            }
-            else
-            {
-                pos.z += step.z;
-                distance = t.z;
-                t.z += t_unit.z;
-                face = ivec3(0, 0, -step.z);
-            }
-        }
-        else
-        {
-            if (t.y < t.z)
-            {
-                pos.y += step.y;
-                distance = t.y;
-                t.y += t_unit.y;
-                face = ivec3(0, -step.y, 0);
-            }
-            else
-            {
-                pos.z += step.z;
-                distance = t.z;
-                t.z += t_unit.z;
-                face = ivec3(0, 0, -step.z);
-            }
-        }
-
-        if (pos.y >= 0 && pos.y < CHUNK_HEIGHT)
-        {
-            chunk = get_neighbor_chunk(chunk, pos);
-
-            if (chunk == NULL)
-                return ret;
-
-            if (chunk->get(pos)->id != BlockID::AIR)
-            {
-                ret.hit = true;
-                ret.chunk = chunk;
-                ret.block_pos = pos;
-                ret.face_normal = face;
-                ret.hit_point = origin + distance * dir;
-
-                return ret;
-            }
-        }
+#include <voxel_trace.h>
+HitInfo raycast(const vec3& origin,const vec3& dir,float max_distance,Chunk* chunk) {
+    HitInfo result{};
+    if(!chunk) return result;
+    Chunk* current=chunk;
+    ivec3 local(0);
+    bool unloaded=false;
+    auto hit=trace_voxels(origin,dir,max_distance,[&](ivec3 cell) {
+        if(cell.y<0 || cell.y>=CHUNK_HEIGHT) return false;
+        local=cell-ivec3(chunk_pos_to_world(current->pos));
+        Chunk* next=get_neighbor_chunk(current,local);
+        if(!next) { unloaded=true;return true; }
+        current=next;
+        return current->get(local)->id!=BlockID::AIR;
+    });
+    if(hit.hit && !unloaded) {
+        result.hit=true;result.chunk=current;result.block_pos=local;
+        result.face_normal=hit.normal;
+        result.hit_point=origin+normalize(dir)*hit.distance;
     }
-
-    return ret;
+    return result;
 }

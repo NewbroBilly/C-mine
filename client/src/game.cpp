@@ -50,10 +50,15 @@ void Game::init()
     font_shader = Shader("shaders/font_vert.glsl", "shaders/font_frag.glsl");
     gui_shader = Shader("shaders/gui_vert.glsl", "shaders/gui_frag.glsl");
 
-    const bool custom_pack = std::filesystem::exists("resource_pack/texture_atlas.png") &&
-                             std::filesystem::exists("resource_pack/texture_atlas_mipmap.png");
-    texture_atlas = Texture(custom_pack ? "resource_pack/texture_atlas.png" : "textures/texture_atlas.png", 0);
-    texture_atlas.use_mipmap(custom_pack ? "resource_pack/texture_atlas_mipmap.png" : "textures/texture_atlas_mipmap.png", 1);
+    std::string pack = "resource_pack/";
+#ifdef __SWITCH__
+    if (std::filesystem::exists("sdmc:/switch/C-mine/resource_pack/texture_atlas.png"))
+        pack = "sdmc:/switch/C-mine/resource_pack/";
+#endif
+    const bool custom_pack = std::filesystem::exists(pack+"texture_atlas.png") &&
+                             std::filesystem::exists(pack+"texture_atlas_mipmap.png");
+    texture_atlas = Texture(custom_pack ? (pack+"texture_atlas.png").c_str() : "textures/texture_atlas.png", 0);
+    texture_atlas.use_mipmap(custom_pack ? (pack+"texture_atlas_mipmap.png").c_str() : "textures/texture_atlas_mipmap.png", 1);
     SDL_Log("Block textures: %s", custom_pack ? "imported resource pack" : "supplied atlas");
 
     day_lightmap = Texture("textures/day_lightmap.png", 1);

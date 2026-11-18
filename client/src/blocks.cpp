@@ -1,4 +1,5 @@
 #include <blocks.h>
+#include <block_geometry.h>
 
 #define RIGHT_FACE  0
 #define LEFT_FACE   1
@@ -166,8 +167,11 @@ bool face_is_visible(Chunk* chunk, const ivec3& pos, int face, int& light)
 
     Chunk* _chunk = get_neighbor_chunk(chunk, target_pos);
 
-    if (_chunk == NULL)
-        return false;
+    if (_chunk == NULL) {
+        // Expose the frontier until a neighbor is loaded; rebuild on arrival.
+        light = chunk->get_light(pos);
+        return true;
+    }
 
     light = _chunk->get_light(target_pos);
 
@@ -304,10 +308,7 @@ void build_torch(Block* block, Chunk* chunk, const ivec3& pos, std::vector<Verte
 
         for (int v = 0; v < 4; v++)
         {
-            vec3 offset = (vec3)vertex_offset[f][v] - (vec3)face_normal[f] * (7 / 16.0f);
-
-            if (f == TOP_FACE)
-                offset += vec3(0, 1 / 16.0f, 0);
+            vec3 offset = torch_corner(vec3(vertex_offset[f][v]));
 
             if (orientation != 0)
             {
@@ -537,7 +538,7 @@ struct Torch : public Block
     {
         opacity = 0;
         light = 14;
-        icon = Sprite(vec2(0, 0), vec2(16, 16), vec2(16, 2 * 16), &texture_atlas);
+        icon = Sprite(vec2(0, 0), vec2(16, 16), vec2(3 * 16, 2 * 16), &texture_atlas);
     }
 
     vec2 get_texture(Chunk* chunk, const ivec3& pos, int face)
@@ -574,6 +575,11 @@ struct Planks : public Block
     }
 };
 
+struct Bedrock : public Stone {
+    Bedrock() { icon.destroy(); icon = Sprite(vec2(0),vec2(16),vec2(4*16,2*16),&texture_atlas); }
+    vec2 get_texture(Chunk*,const ivec3&,int) override { return vec2(4,1); }
+};
+
 void blocks_init()
 {
     blocks[AIR] = new Air();
@@ -586,6 +592,7 @@ void blocks_init()
     blocks[GRASS] = new Grass();
     blocks[TORCH] = new Torch();
     blocks[PLANKS] = new Planks();
+    blocks[BEDROCK] = new Bedrock();
 }
 
 Block* get_block_by_id(int id)

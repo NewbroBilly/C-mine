@@ -219,6 +219,11 @@ void Player::draw()
 
         block_hitbox.pos = (dvec3)hit_info.block_pos + chunk_pos_to_world_hp(hit_info.chunk->pos) - (dvec3)cam.forward * 0.005;
         block_hitbox.size = dvec3(1);
+        if (hit_info.chunk->get(hit_info.block_pos)->id == TORCH &&
+            hit_info.chunk->get(hit_info.block_pos)->data1 == 0) {
+            block_hitbox.pos += dvec3(7./16,0,7./16);
+            block_hitbox.size = dvec3(2./16,10./16,2./16);
+        }
 
         block_hitbox.draw();
     }

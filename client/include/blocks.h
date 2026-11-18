@@ -23,7 +23,8 @@ enum BlockID
     GLASS,
     GRASS,
     TORCH,
-    PLANKS
+    PLANKS,
+    BEDROCK
 };
 
 struct Chunk;

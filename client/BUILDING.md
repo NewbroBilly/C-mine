@@ -61,5 +61,22 @@ mouse input; the default hotbar is available with L/R.
 `MineCppClone.exe --smoke-test` checks title rendering, surface spawn,
 pause freezing physics/chunk generation, third-person rendering, block placement
 and removal, and return-to-title/restart. It checks GL errors and writes BMP frames.
-`client_movement_tests` checks falls, jumps, walls, ceilings and high-speed collision.
-It exits after 92 frames and requires a real OpenGL context.
+The cave regression scene also checks the bedrock floor and torch geometry.
+`client_movement_tests` checks falls, jumps, walls, ceilings, high-speed collision,
+torch bounds, axis-aligned block selection and the 4.5-block reach limit.
+It exits after 105 frames and requires a real OpenGL context.
+
+## PrismLauncher resource source
+
+For an installed 1.12.2 instance, the vanilla resource JAR is usually in the shared
+`PrismLauncher/libraries/com/mojang/minecraft/1.12.2/minecraft-1.12.2-client.jar`,
+not inside the instance's `minecraft` folder. Pass that JAR to the importer above.
+Supported block textures, including bedrock, are imported; the torch icon and
+narrow shaft use separate atlas tiles. Existing saves/mods/resource packs in the
+instance are not modified.
+
+Switch can load imported atlases from `sdmc:/switch/C-mine/resource_pack/`.
+Copy the supplied `switch` folder from the local Switch ZIP onto the SD card root.
+The NRO has built-in fallback textures when that folder is absent.
+The lowest terrain layer is unbreakable bedrock, and unloaded chunk boundaries
+keep their exposed faces until the neighboring chunk arrives.

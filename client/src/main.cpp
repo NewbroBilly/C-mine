@@ -169,12 +169,26 @@ int main(int argc, char** argv)
             if (frame == 91) save_frame("smoke-after.bmp");
             if (frame == 92) {
                 if (!world->spawned || !edit_placed || edited_chunk->get(edited_pos)->id != AIR) return 4;
-                Game::title();
-                Game::start();
-                Game::update();
-                if (!world->spawned) return 6;
-                SDL_Log("Smoke test passed: title, pause freeze, avatar, restart, surface spawn, block placement/removal, no GL errors");
-                closed = true;
+                // Reproduce the screenshot at the world's lowest cave, with a torch.
+                Chunk* cave=world->get_chunk_from_pos(vec3(8,1,8));
+                for(int x=4;x<=12;++x) for(int z=4;z<=14;++z) {
+                    if(cave->get(ivec3(x,0,z))->id!=BEDROCK) return 7;
+                    for(int y=1;y<=5;++y) { BlockState bs{(char)((z==14 || x==4 || x==12 || y==5)?STONE:AIR),0,0};cave->set(ivec3(x,y,z),&bs); }
+                }
+                BlockState torch{TORCH,0,0};
+                world->place_block(cave,ivec3(8,1,11),&torch);
+                world->remove_block(cave,ivec3(8,0,8));
+                if(cave->get(ivec3(8,0,8))->id!=BEDROCK) return 8;
+                player->pos=dvec3(8.5,1,8.5);player->vel=dvec3(0);
+                player->third_person=0;player->cam.forward=normalize(vec3(0,-.3f,1));
+            }
+            if(frame==100) save_frame("smoke-cave.bmp");
+            if(frame==105) {
+                if(player->pos.y<.9999 || !player->grounded) return 9;
+                Game::title();Game::start();Game::update();
+                if(!world->spawned) return 6;
+                SDL_Log("Smoke test passed: title, pause, avatar, restart, spawn, block edits, bedrock cave floor and torch, no GL errors");
+                closed=true;
             }
         }
 
