@@ -4,7 +4,7 @@
 
 Player::Player(const dvec3& _pos)
 {
-    pos = _pos;
+    pos = previous_position = _pos;
     vel = dvec3(0);
 
     grounded = false;
@@ -154,7 +154,7 @@ void Player::move()
         return;
     }
     dvec3 direction = dvec3(right)*double(input.x) + normalize(dvec3(cam.forward.x,0,cam.forward.z))*double(input.z);
-    if (length(direction)>0) direction = normalize(direction)*(is_key_pressed(SDLK_LSHIFT)?5.6:4.3);
+    if (length(direction)>1) direction = normalize(direction);
     auto solid = [](int x,int y,int z) {
         if (y<0) return true;
         if (y>=CHUNK_HEIGHT) return false;
@@ -164,16 +164,23 @@ void Player::move()
         int id = c->get(local)->id;
         return id != AIR && id != GRASS && id != TORCH;
     };
-    jump_pending |= !show_inventory && is_key_down(SDLK_SPACE);
+    const bool sneak=!show_inventory && is_key_pressed(SDLK_LSHIFT);
+    const bool sprint=!show_inventory && is_key_pressed(SDLK_LCTRL) && input.z>0 && !sneak;
+    const bool jump=!show_inventory && is_key_pressed(SDLK_SPACE);
     accumulator += dt;
-    Movement::State state{pos,vel,grounded};
-    while (accumulator >= 1./120.) {
-        Movement::tick(state,dvec2(direction.x,direction.z),jump_pending,1./120.,solid);
-        jump_pending = false;
-        accumulator -= 1./120.;
+    Movement::State state{pos,vel,grounded,jump_cooldown};
+    while (accumulator >= .05) {
+        previous_position=state.position;
+        Movement::tick(state,dvec2(direction.x,direction.z),jump,sprint,sneak,solid);
+        accumulator -= .05;
     }
-    pos = state.position; vel = state.velocity; grounded = state.grounded;
-    walk_phase += length(dvec2(vel.x,vel.z))*dt*3.5;
+    pos = state.position; vel = state.velocity; grounded = state.grounded;jump_cooldown=state.jump_cooldown;
+    walk_phase += length(dvec2(vel.x,vel.z))*dt*4.0;
+}
+
+dvec3 Player::render_position() const {
+    if(!survival_mode || length(pos-previous_position)>3.)return pos;
+    return mix(previous_position,pos,clamp(accumulator/.05,0.,1.));
 }
 
 Camera Player::view_camera() {
@@ -206,8 +213,8 @@ void Player::update()
 void Player::draw()
 {
     Camera view = view_camera();
-    mat4 cam_mat = view.matrix((vec3)pos);
-    if (third_person) Avatar::draw(pos,cam.forward,walk_phase,cam_mat);
+    mat4 cam_mat = view.matrix((vec3)render_position());
+    if (third_person) Avatar::draw(render_position(),cam.forward,walk_phase,cam_mat,float(length(dvec2(vel.x,vel.z))/5.6));
     line_shader.bind();
     line_shader.upload_mat4("cam_mat", cam_mat);
 

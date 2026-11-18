@@ -15,7 +15,7 @@ Hotbar::Hotbar()
 
 void Hotbar::set_index(int _index)
 {
-    index = _index;
+    index = ((_index % 9) + 9) % 9;
 
     s_selector.pos = s_hotbar.pos + vec2(-3, -3) + vec2(index * 3 * 20, 0);
 }

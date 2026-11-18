@@ -23,7 +23,9 @@ struct Player
     bool grounded;
     int third_person = 0;
     double accumulator = 0, walk_phase = 0;
-    bool jump_pending = false;
+    int jump_cooldown = 0;
+    dvec3 previous_position{0};
+    dvec3 render_position() const;
     Camera view_camera();
 
     Camera cam;

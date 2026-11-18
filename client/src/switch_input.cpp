@@ -33,8 +33,8 @@ void update_switch_input() {
     key(SDLK_a, move.x < -8000);
     key(SDLK_d, move.x > 8000);
     key(SDLK_SPACE, held & HidNpadButton_A);
-    key(SDLK_LCTRL, held & HidNpadButton_B);
-    key(SDLK_LSHIFT, held & HidNpadButton_StickL);
+    key(SDLK_LCTRL, held & HidNpadButton_StickL || (!survival_mode && (held & HidNpadButton_B)));
+    key(SDLK_LSHIFT, survival_mode && (held & HidNpadButton_B));
     key(SDLK_i, held & HidNpadButton_X);
     key(SDLK_TAB, held & HidNpadButton_Y);
 

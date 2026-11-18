@@ -19,8 +19,8 @@ resolved relative to the executable. Requires OpenGL 3.3.
 
 WASD moves; mouse looks; Space/Left Ctrl moves vertically in creative mode.
 Left click removes, right click places, middle click picks a block.
-1-9 selects the hotbar, I opens inventory, Tab toggles survival, F11 fullscreen.
-Gravity/collisions are enabled by default. Space jumps; Shift sprints.
+Mouse wheel or 1-9 selects the hotbar, I opens inventory, Tab toggles survival, F11 fullscreen.
+Gravity/collisions are enabled by default. Space jumps; Ctrl sprints while moving forward; Shift sneaks and protects ledges.
 Escape pauses/resumes (or closes inventory). Losing window focus also pauses.
 F5 cycles first person, third person behind, and third person front; F7 wireframe.
 The title menu uses the six panorama faces supplied in Original-Panorama-old.zip;
@@ -51,7 +51,7 @@ The GitHub workflow also builds this target. Hardware behavior requires a Switch
 test; successful cross-compilation alone does not confirm it.
 
 Left stick moves; right stick looks; A jumps/ascends; B descends; click left stick
-to sprint; X opens inventory; Y toggles survival; L/R changes hotbar slot;
+to sprint; B sneaks in survival/descends in creative; X opens inventory; Y toggles survival; L/R changes hotbar slot;
 ZR removes; ZL places; Plus pauses/resumes; right-stick click changes camera.
 Menus: D-pad Up/Down selects, A confirms. Inventory selection currently needs touch or
 mouse input; the default hotbar is available with L/R.
@@ -80,3 +80,12 @@ Copy the supplied `switch` folder from the local Switch ZIP onto the SD card roo
 The NRO has built-in fallback textures when that folder is absent.
 The lowest terrain layer is unbreakable bedrock, and unloaded chunk boundaries
 keep their exposed faces until the neighboring chunk arrives.
+
+## 1.12.2 behavior references
+
+See VANILLA-REFERENCE.md for the inspected vanilla classes and implemented scope.
+Land/air movement advances at 20 Hz and rendering interpolates between ticks.
+Oak shapes follow the small-oak generator; candidate density and terrain remain
+this project's generator, so seeds do not reproduce vanilla worlds.
+The imported player skin is Steve (64x64), with classic four-pixel arms,
+ModelBox UV layout and the outer skin layers. The bundled fallback is custom art.

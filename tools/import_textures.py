@@ -55,7 +55,9 @@ def main():
     args = parser.parse_args()
     with zipfile.ZipFile(args.archive) as archive:
         atlas = build_atlas(archive)
+        skin = archive.read("assets/minecraft/textures/entity/steve.png")
     args.output.mkdir(parents=True, exist_ok=True)
+    (args.output / "player.png").write_bytes(skin)
     atlas.save(args.output / "texture_atlas.png")
     atlas.resize((256, 256), Image.Resampling.BOX).save(args.output / "texture_atlas_mipmap.png")
     print(f"Imported 1.12.2 block textures into {args.output}")

@@ -67,8 +67,10 @@ void World::update() {
             for (int y = CHUNK_HEIGHT - 1; y >= 0; --y) {
                 if (chunk->get(ivec3(local.x, y, local.z))->id == AIR) continue;
                 if (y <= CHUNK_HEIGHT - 3 &&
-                    get_block_by_id(chunk->get(ivec3(local.x, y, local.z))->id)->opacity > 0) {
+                    (get_block_by_id(chunk->get(ivec3(local.x, y, local.z))->id)->opacity > 0 ||
+                     chunk->get(ivec3(local.x, y, local.z))->id == LEAVES)) {
                     player->pos.y = y + 1.0;
+                    player->previous_position = player->pos;
                     player->vel = dvec3(0);
                     player->grounded = true;
                     spawned = true;
@@ -103,11 +105,11 @@ void World::update2() {
 }
 void World::draw() {
     Camera view = player->view_camera();
-    const mat4 cam_mat = view.matrix(player->pos);
+    const mat4 cam_mat = view.matrix(player->render_position());
     texture_atlas.bind();
     block_shader.bind();
     block_shader.upload_mat4("cam_mat", cam_mat);
-    block_shader.upload_vec3("eye_pos", view.pos + (vec3)player->pos);
+    block_shader.upload_vec3("eye_pos", view.pos + (vec3)player->render_position());
     block_shader.upload_int("global_light", global_light);
     block_shader.upload_int("show_ao", (int)show_ao);
     for (Chunk* chunk : chunk_vector) chunk->draw();

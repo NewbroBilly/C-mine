@@ -1,4 +1,5 @@
 #include <chunk.h>
+#include <oak_tree.h>
 
 Chunk::Chunk(const ivec2& _pos)
 {
@@ -85,52 +86,35 @@ void Chunk::load()
     SimplexNoise noise;
     vec3 world_pos = chunk_pos_to_world(pos);
 
-    for (int x = 0; x < CHUNK_WIDTH; x++)
-        for (int z = 0; z < CHUNK_WIDTH; z++)
-        {
-            vec3 p = (vec3(x, 0, z) + world_pos) * 0.002f;
-
-            int n = noise.fractal(6, p.x, p.z) * 40 + 120;
-
-            for (int y = 0; y < CHUNK_HEIGHT; y++)
-            {
-                if (y < n)
-                {
-                    vec3 p2 = (vec3(x, y, z) + world_pos) * 0.01f;
-
-                    float f = noise.fractal(3, p2.x, p2.y, p2.z);
-
-                    if (f < 0.3f)
-                    {
-                        if (y == n - 1)
-                            blocks[x][y][z].id = BlockID::GRASS_BLOCK;
-                        else
-                            blocks[x][y][z].id = BlockID::STONE;
-
-                        /*if (y < n - 2)
-                            blocks[x][y][z].id = BlockID::STONE;
-                        else if (y < n)
-                            blocks[x][y][z].id = BlockID::DIRT;
-                        else if (y < n + 1)
-                            blocks[x][y][z].id = BlockID::GRASS_BLOCK;
-                        else
-                        {
-                            blocks[x][y][z].id = BlockID::AIR;
-
-                            if (y - 1 >= 0 && blocks[x][y - 1][z].id == BlockID::GRASS_BLOCK)
-                            {
-                                if (random_int(1, 13) == 1)
-                                    blocks[x][y][z].id = BlockID::GRASS;
-                            }
-                        }*/
-                    }
-                    else
-                        blocks[x][y][z].id = BlockID::AIR;
-                }
-                else
-                    blocks[x][y][z].id = BlockID::AIR;
-            }
-        }
+    auto terrain=[&](int x,int y,int z)->int {
+        if(y<0 || y>=CHUNK_HEIGHT)return AIR;
+        if(y==0)return BEDROCK;
+        int height=int(noise.fractal(6,x*.002f,z*.002f)*40+120);
+        if(y>=height)return AIR;
+        if(noise.fractal(3,x*.01f,y*.01f,z*.01f)>=.3f)return AIR;
+        if(y==height-1)return GRASS_BLOCK;
+        return y>=height-4?DIRT:STONE;
+    };
+    for(int x=0;x<CHUNK_WIDTH;++x)for(int z=0;z<CHUNK_WIDTH;++z)
+        for(int y=0;y<CHUNK_HEIGHT;++y)blocks[x][y][z].id=terrain(int(world_pos.x)+x,y,int(world_pos.z)+z);
+    // Each nearby eight-block cell owns one candidate. Query base terrain in
+    // world coordinates and clip writes, so crowns continue across chunk seams.
+    for(int gx=pos.x*2-1;gx<=pos.x*2+2;++gx)for(int gz=pos.y*2-1;gz<=pos.y*2+2;++gz){
+        Trees::Random random(uint64_t(int64_t(gx))*341873128712ULL+uint64_t(int64_t(gz))*132897987541ULL+1122);
+        if(random.next(3)==0)continue;
+        int tx=gx*8+2+random.next(4),tz=gz*8+2+random.next(4);
+        int height=int(noise.fractal(6,tx*.002f,tz*.002f)*40+120);
+        auto get=[&](int x,int y,int z)->Trees::Cell {
+            switch(terrain(x,y,z)) {case AIR:return Trees::Air;case GRASS_BLOCK:return Trees::Grass;case DIRT:return Trees::Dirt;default:return Trees::Other;}
+        };
+        auto set=[&](int x,int y,int z,Trees::Cell cell){
+            int lx=x-int(world_pos.x),lz=z-int(world_pos.z);
+            if(!in_chunk(lx,y,lz))return;
+            int id=cell==Trees::Log?LOG:(cell==Trees::Leaves?LEAVES:DIRT);
+            blocks[lx][y][lz]={(char)id,(char)(id==LOG?1:0),0};
+        };
+        Trees::oak(tx,height,tz,random,get,set);
+    }
 
     // Caves must never open into the void at the bottom of the world.
     for (int x=0;x<CHUNK_WIDTH;++x)

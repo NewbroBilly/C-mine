@@ -26,7 +26,7 @@ add_custom_command(TARGET MineCppClone POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders" "$<TARGET_FILE_DIR:MineCppClone>/shaders")
 install(TARGETS MineCppClone RUNTIME DESTINATION .)
 install(DIRECTORY textures shaders DESTINATION .)
-install(FILES README.md ORIGIN.md ORIGIN-PANORAMA.md BUILDING.md DESTINATION .)
+install(FILES README.md ORIGIN.md ORIGIN-PANORAMA.md VANILLA-REFERENCE.md BUILDING.md DESTINATION .)
 
 if(MC_BUILD_TESTS)
     add_executable(client_movement_tests tests/movement_tests.cpp src/movement.cpp)

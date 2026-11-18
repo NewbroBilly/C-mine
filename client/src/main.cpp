@@ -32,6 +32,10 @@ void handle_events()
             if (index >= 0 && index < KEY_MAX)
                 keys[index] = Input::UP;
         }
+        else if(event.type==SDL_MOUSEWHEEL && Game::screen==Game::Screen::Playing && player && !show_inventory) {
+            int wheel=event.wheel.direction==SDL_MOUSEWHEEL_FLIPPED?-event.wheel.y:event.wheel.y;
+            if(wheel) player->hotbar.set_index(player->hotbar.get_index()-(wheel>0?1:-1));
+        }
         else if (event.type == SDL_MOUSEBUTTONDOWN)
         {
             int index = event.button.button - 1;
@@ -142,6 +146,9 @@ int main(int argc, char** argv)
                 player->pos.y += 5;
                 player->cam.forward = normalize(vec3(0, -0.65f, 1));
             }
+            if(frame==10 || frame==11){SDL_Event wheel{};wheel.type=SDL_MOUSEWHEEL;wheel.wheel.y=frame==10?1:-1;SDL_PushEvent(&wheel);}
+            if(frame==11 && player->hotbar.get_index()!=8)return 10;
+            if(frame==12 && player->hotbar.get_index()!=0)return 11;
             if (frame == 60) { Game::pause(); paused_position=player->pos; paused_chunks=world->chunk_vector.size(); }
             if (frame > 60 && frame < 64 && (player->pos!=paused_position || world->chunk_vector.size()!=paused_chunks)) return 5;
             if (frame == 64) Game::resume();
@@ -187,7 +194,7 @@ int main(int argc, char** argv)
                 if(player->pos.y<.9999 || !player->grounded) return 9;
                 Game::title();Game::start();Game::update();
                 if(!world->spawned) return 6;
-                SDL_Log("Smoke test passed: title, pause, avatar, restart, spawn, block edits, bedrock cave floor and torch, no GL errors");
+                SDL_Log("Smoke test passed: mouse wheel wrapping, title, pause, Steve, trees, restart, spawn, block edits, bedrock and torch, no GL errors");
                 closed=true;
             }
         }
