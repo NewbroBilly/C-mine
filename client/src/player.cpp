@@ -1,67 +1,6 @@
 #include <player.h>
-
-bool ray_vs_aabb(const dvec3& origin, const dvec3& dir, const Hitbox& box, double& t_hit_near, dvec3& normal)
-{
-    dvec3 t_near = (box.pos - origin) / dir;
-    dvec3 t_far = (box.pos + box.size - origin) / dir;
-
-    if (std::isnan(t_far.y) || std::isnan(t_far.x))     return false;
-    if (std::isnan(t_near.y) || std::isnan(t_near.x))   return false;
-    if (std::isnan(t_far.y) || std::isnan(t_far.z))     return false;
-    if (std::isnan(t_near.y) || std::isnan(t_near.z))   return false;
-    if (std::isnan(t_far.z) || std::isnan(t_far.x))     return false;
-    if (std::isnan(t_near.z) || std::isnan(t_near.x))   return false;
-
-    if (t_near.x > t_far.x) std::swap(t_near.x, t_far.x);
-    if (t_near.y > t_far.y) std::swap(t_near.y, t_far.y);
-    if (t_near.z > t_far.z) std::swap(t_near.z, t_far.z);
-
-    if (t_near.x > t_far.y || t_near.y > t_far.x
-        || t_near.y > t_far.z || t_near.z > t_far.y
-        || t_near.x > t_far.z || t_near.z > t_far.x)
-        return false;
-
-    t_hit_near = std::max(t_near.x, std::max(t_near.y, t_near.z));
-    double t_hit_far = std::min(t_far.x, std::min(t_far.y, t_far.z));
-
-    if (t_hit_far < 0)
-        return false;
-
-    if (t_hit_near > t_hit_far)
-        return false;
-
-    if (t_near.x > t_near.y)
-    {
-        if (t_near.x > t_near.z)
-            normal = dvec3(-sign(dir.x), 0, 0);
-        else
-            normal = dvec3(0, 0, -sign(dir.z));
-    }
-    else
-    {
-        if (t_near.y > t_near.z)
-            normal = dvec3(0, -sign(dir.y), 0);
-        else
-            normal = dvec3(0, 0, -sign(dir.z));
-    }
-
-    return true;
-}
-
-bool swept_aabb(const dvec3& vel, const Hitbox& box1, const Hitbox& box2, double& t, dvec3& normal, double dt)
-{
-    if (vel == dvec3(0))
-        return false;
-
-    Hitbox expanded;
-    expanded.pos = box2.pos - box1.size / 2.0;
-    expanded.size = box2.size + box1.size;
-
-    if (ray_vs_aabb(box1.pos + box1.size / 2.0, vel * dt, expanded, t, normal))
-        return t < 1.0;
-
-    return false;
-}
+#include <movement.h>
+#include <avatar.h>
 
 Player::Player(const dvec3& _pos)
 {
@@ -85,6 +24,8 @@ Player::Player(const dvec3& _pos)
     inventory.set_item(0, 6, PLANKS);
     inventory.set_item(0, 7, GLASS);
     inventory.set_item(0, 8, TORCH);
+    int items[] = {STONE, DIRT, GRASS_BLOCK, GRASS, LEAVES, LOG, PLANKS, GLASS, TORCH};
+    for (int i=0;i<9;++i) hotbar.set_item(i, items[i]);
 }
 
 vec3 get_input()
@@ -198,166 +139,60 @@ void Player::handle_clicks()
 
 void Player::move()
 {
-    if (show_inventory)
-        return;
-
     vec3 right = normalize(cross(cam.up, cam.forward));
-
-    if (mouse_control)
-    {
-        ivec2 mouse;
-        SDL_GetMouseState(&mouse.x, &mouse.y);
-
-        float sens = 0.07f;
-        SDL_GetRelativeMouseState(&mouse.x, &mouse.y);
-        float rot_x = sens * mouse.x;
-        float rot_y = sens * mouse.y;
-
-        vec3 new_forward = rotate(cam.forward, radians(rot_y), right);
-
-        if (dot(right, cross(cam.up, new_forward)) > 0)
-            cam.forward = new_forward;
-
-        cam.forward = rotate(cam.forward, radians(rot_x), cam.up);
+    if (mouse_control && !show_inventory) {
+        int x,y; SDL_GetRelativeMouseState(&x,&y);
+        vec3 f = rotate(cam.forward, radians(.07f*y), right);
+        if (dot(right,cross(cam.up,f)) > .01f) cam.forward = f;
+        cam.forward = rotate(cam.forward, radians(.07f*x), cam.up);
     }
-
-    vec3 input = get_input();
-
-    if (!survival_mode)
-    {
-        if (length(input) > 0)
-        {
-            dvec3 norm_input = normalize((dvec3)input);
-
-            double speed = is_key_pressed(SDLK_LSHIFT) ? 100 : 7;
-
-            pos += norm_input.x * (dvec3)right * speed * delta_time;
-            pos += norm_input.y * (dvec3)cam.up * speed * delta_time;
-            pos += norm_input.z * (dvec3)cam.forward * speed * delta_time;
-        }
+    vec3 input = show_inventory ? vec3(0) : get_input();
+    double dt = std::min(delta_time,.05);
+    if (!survival_mode) {
+        vel = dvec3(0);
+        if (length(input)>0) pos += dvec3(right*input.x + cam.up*input.y + cam.forward*input.z) * (is_key_pressed(SDLK_LSHIFT)?20.:7.) * dt;
+        return;
     }
-    else
-    {
-        double mass = 1;
-        dvec3 force = dvec3(0);
-
-        dvec3 input_xz(input.x, 0, input.z);
-        if (length(input_xz) > 0) input_xz = normalize(input_xz);
-
-        if (length(input_xz) > 0)
-        {
-            dvec3 forward = normalize(dvec3(cam.forward.x, 0, cam.forward.z));
-
-            double f = 70;
-
-            if (is_key_pressed(SDLK_LSHIFT))
-                f = 140;
-
-            force += (dvec3)right * input_xz.x * f;
-            force += forward * input_xz.z * f;
-        }
-
-        if (is_key_down(SDLK_SPACE) && grounded)
-        {
-            vel += dvec3(0, 1, 0) * 8.0;
-            grounded = false;
-        }
-
-        force += -vel * dvec3(20, 0, 20);
-        force += dvec3(0, -1, 0) * mass * 25.0;
-
-        dvec3 accel = force / mass;
-        vel += accel * delta_time;
-
-        Hitbox next_hitbox = hitbox;
-        next_hitbox.pos += vel * delta_time;
-
-        Hitbox bounds = get_bounds(hitbox, next_hitbox);
-        bounds.pos += pos;
-
-        Chunk* chunk = world->get_chunk_from_pos(bounds.pos);
-
-        if (chunk == NULL)
-        {
-            vel = dvec3(0);
-            return;
-        }
-
-        dvec3 bpc = bounds.pos - chunk_pos_to_world_hp(chunk->pos);
-
-        ivec3 start = bpc;
-        ivec3 end = bpc + bounds.size;
-
-        std::vector<Hitbox> collisions;
-
-        for (int x = start.x; x <= end.x; x++)
-            for (int y = start.y; y <= end.y; y++)
-                for (int z = start.z; z <= end.z; z++)
-                {
-                    if (y < 0 || y >= CHUNK_HEIGHT)
-                        continue;
-
-                    ivec3 p = ivec3(x, y, z);
-
-                    Chunk* _chunk = get_neighbor_chunk(chunk, p);
-
-                    if (_chunk == NULL)
-                        continue;
-
-                    if (_chunk->get(p)->id != AIR)
-                        collisions.push_back(Hitbox((dvec3)p + chunk_pos_to_world_hp(_chunk->pos) - pos, dvec3(1)));
-                }
-
-        double t;
-        dvec3 normal;
-
-        std::vector<std::pair<int, double>> order;
-
-        for (int i = 0; i < collisions.size(); i++)
-        {
-            if (swept_aabb(vel, hitbox, collisions[i], t, normal, delta_time))
-                order.push_back({ i, t });
-        }
-
-        std::sort(order.begin(), order.end(),
-            [](const std::pair<int, double>& a, const std::pair<int, double>& b)
-            {
-                return a.second < b.second;
-            });
-
-
-        for (int i = 0; i < order.size(); i++)
-        {
-            if (swept_aabb(vel, hitbox, collisions[order[i].first], t, normal, delta_time))
-            {
-                if (t >= 0)
-                {
-                    vel += -(vel * normal) * normal * (1 - t);
-                    //printf("t = %lf          %lf %lf %lf\n", t, collisions[order[i].first].pos.x, collisions[order[i].first].pos.y, collisions[order[i].first].pos.z);
-                }
-
-                if (normal == dvec3(1, 0, 0) || normal == dvec3(-1, 0, 0))
-                    vel.x = 0;
-
-                if (normal == dvec3(0, 1, 0))
-                {
-                    vel.y = 0;
-                    grounded = true;
-                }
-
-                if (normal == dvec3(0, -1, 0))
-                    vel.y = 0;
-
-                if (normal == dvec3(0, 0, 1) || normal == dvec3(0, 0, -1))
-                    vel.z = 0;
-
-                //if (t >= 0)
-                    //printf("vel = %lf %lf %lf\nnormal = %lf %lf %lf\n\n", vel.x, vel.y, vel.z, normal.x, normal.y, normal.z);
-            }
-        }
-
-        pos += vel * delta_time;
+    dvec3 direction = dvec3(right)*double(input.x) + normalize(dvec3(cam.forward.x,0,cam.forward.z))*double(input.z);
+    if (length(direction)>0) direction = normalize(direction)*(is_key_pressed(SDLK_LSHIFT)?5.6:4.3);
+    auto solid = [](int x,int y,int z) {
+        if (y<0) return true;
+        if (y>=CHUNK_HEIGHT) return false;
+        Chunk* c = world->get_chunk_from_pos(dvec3(x,y,z));
+        if (!c) return true;
+        ivec3 local = dvec3(x,y,z)-chunk_pos_to_world_hp(c->pos);
+        int id = c->get(local)->id;
+        return id != AIR && id != GRASS && id != TORCH;
+    };
+    jump_pending |= !show_inventory && is_key_down(SDLK_SPACE);
+    accumulator += dt;
+    Movement::State state{pos,vel,grounded};
+    while (accumulator >= 1./120.) {
+        Movement::tick(state,dvec2(direction.x,direction.z),jump_pending,1./120.,solid);
+        jump_pending = false;
+        accumulator -= 1./120.;
     }
+    pos = state.position; vel = state.velocity; grounded = state.grounded;
+    walk_phase += length(dvec2(vel.x,vel.z))*dt*3.5;
+}
+
+Camera Player::view_camera() {
+    Camera view = cam;
+    if (!third_person) return view;
+    vec3 offset = cam.forward * (third_person == 1 ? -3.5f : 3.5f);
+    float fraction = 0;
+    for (float t=.05f;t<=1.f;t+=.05f) {
+        dvec3 p = pos + dvec3(cam.pos + offset*t);
+        Chunk* c = world->get_chunk_from_pos(p);
+        if (!c || p.y<0 || p.y>=CHUNK_HEIGHT) break;
+        ivec3 local = floor(p)-chunk_pos_to_world_hp(c->pos);
+        int id=c->get(local)->id;
+        if (id!=AIR && id!=GRASS && id!=TORCH) break;
+        fraction=t;
+    }
+    view.pos += offset*fraction;
+    if (third_person==2) view.forward = -cam.forward;
+    return view;
 }
 
 void Player::update()
@@ -370,7 +205,9 @@ void Player::update()
 
 void Player::draw()
 {
-    mat4 cam_mat = cam.matrix((vec3)pos);
+    Camera view = view_camera();
+    mat4 cam_mat = view.matrix((vec3)pos);
+    if (third_person) Avatar::draw(pos,cam.forward,walk_phase,cam_mat);
     line_shader.bind();
     line_shader.upload_mat4("cam_mat", cam_mat);
 
@@ -398,5 +235,9 @@ void Player::draw()
 
 void Player::destroy()
 {
+    hotbar.s_hotbar.destroy();
+    hotbar.s_selector.destroy();
+    inventory.s_inventory.destroy();
+    inventory.s_highlight.destroy();
     delete this;
 }

@@ -20,6 +20,14 @@ void update_switch_input() {
         if (pressed && (state == Input::NONE || state == Input::UP)) state = Input::DOWN;
         if (!pressed && (state == Input::PRESSED || state == Input::DOWN)) state = Input::UP;
     };
+    key(SDLK_ESCAPE, held & HidNpadButton_Plus);
+    if (Game::screen != Game::Screen::Playing || !player) {
+        key(SDLK_UP, held & HidNpadButton_Up);
+        key(SDLK_DOWN, held & HidNpadButton_Down);
+        key(SDLK_RETURN, held & HidNpadButton_A);
+        return;
+    }
+    key(SDLK_F5, held & HidNpadButton_StickR);
     key(SDLK_w, move.y > 8000);
     key(SDLK_s, move.y < -8000);
     key(SDLK_a, move.x < -8000);
@@ -29,7 +37,7 @@ void update_switch_input() {
     key(SDLK_LSHIFT, held & HidNpadButton_StickL);
     key(SDLK_i, held & HidNpadButton_X);
     key(SDLK_TAB, held & HidNpadButton_Y);
-    if (down & HidNpadButton_Plus) closed = true;
+
     if (down & HidNpadButton_R) player->hotbar.set_index((player->hotbar.get_index() + 1) % 9);
     if (down & HidNpadButton_L) player->hotbar.set_index((player->hotbar.get_index() + 8) % 9);
     if (down & HidNpadButton_ZR) buttons[0] = Input::DOWN;

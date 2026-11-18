@@ -1,6 +1,8 @@
 #include <game.h>
 #include <vector>
 #include <keys.h>
+#include <menu.h>
+#include <avatar.h>
 
 SDL_Window* win;
 uvec2 win_size = uvec2(800, 600);
@@ -11,9 +13,9 @@ bool mouse_control = false;
 bool is_fullscreen = false;
 bool show_wireframe = false;
 bool show_ao = true;
-bool show_debug = true;
+bool show_debug = false;
 bool show_inventory = false;
-bool survival_mode = false;
+bool survival_mode = true;
 
 double delta_time;
 
@@ -83,19 +85,63 @@ void Game::init()
 
     blocks_init();
 
-    player = new Player(vec3(8.5, 122, 8.5));
-    world = new World();
-
+    Menu::init();
+    Avatar::init();
     debug_text = Text(ivec2((int)win_size.x / -2 + 6, (int)win_size.y / 2 - 6));
     crosshair = Sprite(vec2(-9 / 2 * 3 - 1, -9 / 2 * 3 - 2), vec2(9, 9), vec2(15 * 16 + 3, 3 + 9), &gui);
 
-#ifndef __SWITCH__
-    toggle_mouse_control();
-#endif
+}
+Game::Screen Game::screen = Game::Screen::Title;
+static void capture(bool value) {
+    mouse_control = value;
+    SDL_ShowCursor(!value);
+    SDL_SetRelativeMouseMode(value ? SDL_TRUE : SDL_FALSE);
+    std::fill(keys, keys + KEY_MAX, Input::NONE);
+    std::fill(buttons, buttons + BUTTON_MAX, Input::NONE);
+    SDL_GetRelativeMouseState(nullptr, nullptr);
+    Menu::reset();
+}
+void Game::start() {
+    player = new Player(dvec3(8.5,122,8.5));
+    world = new World();
+    survival_mode = true;
+    show_inventory = false;
+    screen = Screen::Playing;
+    capture(true);
+}
+void Game::pause() {
+    if (screen != Screen::Playing) return;
+    show_inventory = false;
+    screen = Screen::Paused;
+    capture(false);
+}
+void Game::resume() { screen = Screen::Playing; capture(true); }
+void Game::title() {
+    if (world) world->destroy();
+    if (player) player->destroy();
+    world = nullptr; player = nullptr;
+    screen = Screen::Title;
+    capture(false);
 }
 
 void Game::update()
 {
+    if (is_key_down(SDLK_F11)) toggle_fullscreen();
+    if (is_key_down(SDLK_ESCAPE)) {
+        if (screen == Screen::Paused) { resume(); return; }
+        if (screen == Screen::Playing) {
+            if (show_inventory) { show_inventory = false; capture(true); }
+            else pause();
+            return;
+        }
+    }
+    if (screen != Screen::Playing) {
+        int button = Menu::update(screen == Screen::Paused);
+        if (button == 0) { if (screen == Screen::Title) start(); else resume(); }
+        else if (button == 1) { if (screen == Screen::Paused) title(); else closed = true; }
+        else if (button == 2) closed = true;
+        return;
+    }
     handle_misc_keys();
 
     world->update();
@@ -160,6 +206,7 @@ void Game::draw()
     glClearColor(sky_color.x, sky_color.y, sky_color.z, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    if (screen == Screen::Title) { Menu::draw(false); return; }
     world->draw();
     player->draw();
 
@@ -180,12 +227,15 @@ void Game::draw()
 
     if (show_debug)
         debug_text.draw();
+    if (screen == Screen::Paused) Menu::draw(true);
 }
 
 void Game::destroy()
 {
-    world->destroy();
-    player->destroy();
+    if (world) world->destroy();
+    if (player) player->destroy();
+    Menu::destroy();
+    Avatar::destroy();
 
     debug_text.destroy();
     crosshair.destroy();
@@ -199,4 +249,5 @@ void Game::destroy()
     day_lightmap.destroy();
     night_lightmap.destroy();
     font.destroy();
+    gui.destroy();
 }

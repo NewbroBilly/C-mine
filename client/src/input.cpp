@@ -33,7 +33,7 @@ bool is_key_pressed(int keycode)
 {
     keycode &= ~0x40000000;
 
-    return keys[keycode] == Input::PRESSED;
+    return keys[keycode] == Input::PRESSED || keys[keycode] == Input::DOWN;
 }
 
 bool is_key_up(int keycode)

@@ -17,32 +17,33 @@ void handle_events()
             closed = true;
             break;
         }
+        else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) Game::pause();
         else if (event.type == SDL_KEYDOWN)
         {
             int index = event.key.keysym.sym & (~0x40000000);
 
-            if (index < KEY_MAX && keys[index] == Input::NONE)
+            if (index >= 0 && index < KEY_MAX && keys[index] == Input::NONE)
                 keys[index] = Input::DOWN;
         }
         else if (event.type == SDL_KEYUP)
         {
             int index = event.key.keysym.sym & (~0x40000000);
 
-            if (index < KEY_MAX)
+            if (index >= 0 && index < KEY_MAX)
                 keys[index] = Input::UP;
         }
         else if (event.type == SDL_MOUSEBUTTONDOWN)
         {
             int index = event.button.button - 1;
 
-            if (index < BUTTON_MAX && buttons[index] == Input::NONE)
+            if (index >= 0 && index < BUTTON_MAX && buttons[index] == Input::NONE)
                 buttons[index] = Input::DOWN;
         }
         else if (event.type == SDL_MOUSEBUTTONUP)
         {
             int index = event.button.button - 1;
 
-            if (index < BUTTON_MAX)
+            if (index >= 0 && index < BUTTON_MAX)
                 buttons[index] = Input::UP;
         }
     }
@@ -98,6 +99,8 @@ int main(int argc, char** argv)
     Chunk* edited_chunk = nullptr;
     ivec3 edited_pos(0);
     bool edit_placed = false;
+    dvec3 paused_position(0);
+    size_t paused_chunks=0;
     auto save_frame = [](const char* path) {
         SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, win_size.x, win_size.y, 32, SDL_PIXELFORMAT_RGBA32);
         glReadPixels(0, 0, win_size.x, win_size.y, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
@@ -129,13 +132,20 @@ int main(int argc, char** argv)
         update_switch_input();
 #endif
 
+        if (smoke_test) delta_time = 1./60.;
         Game::update();
         if (smoke_test) {
             ++frame;
-            if (frame == 2) {
+
+            if (frame == 2) Game::start();
+            if (frame == 4) {
                 player->pos.y += 5;
                 player->cam.forward = normalize(vec3(0, -0.65f, 1));
             }
+            if (frame == 60) { Game::pause(); paused_position=player->pos; paused_chunks=world->chunk_vector.size(); }
+            if (frame > 60 && frame < 64 && (player->pos!=paused_position || world->chunk_vector.size()!=paused_chunks)) return 5;
+            if (frame == 64) Game::resume();
+            if (frame == 70) player->third_person=2;
             if (frame == 90) {
                 edited_chunk = world->get_chunk_from_pos(player->pos);
                 for (int y = CHUNK_HEIGHT - 3; y >= 0; --y)
@@ -150,13 +160,20 @@ int main(int argc, char** argv)
         }
         Game::draw();
         if (smoke_test) {
+            if (frame == 1) save_frame("smoke-title.bmp");
             if (glGetError() != GL_NO_ERROR) { SDL_Log("Smoke test: OpenGL error"); return 3; }
+            if (frame == 62) save_frame("smoke-pause.bmp");
+            if (frame == 80) save_frame("smoke-avatar.bmp");
             if (frame == 89) save_frame("smoke-before.bmp");
             if (frame == 90) save_frame("smoke-placed.bmp");
             if (frame == 91) save_frame("smoke-after.bmp");
             if (frame == 92) {
                 if (!world->spawned || !edit_placed || edited_chunk->get(edited_pos)->id != AIR) return 4;
-                SDL_Log("Smoke test passed: surface spawn, block placement/removal, no GL errors");
+                Game::title();
+                Game::start();
+                Game::update();
+                if (!world->spawned) return 6;
+                SDL_Log("Smoke test passed: title, pause freeze, avatar, restart, surface spawn, block placement/removal, no GL errors");
                 closed = true;
             }
         }

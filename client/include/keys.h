@@ -29,7 +29,7 @@ void toggle_fullscreen()
     }
 
     glViewport(0, 0, win_size.x, win_size.y);
-    player->cam.aspect_ratio = win_size.x / (float)win_size.y;
+    if (player) player->cam.aspect_ratio = win_size.x / (float)win_size.y;
 
     font_shader.bind();
     font_shader.upload_int("win_width", win_size.x);
@@ -42,22 +42,12 @@ void toggle_fullscreen()
 
 void handle_misc_keys()
 {
-    if (is_key_down(SDLK_ESCAPE))
-    {
-        if (show_inventory)
-        {
-            show_inventory = false;
-            toggle_mouse_control();
-        }
-    }
-
-    if (is_key_down(SDLK_F11))
-        toggle_fullscreen();
-
     if (is_key_down(SDLK_F3))
         show_debug = !show_debug;
 
-    if (is_key_down(SDLK_F5))
+    if (is_key_down(SDLK_F5)) player->third_person = (player->third_person + 1) % 3;
+
+    if (is_key_down(SDLK_F7))
         show_wireframe = !show_wireframe;
 
     if (is_key_down(SDLK_F6))

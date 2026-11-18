@@ -12,6 +12,12 @@
 
 namespace Game
 {
+    enum class Screen { Title, Playing, Paused };
+    extern Screen screen;
+    void start();
+    void pause();
+    void resume();
+    void title();
     void init();
     void update();
     void draw();

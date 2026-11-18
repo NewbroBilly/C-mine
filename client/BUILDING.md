@@ -20,6 +20,12 @@ resolved relative to the executable. Requires OpenGL 3.3.
 WASD moves; mouse looks; Space/Left Ctrl moves vertically in creative mode.
 Left click removes, right click places, middle click picks a block.
 1-9 selects the hotbar, I opens inventory, Tab toggles survival, F11 fullscreen.
+Gravity/collisions are enabled by default. Space jumps; Shift sprints.
+Escape pauses/resumes (or closes inventory). Losing window focus also pauses.
+F5 cycles first person, third person behind, and third person front; F7 wireframe.
+The title menu uses the six panorama faces supplied in Original-Panorama-old.zip;
+see ORIGIN-PANORAMA.md. Select buttons with mouse or Up/Down and Enter.
+Back to Title discards this session; it does not save.
 Edits are not persisted: this imported client has no world-save implementation.
 
 ## Original 1.12.2 block textures
@@ -46,11 +52,14 @@ test; successful cross-compilation alone does not confirm it.
 
 Left stick moves; right stick looks; A jumps/ascends; B descends; click left stick
 to sprint; X opens inventory; Y toggles survival; L/R changes hotbar slot;
-ZR removes; ZL places; Plus exits. Inventory selection currently needs touch or
+ZR removes; ZL places; Plus pauses/resumes; right-stick click changes camera.
+Menus: D-pad Up/Down selects, A confirms. Inventory selection currently needs touch or
 mouse input; the default hotbar is available with L/R.
 
 ## Graphics smoke test
 
-`MineCppClone.exe --smoke-test` loads the world, finds a surface spawn, places and
-removes a block, checks GL errors and saves before/placed/after BMP frames.
+`MineCppClone.exe --smoke-test` checks title rendering, surface spawn,
+pause freezing physics/chunk generation, third-person rendering, block placement
+and removal, and return-to-title/restart. It checks GL errors and writes BMP frames.
+`client_movement_tests` checks falls, jumps, walls, ceilings and high-speed collision.
 It exits after 92 frames and requires a real OpenGL context.

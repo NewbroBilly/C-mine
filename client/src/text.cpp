@@ -29,12 +29,13 @@ Text::Text(const ivec2& _pos)
     pos = _pos;
     str = "";
 
-    vao = vbo = ebo = -1;
+    vao = vbo = ebo = 0;
     indices_count = 0;
 }
 
 void Text::set_str(const std::string& _str)
 {
+    if (str == _str) return;
     str = _str;
 
     destroy();
@@ -46,7 +47,7 @@ void Text::build()
     std::vector<FontVertex> vertices;
     std::vector<int> indices;
 
-    int font_size = 3;
+
 
     int index = 0;
     vec2 start_pos = vec2(pos.x, pos.y - 10 * font_size);
@@ -132,4 +133,5 @@ void Text::destroy()
     glDeleteBuffers(1, &vbo);
     glDeleteBuffers(1, &ebo);
     glDeleteVertexArrays(1, &vao);
+    vao = vbo = ebo = 0;
 }

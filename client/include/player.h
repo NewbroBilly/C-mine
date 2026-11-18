@@ -21,6 +21,10 @@ struct Player
     dvec3 vel;
 
     bool grounded;
+    int third_person = 0;
+    double accumulator = 0, walk_phase = 0;
+    bool jump_pending = false;
+    Camera view_camera();
 
     Camera cam;
 

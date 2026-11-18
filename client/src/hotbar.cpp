@@ -2,7 +2,7 @@
 
 Hotbar::Hotbar()
 {
-    s_hotbar = Sprite(vec2(-(182 * 3) / 2, -1080 / 2), vec2(182, 22), vec2(0, 22), &gui);
+    s_hotbar = Sprite(vec2(-(182 * 3) / 2, -(int)win_size.y / 2 + 8), vec2(182, 22), vec2(0, 22), &gui);
 
     s_selector = Sprite(vec2(0, 0), vec2(24, 24), vec2(0, 22 + 24), &gui);
     s_selector.pos = s_hotbar.pos + vec2(-3, -3);
@@ -75,6 +75,9 @@ bool Hotbar::is_empty(int _index)
 
 void Hotbar::draw()
 {
+    s_hotbar.pos.y = -(int)win_size.y / 2 + 8;
+    set_index(index);
+    for (int i=0;i<9;++i) slots[i].pos = s_hotbar.pos + vec2(9+i*60,9);
     glClear(GL_DEPTH_BUFFER_BIT);
     s_hotbar.draw();
 

@@ -102,11 +102,12 @@ void World::update2() {
     calculate_lighting(chunk);
 }
 void World::draw() {
-    const mat4 cam_mat = player->cam.matrix(player->pos);
+    Camera view = player->view_camera();
+    const mat4 cam_mat = view.matrix(player->pos);
     texture_atlas.bind();
     block_shader.bind();
     block_shader.upload_mat4("cam_mat", cam_mat);
-    block_shader.upload_vec3("eye_pos", player->cam.pos + (vec3)player->pos);
+    block_shader.upload_vec3("eye_pos", view.pos + (vec3)player->pos);
     block_shader.upload_int("global_light", global_light);
     block_shader.upload_int("show_ao", (int)show_ao);
     for (Chunk* chunk : chunk_vector) chunk->draw();

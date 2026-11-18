@@ -26,4 +26,12 @@ add_custom_command(TARGET MineCppClone POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders" "$<TARGET_FILE_DIR:MineCppClone>/shaders")
 install(TARGETS MineCppClone RUNTIME DESTINATION .)
 install(DIRECTORY textures shaders DESTINATION .)
-install(FILES README.md ORIGIN.md BUILDING.md DESTINATION .)
+install(FILES README.md ORIGIN.md ORIGIN-PANORAMA.md BUILDING.md DESTINATION .)
+
+if(MC_BUILD_TESTS)
+    add_executable(client_movement_tests tests/movement_tests.cpp src/movement.cpp)
+    target_compile_features(client_movement_tests PRIVATE cxx_std_17)
+    target_include_directories(client_movement_tests PRIVATE include "${glm_SOURCE_DIR}/glm")
+    target_link_libraries(client_movement_tests PRIVATE glm)
+    add_test(NAME client_movement_tests COMMAND client_movement_tests)
+endif()

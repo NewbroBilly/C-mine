@@ -1,3 +1,11 @@
+## Playable graphical client
+
+The SDL/OpenGL game is in `client/`; build and controls: [client/BUILDING.md](client/BUILDING.md).
+It includes a rotating title panorama, pause menu, surface spawning, player gravity,
+collision and jumping, and an animated block player model (F5 camera).
+Windows and Switch NRO artifacts are produced by GitHub Actions. Sessions are not saved.
+The sections below document the separate experimental headless core.
+
 # Minecraft 1.12.2 C++ Edition
 
 ## Graphical desktop client and Switch build

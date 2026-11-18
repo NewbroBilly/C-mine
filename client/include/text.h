@@ -6,12 +6,13 @@
 
 struct Text
 {
-    ivec2 pos;
+    ivec2 pos{0};
     std::string str;
 
-    GLuint vao;
-    GLuint vbo;
-    GLuint ebo;
+    int font_size = 3;
+    GLuint vao = 0;
+    GLuint vbo = 0;
+    GLuint ebo = 0;
 
     int indices_count;
 
