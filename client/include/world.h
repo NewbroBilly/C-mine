@@ -27,6 +27,7 @@ struct World
     dvec3 spawn_point{8.5,122,8.5};
     double day_ticks=6000;
     int64_t seed=0;
+    int generator_version=0;
     std::filesystem::path save_path;
     Water::Simulator water;
     double water_clock=0;

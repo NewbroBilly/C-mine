@@ -14,8 +14,12 @@ int main(){
     d.day_ticks=18345.5;d.spawn_point={-15.5,103,20.5};d.inventory.main[1]={Items::GOLD_HOE,1,17};
     check(Saves::save(two,d) && Saves::load(two,loaded) && loaded.day_ticks==d.day_ticks && loaded.spawn_point==d.spawn_point && loaded.inventory.main[1]==d.inventory.main[1],"new tools, clock and compass save roundtrip");
     auto legacy=root/"legacy";std::filesystem::create_directories(legacy);
-    {std::ifstream f(one/"world.txt");std::string bytes((std::istreambuf_iterator<char>(f)),{});bytes[6]='1';bytes.erase(bytes.rfind('\n',bytes.size()-2)+1);std::ofstream out(legacy/"world.txt");out<<bytes;}
+    {std::ifstream f(one/"world.txt");std::string bytes((std::istreambuf_iterator<char>(f)),{});bytes[6]='1';for(int i=0;i<2;++i)bytes.erase(bytes.rfind('\n',bytes.size()-2)+1);std::ofstream out(legacy/"world.txt");out<<bytes;}
     check(Saves::load(legacy,loaded) && loaded.inventory.main[0].id==Items::WATER_BUCKET && loaded.day_ticks==6000,"legacy save accepted");
+    {std::ifstream f(one/"world.txt");std::string bytes((std::istreambuf_iterator<char>(f)),{});bytes[6]='2';bytes.erase(bytes.rfind('\n',bytes.size()-2)+1);std::ofstream out(legacy/"world.txt");out<<bytes;}
+    check(Saves::load(legacy,loaded) && loaded.generator_version==0,"version 2 worlds keep the old generator");
+    auto localized=root/"localized";auto russian=d;russian.name="Мой мир \"Берёзы\"";russian.generator_version=1;
+    check(Saves::save(localized,russian) && Saves::load(localized,loaded) && loaded.name==russian.name && loaded.generator_version==1,"Russian name and generation version roundtrip");
     std::vector<unsigned char> blocks(16*256*16*3,0);blocks[0]=BEDROCK;blocks[3]=WATER;blocks[4]=9;blocks[blocks.size()-3]=GLOWSTONE;
     check(Saves::save_chunk(one,-2,-1,blocks.data(),blocks.size()),"write negative chunk");auto copy=blocks;std::fill(copy.begin(),copy.end(),42);
     check(Saves::load_chunk(one,-2,-1,copy.data(),copy.size()) && copy==blocks,"chunk RLE roundtrip including water metadata");

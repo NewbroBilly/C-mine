@@ -1,4 +1,5 @@
 #include <world.h>
+#include <generation.h>
 #include <limits>
 #include <settings.h>
 
@@ -213,5 +214,6 @@ void World::draw() {
 void World::destroy() {
     for (Chunk* chunk : chunk_vector) chunk->mesh.destroy();
     for (Chunk* chunk : chunk_vector) delete chunk;
+    Generation::clear_cache();
     delete this;
 }

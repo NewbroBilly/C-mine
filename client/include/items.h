@@ -19,6 +19,7 @@ struct Stack {
 int limit(int id);
 int durability(int id);
 const char* name(int id);
+const char* english_name(int id);
 bool valid(int id);
 int food_points(int id);
 float food_saturation(int id);

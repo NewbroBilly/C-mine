@@ -1,3 +1,4 @@
+#include <language.h>
 #include <inventory.h>
 #include <player.h>
 #include <ui.h>
@@ -59,14 +60,14 @@ if(!over && !(!survival_mode && mouse.x>=(int(win_size.x)-585)/2 && mouse.x<(int
 if(!survival_mode){
 if((catalog_page!=5 && is_key_down(SDLK_p)) || is_key_down(SDLK_RIGHTBRACKET) || is_key_down(SDLK_PAGEDOWN))tab((catalog_page+1)%12);
 if(is_key_down(SDLK_LEFTBRACKET) || is_key_down(SDLK_PAGEUP))tab((catalog_page+11)%12);
-if(catalog_page==5 && is_key_down(SDLK_BACKSPACE) && !search.empty()){search.pop_back();scroll_row=0;}
+if(catalog_page==5 && is_key_down(SDLK_BACKSPACE) && !search.empty()){Language::pop(search);scroll_row=0;}
 int x=(int(win_size.x)-585)/2,y=(int(win_size.y)-408)/2;
 if(is_button_down(0))for(int t=0;t<12;++t){int col=t%6,tx=x+(col==5?167:col*29)*3,ty=y+(t<6?-28:134)*3;if(mouse.x>=tx && mouse.x<tx+84 && mouse.y>=ty && mouse.y<ty+84){tab(t);break;}}
 if(catalog_page!=11 && (is_button_down(0) || is_button_pressed(0)) && mouse.x>=x+175*3 && mouse.x<x+187*3 && mouse.y>=y+18*3 && mouse.y<y+112*3){auto entries=CreativeTabs::entries(catalog_page,search);int maximum=std::max(0,(int(entries.size())+8)/9-5);scroll_row=int(std::clamp((mouse.y-y-54-22)/237.f,0.f,1.f)*maximum+.5f);}
 }}
 void Inventory::tab(int index){catalog_page=std::clamp(index,0,11);scroll_row=selected=0;over=nullptr;if(catalog_page==5)SDL_StartTextInput();else SDL_StopTextInput();layout();}
 void Inventory::scroll(int amount){if(!survival_mode && catalog_page!=11){scroll_row=std::max(0,scroll_row+amount);layout();}}
-void Inventory::text_input(const char* text){if(survival_mode || catalog_page!=5)return;for(const char* p=text;*p && search.size()<24;++p)if(*p>=' ' && *p<='~')search+=*p;scroll_row=0;layout();}
+void Inventory::text_input(const char* text){if(survival_mode || catalog_page!=5)return;Language::append(search,text,24);scroll_row=0;layout();}
 void Inventory::draw(){
 layout();glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);Ui::rect(0,0,float(win_size.x),float(win_size.y),vec4(0,0,0,.65));
 int x=(int(win_size.x)-(survival_mode?528:585))/2,y=(int(win_size.y)-(survival_mode?498:408))/2;
@@ -77,18 +78,18 @@ if(!survival_mode)for(int t=0;t<12;++t)if(t!=catalog_page)draw_tab(t);
 Ui::image(Ui::inventory_texture(!survival_mode,workbench),float(x),float(y),survival_mode?528.f:585.f,survival_mode?498.f:408.f,vec4(0,0,survival_mode?176:195,survival_mode?166:136));
 if(!survival_mode)draw_tab(catalog_page);
 if(survival_mode){if(!workbench){glViewport(x+75,int(win_size.y)-y-225,120,192);glEnable(GL_DEPTH_TEST);glClear(GL_DEPTH_BUFFER_BIT);mat4 matrix=ortho(-.65f,.65f,-.1f,1.95f,-5.f,5.f)*lookAt(vec3(0,0,3),vec3(0),vec3(0,1,0));Avatar::draw(dvec3(0),vec3(.2f,0,1),0,matrix,0);glViewport(0,0,win_size.x,win_size.y);glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);}
-Ui::rect(float(x+(workbench?28:97)*3-2),float(y+12),110,15,vec4(.25,.25,.25,1));Ui::text("inv-title",workbench?"Crafting Table":"Crafting",x+(workbench?28:97)*3,y+12,1);
+Ui::rect(float(x+(workbench?28:97)*3-2),float(y+12),110,15,vec4(.25,.25,.25,1));Ui::text("inv-title",workbench?Language::tr("Crafting Table"):Language::tr("Crafting"),x+(workbench?28:97)*3,y+12,1);
 for(auto& slot:storage)slot.draw();for(int i=0;i<(workbench?9:4);++i)craft_slots[i].draw();result_slot.draw();if(!workbench)offhand.draw();
 }else{
-Ui::text("inv-title",catalog_page==5?("Search: "+search+"_"):CreativeTabs::name(catalog_page),x+27,y+13,2);
+Ui::text("inv-title",catalog_page==5?(std::string(Language::tr("Search: "))+search+"_"):CreativeTabs::name(catalog_page),x+27,y+13,2);
 if(catalog_page==11){Ui::rect(float(x+21),float(y+48),543,276,vec4(.78,.78,.78,1));for(auto& slot:storage){float sx=slot.pos.x+win_size.x/2.f,sy=win_size.y/2.f-slot.pos.y-48;Ui::rect(sx-3,sy-3,54,54,vec4(.35,.35,.35,1));Ui::rect(sx,sy,48,48,vec4(.55,.55,.55,1));slot.draw();}}
 else{for(int i=0;i<45;++i)slots[i/9][i%9].draw();for(int i=0;i<9;++i)storage[i].draw();
 auto entries=CreativeTabs::entries(catalog_page,search);int maximum=std::max(0,(int(entries.size())+8)/9-5);
 Ui::image(Ui::tabs_texture(),float(x+525),float(y+54+(maximum?int(scroll_row/float(maximum)*237):0)),36,45,vec4(maximum?232:244,0,12,15));
-if(entries.empty())Ui::text("inv-empty","No supported items in this section",x+35,y+160,2);}
+if(entries.empty())Ui::text("inv-empty",Language::tr("No supported items in this section"),x+35,y+160,2);}
 }
 if(over){float sx=over->pos.x+win_size.x/2.f,sy=win_size.y/2.f-over->pos.y-48;Ui::rect(sx,sy,48,48,vec4(1,1,1,.35));}
 int mx,my;SDL_GetMouseState(&mx,&my);if(keyboard_navigation && over){mx=int(over->pos.x+win_size.x/2.f+30);my=int(win_size.y/2.f-over->pos.y-20);}
-if(!data().cursor.empty())Ui::item(data().cursor,float(mx-24),float(my-24),48,true,"cursor-count");else if(over && !over->is_empty()){std::string str=Items::name(over->get_item());int width=int(str.size())*12;int tx=std::min(mx+15,int(win_size.x)-width-10),ty=std::max(5,my-28);Ui::rect(float(tx-4),float(ty-4),float(width+8),26,vec4(.08,.02,.12,.95));Ui::text("inv-tooltip",str,tx,ty);}
-if(!survival_mode)for(int t=0;t<12;++t){int col=t%6,tx=x+(col==5?167:col*29)*3,ty=y+(t<6?-28:134)*3;if(mx>=tx && mx<tx+84 && my>=ty && my<ty+84){std::string label=CreativeTabs::name(t);int w=int(label.size())*12,px=std::clamp(mx+15,5,int(win_size.x)-w-10),py=std::clamp(my+20,5,int(win_size.y)-30);Ui::rect(float(px-4),float(py-4),float(w+8),26,vec4(.08,.02,.12,.95));Ui::text("tab-tooltip",label,px,py,2);break;}}
-if(survival_mode)Ui::text("inv-help","LMB: move  RMB: split  Shift: quick move  E: close",x,int(win_size.y)-25,1);glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);}
+if(!data().cursor.empty())Ui::item(data().cursor,float(mx-24),float(my-24),48,true,"cursor-count");else if(over && !over->is_empty()){std::string str=Items::name(over->get_item());int width=Text::measure(str,2);int tx=std::min(mx+15,int(win_size.x)-width-10),ty=std::max(5,my-28);Ui::rect(float(tx-4),float(ty-4),float(width+8),26,vec4(.08,.02,.12,.95));Ui::text("inv-tooltip",str,tx,ty);}
+if(!survival_mode)for(int t=0;t<12;++t){int col=t%6,tx=x+(col==5?167:col*29)*3,ty=y+(t<6?-28:134)*3;if(mx>=tx && mx<tx+84 && my>=ty && my<ty+84){std::string label=CreativeTabs::name(t);int w=Text::measure(label,2),px=std::clamp(mx+15,5,int(win_size.x)-w-10),py=std::clamp(my+20,5,int(win_size.y)-30);Ui::rect(float(px-4),float(py-4),float(w+8),26,vec4(.08,.02,.12,.95));Ui::text("tab-tooltip",label,px,py,2);break;}}
+if(survival_mode)Ui::text("inv-help",Language::tr("LMB: move  RMB: split  Shift: quick move  E: close"),x,int(win_size.y)-25,1);glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);}

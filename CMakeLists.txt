@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(Minecraft1122CppEdition VERSION 0.1.0 LANGUAGES CXX)
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
 
 option(MC_BUILD_TESTS "Build core tests" ON)
 if(MC_BUILD_TESTS)
@@ -37,4 +40,15 @@ if(MC_BUILD_TESTS)
     target_compile_features(client_ore_tests PRIVATE cxx_std_17)
     target_include_directories(client_ore_tests PRIVATE client/include)
     add_test(NAME client_ore_tests COMMAND client_ore_tests)
+    add_executable(client_generation_tests client/tests/generation_tests.cpp
+        client/src/generation.cpp client/src/imported_noise.cpp client/src/imported_blocks.cpp
+        client/src/imported_terrain.cpp client/src/imported_decorator.cpp)
+    target_compile_features(client_generation_tests PRIVATE cxx_std_17)
+    target_include_directories(client_generation_tests PRIVATE client/include)
+    add_test(NAME client_generation_tests COMMAND client_generation_tests)
+    add_executable(client_language_tests client/tests/language_tests.cpp
+        client/src/language.cpp client/src/items.cpp client/src/creative_tabs.cpp)
+    target_compile_features(client_language_tests PRIVATE cxx_std_17)
+    target_include_directories(client_language_tests PRIVATE client/include)
+    add_test(NAME client_language_tests COMMAND client_language_tests)
 endif()

@@ -2,6 +2,7 @@
 #include <game.h>
 #include <settings.h>
 #include <menu.h>
+#include <language.h>
 #ifdef __SWITCH__
 #include <switch.h>
 #include <unistd.h>
@@ -209,7 +210,15 @@ int main(int argc, char** argv)
             if(frame>105 && frame<=108 && (player->pos!=paused_position || world->chunk_vector.size()!=paused_chunks))return 12;
             if(frame==106) {save_frame("smoke-options.bmp");keys[SDLK_RIGHT&~0x40000000]=Input::DOWN;Game::update();}
             if(frame==107 && (Settings::options.fov!=90 || player->cam.fov!=90))return 13;
-            if(frame==108) {Settings::Options loaded;if(!Settings::load(Settings::storage_override,loaded) || !(loaded==Settings::options))return 14;Game::close_options();}
+            if(frame==108) {
+                for(int i=0;i<7;++i){keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();}
+                keys[SDLK_DOWN&~0x40000000]=Input::NONE;keys[SDLK_RIGHT&~0x40000000]=Input::DOWN;Game::update();
+                if(Settings::options.russian || Language::russian)return 77;
+                Game::draw();save_frame("smoke-options-english.bmp");
+                keys[SDLK_RIGHT&~0x40000000]=Input::DOWN;Game::update();keys[SDLK_RIGHT&~0x40000000]=Input::NONE;
+                if(!Settings::options.russian || !Language::russian)return 78;
+                Settings::Options loaded;if(!Settings::load(Settings::storage_override,loaded) || !(loaded==Settings::options))return 14;Game::close_options();
+            }
             if(frame==109) {if(Game::screen!=Game::Screen::Paused)return 15;Game::resume();}
             if(frame==110){
                 Chunk* c=world->get_chunk_from_pos(player->pos);
@@ -319,19 +328,23 @@ int main(int argc, char** argv)
                 if(Game::screen!=Game::Screen::CreateWorld)return 41;
             }
             if(frame==341){
-                Game::world_name.clear();Menu::text_input("Water Test");
+                Game::world_name.clear();Menu::text_input("Водный мир");
                 keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();
                 Menu::text_input("12345");keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();
                 keys[SDLK_DOWN&~0x40000000]=Input::NONE;keys[SDLK_RETURN]=Input::DOWN;Game::update();
-                if(Game::new_survival || Game::world_name!="Water Test" || Game::world_seed!="12345")return 42;
+                if(Game::new_survival || Game::world_name!="Водный мир" || Game::world_seed!="12345")return 42;
                 Game::draw();save_frame("smoke-create-world.bmp");
                 keys[SDLK_RETURN]=Input::NONE;keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();
                 keys[SDLK_DOWN&~0x40000000]=Input::NONE;keys[SDLK_RETURN]=Input::DOWN;Game::update();
-                if(!world || world->seed!=12345 || survival_mode)return 43;
+                if(!world || world->seed!=12345 || world->generator_version!=1 || survival_mode)return 43;
                 smoke_world=world->save_path;
             }
             if(frame==355){
                 if(!world->spawned)return 44;
+                auto original_pos=player->pos;auto original_previous=player->previous_position;auto original_forward=player->cam.forward;
+                player->pos+=dvec3(0,32,0);player->previous_position=player->pos;player->cam.forward=normalize(vec3(0,-.45,1));
+                Game::draw();save_frame("smoke-imported-generation.bmp");
+                player->pos=original_pos;player->previous_position=original_previous;player->cam.forward=original_forward;
                 size_t natural_water=0;
                 for(auto* c:world->chunk_vector)
                     for(auto& column:c->blocks)for(auto& row:column)for(auto b:row)if(b.id==WATER){
@@ -341,7 +354,8 @@ int main(int argc, char** argv)
                 SDL_Log("Generation regression passed: %zu settled water blocks, zero scheduled fluid updates",natural_water);
                 int ores[BLOCK_COUNT]={};
                 for(auto* c:world->chunk_vector)for(auto& column:c->blocks)for(auto& row:column)for(auto b:row)++ores[int(b.id)];
-                for(int id:{COAL_ORE,IRON_ORE,GOLD_ORE,DIAMOND_ORE,REDSTONE_ORE,LAPIS_ORE,EMERALD_ORE})if(ores[id]==0)return 62;
+                // The imported generator reserves emeralds for mountain biomes.
+                for(int id:{COAL_ORE,IRON_ORE,GOLD_ORE,DIAMOND_ORE,REDSTONE_ORE,LAPIS_ORE})if(ores[id]==0){SDL_Log("Missing generated ore: %d",id);return 62;}
                 Game::inventory(true);player->inventory.tab(7);Game::draw();save_frame("smoke-all-tools.bmp");
                 player->inventory.tab(8);Game::draw();save_frame("smoke-swords.bmp");Game::inventory(false);
                 auto* c=world->get_chunk_from_pos(player->pos);water_chunk=c->pos;
@@ -361,6 +375,9 @@ int main(int argc, char** argv)
                 keys[SDLK_e]=Input::DOWN;Game::update();keys[SDLK_e]=Input::NONE;
                 if(!show_inventory || player->inventory.catalog_page!=5)return 47;
                 Game::draw();save_frame("smoke-creative-search.bmp");Game::inventory(false);
+                Game::inventory(true);player->inventory.search.clear();player->inventory.text_input("ВЕДРО ВОДЫ");
+                if(player->inventory.catalog[0].id!=Items::WATER_BUCKET || !player->inventory.catalog[1].empty())return 79;
+                Game::draw();save_frame("smoke-russian-search.bmp");Game::inventory(false);
                 player->inventory.survival.main[2]={Items::IRON_PICKAXE,1,17};player->vitals.health=13;player->vitals.food=10;
                 player->vitals.hurt_ticks=8;auto hurt=player->view_camera();if(abs(hurt.up.x)<.1)return 48;
                 Game::draw();save_frame("smoke-hurt.bmp");
@@ -418,7 +435,7 @@ int main(int argc, char** argv)
                 player->action_delay=0;buttons[2]=Input::DOWN;player->handle_clicks();buttons[2]=Input::NONE;
                 int new_fish=0;for(auto s:player->inventory.survival.main)if(s.id==Items::RAW_FISH)new_fish+=s.count;
                 if(player->fishing || new_fish!=old_fish+1 || player->inventory.survival.main[0].damage!=1)return 69;
-                SDL_Log("Tools/ores smoke passed: all seven ore kinds, creative tools/swords, tilling, paths, fire/light/extinguishing and fishing catch/durability");
+                SDL_Log("Tools/ores smoke passed: common generated ores, creative tools/swords, tilling, paths, fire/light/extinguishing and fishing catch/durability");
                 Game::set_mode(false);player->flying=true;player->vitals.health=13;player->vitals.hurt_ticks=0;
                 // Integrated flight must follow identical ticks at 10/20/60/144 FPS.
                 dvec3 reference_position(0),reference_velocity(0);
@@ -495,7 +512,7 @@ int main(int argc, char** argv)
                 Game::title();Game::select_worlds();Game::draw();save_frame("smoke-worlds.bmp");
                 if(Game::saved_worlds.size()!=1)return 54;
                 Game::load_world(0);Game::update();
-                if(survival_mode || length(player->pos-saved_position)>.01 || player->inventory.survival.main[2].damage!=17 || player->hotbar.index!=2 || player->vitals.health!=13)return 55;
+                if(survival_mode || world->generator_version!=1 || Game::saved_worlds[0].data.name!="Водный мир" || length(player->pos-saved_position)>.01 || player->inventory.survival.main[2].damage!=17 || player->hotbar.index!=2 || player->vitals.health!=13)return 55;
                 c=world->get_chunk_from_pos(player->pos);if(!c || c->get(ivec3(8,232,8))->id!=WATER || world->water.pending()==0)return 56;
                 SDL_Log("Water/menu/save smoke passed: create/name/seed/mode, flowing/falling water, creative categories/search, source bucket pickup, hurt roll, underwater, chunk unload/reload, world save/reopen and both inventories");
                 if(glGetError()!=GL_NO_ERROR)return 70;

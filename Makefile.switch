@@ -23,10 +23,11 @@ $(SWITCH_BUILD)/%.o: client/src/%.cpp
 $(SWITCH_BUILD)/MineCppClone.elf: $(SWITCH_OBJECTS)
 	$(SWITCH_CXX) $(SWITCH_ARCH) -specs=$(DEVKITPRO)/libnx/switch.specs -Wl,--gc-sections $^ -L$(SWITCH_PORTLIBS)/lib -L$(DEVKITPRO)/libnx/lib -lglad $(shell $(SWITCH_SDL) --libs) -o $@
 
-$(SWITCH_BUILD)/MineCppClone.nro: $(SWITCH_BUILD)/MineCppClone.elf $(wildcard client/shaders/* client/textures/* client/textures/panorama/*)
+$(SWITCH_BUILD)/MineCppClone.nro: $(SWITCH_BUILD)/MineCppClone.elf $(wildcard client/shaders/* client/textures/* client/textures/panorama/*) client/ported_mc/DEJAVU-LICENSE.txt client/PORTED-MC.md
 	mkdir -p $(SWITCH_BUILD)/romfs
 	cp -r client/shaders client/textures $(SWITCH_BUILD)/romfs/
-	nacptool --create "C-mine" "C-mine contributors" "0.6.1" $(SWITCH_BUILD)/MineCppClone.nacp
+	cp client/ported_mc/DEJAVU-LICENSE.txt client/PORTED-MC.md $(SWITCH_BUILD)/romfs/
+	nacptool --create "C-mine" "C-mine contributors" "0.7.0" $(SWITCH_BUILD)/MineCppClone.nacp
 	elf2nro $< $@ --nacp=$(SWITCH_BUILD)/MineCppClone.nacp --romfsdir=$(SWITCH_BUILD)/romfs
 
 -include $(SWITCH_OBJECTS:.o=.d)

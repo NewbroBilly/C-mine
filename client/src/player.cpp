@@ -1,3 +1,4 @@
+#include <language.h>
 #include <player.h>
 #include <movement.h>
 #include <avatar.h>
@@ -362,11 +363,11 @@ void Player::draw_hud(){
             if(vitals.food>i*2)Ui::image(Ui::icons_texture(),float(x),float(bottom),24,24,vec4(vitals.food>=i*2+2?52:61,27,9,9));
         }
     }
-    Ui::text("mode",survival_mode?"Survival":"Creative",10,10,2);
-    Ui::text("fishing",fishing?(fish_bite>0?"Bite! Right click to reel in":"Fishing..."):"",10,36,2);
+    Ui::text("mode",survival_mode?Language::tr("Survival"):Language::tr("Creative"),10,10,2);
+    Ui::text("fishing",fishing?(fish_bite>0?Language::tr("Bite! Right click to reel in"):Language::tr("Fishing...")):"",10,36,2);
     if(break_progress>0 && break_duration>0){float f=float(std::min(1.,break_progress/break_duration));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150*f,6,vec4(1));}
     if(eat_progress>0){Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,float(eat_progress/1.6)*150,6,vec4(.5,1,.3,1));}
-    int id=hotbar.get_item();std::string title=Items::name(id);Ui::text("hand",title,int(win_size.x)/2-int(title.size())*6,bottom-26,2);
+    int id=hotbar.get_item();std::string title=Items::name(id);Ui::text("hand",title,int(win_size.x)/2-Text::measure(title,2)/2,bottom-26,2);
     glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);
 }
 void Player::swing(){if(swing_progress>=1)swing_progress=0;}

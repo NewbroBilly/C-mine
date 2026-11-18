@@ -1,3 +1,4 @@
+#include <language.h>
 #include <game.h>
 #include <vector>
 #include <keys.h>
@@ -106,7 +107,7 @@ void Game::init()
 Game::Screen Game::screen = Game::Screen::Title;
 std::vector<Saves::Entry> Game::saved_worlds;
 int Game::world_index=0;
-std::string Game::world_name="New World",Game::world_seed,Game::message;
+std::string Game::world_name=Language::tr("New World"),Game::world_seed,Game::message;
 bool Game::new_survival=true;
 namespace {Saves::Data current_save;double autosave_clock=0;
 std::filesystem::path save_root(){
@@ -138,7 +139,7 @@ static std::string options_path(){
 }
 void Game::save_options(){if(!Settings::save(options_path(),Settings::options))SDL_Log("Could not save options");}
 void Game::apply_options(){
-    auto& o=Settings::options;Settings::validate(o);show_ao=o.ao;
+    auto& o=Settings::options;Settings::validate(o);show_ao=o.ao;Language::russian=o.russian;
 #ifndef __SWITCH__
     if(is_fullscreen!=o.fullscreen){
         if(SDL_SetWindowFullscreen(win,o.fullscreen?SDL_WINDOW_FULLSCREEN_DESKTOP:0)==0)is_fullscreen=o.fullscreen;
@@ -166,14 +167,14 @@ void Game::start(bool survival) {
 }
 void Game::select_worlds(){saved_worlds=Saves::list(save_root());world_index=std::clamp(world_index,0,std::max(0,int(saved_worlds.size())-1));screen=Screen::Worlds;message.clear();capture(false);}
 void Game::create_world(){
-    Saves::Data d;d.name=world_name.empty()?"New World":world_name;d.seed=Saves::seed_from_text(world_seed);d.survival=new_survival;
-    auto path=Saves::unique_path(save_root());if(!Saves::save(path,d)){message="Could not create save. Check free space.";return;}
-    start(d.survival);current_save=d;world->seed=d.seed;world->save_path=path;
+    Saves::Data d;d.name=world_name.empty()?Language::tr("New World"):world_name;d.seed=Saves::seed_from_text(world_seed);d.survival=new_survival;d.generator_version=1;
+    auto path=Saves::unique_path(save_root());if(!Saves::save(path,d)){message=Language::tr("Could not create save. Check free space.");return;}
+    start(d.survival);current_save=d;world->seed=d.seed;world->generator_version=d.generator_version;world->save_path=path;
 }
 void Game::load_world(int index){
     if(index<0 || index>=int(saved_worlds.size()))return;Saves::Data d;auto path=saved_worlds[index].path;
-    if(!Saves::load(path,d)){message="This save could not be read.";return;}
-    start(d.survival);current_save=d;world->seed=d.seed;world->save_path=path;world->spawned=d.spawned;
+    if(!Saves::load(path,d)){message=Language::tr("This save could not be read.");return;}
+    start(d.survival);current_save=d;world->seed=d.seed;world->generator_version=d.generator_version;world->save_path=path;world->spawned=d.spawned;
     world->day_ticks=d.day_ticks;world->spawn_point=dvec3(d.spawn_point[0],d.spawn_point[1],d.spawn_point[2]);world->spawn_known=d.spawned;
     player->pos=player->previous_position=dvec3(d.position[0],d.position[1],d.position[2]);
     player->cam.forward=vec3(d.forward[0],d.forward[1],d.forward[2]);player->vitals=d.vitals;player->air=d.air;
@@ -184,12 +185,12 @@ void Game::load_world(int index){
 }
 bool Game::save_world(){
     if(!world || world->save_path.empty())return true;
-    auto& d=current_save;d.survival=survival_mode;d.spawned=world->spawned;d.vitals=player->vitals;d.air=player->air;
+    auto& d=current_save;d.generator_version=world->generator_version;d.survival=survival_mode;d.spawned=world->spawned;d.vitals=player->vitals;d.air=player->air;
     d.day_ticks=world->day_ticks;d.spawn_point={world->spawn_point.x,world->spawn_point.y,world->spawn_point.z};
     for(int i=0;i<3;++i){d.position[i]=player->pos[i];d.forward[i]=player->cam.forward[i];d.velocity[i]=player->vel[i];}d.flying=player->flying;
     d.inventory=player->inventory.survival;d.creative=player->inventory.creative;d.hotbar=player->hotbar.index;d.drops.clear();
     for(auto& a:player->drops)d.drops.push_back({a.stack,{a.position.x,a.position.y,a.position.z},{a.velocity.x,a.velocity.y,a.velocity.z},a.age});
-    bool ok=world->save_chunks() && Saves::save(world->save_path,d);message=ok?"":"Save failed. Check free space before leaving.";
+    bool ok=world->save_chunks() && Saves::save(world->save_path,d);message=ok?"":Language::tr("Save failed. Check free space before leaving.");
     if(!ok)SDL_Log("%s",message.c_str());return ok;
 }
 void Game::inventory(bool open,bool table){
@@ -253,13 +254,14 @@ void Game::update()
         const bool options=screen==Screen::Options;
         int button = Menu::update(world!=nullptr);
         if(options){
-            if(button==7)close_options();
+            if(button==8)close_options();
             else if(button>=0){
                 auto& o=Settings::options;int direction=is_key_down(SDLK_LEFT)?-1:1;
                 if(button==0)o.fov=o.fov+direction*10<50?110:(o.fov+direction*10>110?50:o.fov+direction*10);
                 if(button==1)o.sensitivity=o.sensitivity+direction*10<10?200:(o.sensitivity+direction*10>200?10:o.sensitivity+direction*10);
                 if(button==2)o.distance=o.distance+direction*2<2?8:(o.distance+direction*2>8?2:o.distance+direction*2);
                 if(button==3)o.vsync=!o.vsync;if(button==4)o.ao=!o.ao;
+                if(button==7)o.russian=!o.russian;
                 if(button==5)o.fullscreen=!o.fullscreen;if(button==6)o.invert_y=!o.invert_y;
                 apply_options();save_options();
             }
@@ -267,7 +269,7 @@ void Game::update()
         else if(screen==Screen::Title){if(button==0)select_worlds();else if(button==1)open_options();else if(button==2)closed=true;}
         else if(screen==Screen::Worlds){
             if(button==0)load_world(world_index);
-            else if(button==1){screen=Screen::CreateWorld;world_name="New World";world_seed.clear();new_survival=true;message.clear();Menu::reset();}
+            else if(button==1){screen=Screen::CreateWorld;world_name=Language::tr("New World");world_seed.clear();new_survival=true;message.clear();Menu::reset();}
             else if(button==2){screen=Screen::Title;Menu::reset();}
         }
         else if(screen==Screen::CreateWorld){if(button==2)new_survival=!new_survival;else if(button==3){SDL_StopTextInput();create_world();}else if(button==4){SDL_StopTextInput();select_worlds();}}

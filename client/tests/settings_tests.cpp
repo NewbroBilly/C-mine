@@ -6,7 +6,7 @@
 void check(bool ok,const char* reason){if(!ok){std::cerr<<reason<<'\n';std::exit(1);}}
 int main(){
     const std::string path="settings-test/options.txt";
-    Settings::Options value;value.fov=100;value.sensitivity=170;value.distance=8;value.vsync=false;value.ao=false;value.invert_y=true;value.fullscreen=true;
+    Settings::Options value;check(value.russian,"Russian default language");value.russian=false;value.fov=100;value.sensitivity=170;value.distance=8;value.vsync=false;value.ao=false;value.invert_y=true;value.fullscreen=true;
     check(Settings::save(path,value),"save preferences");Settings::Options loaded;
     check(Settings::load(path,loaded) && loaded==value,"all options must survive restart");
     {std::ofstream file(path);file<<"fov=900\nsensitivity=-7\ndistance=200\nunknown=8\nao=0\nvsync=bad\nfov=60junk\n";}

@@ -156,6 +156,10 @@ for line in (root / "client/include/extra_blocks.def").read_text().splitlines():
         elif "prismarine" in texture:base=(64,132,115)
         elif "sea_lantern" in texture:base=(184,216,197)
         elif "coal" in texture:base=(40,41,41)
+        elif "ice" in texture:base=(145,181,217)
+        elif "podzol_top" in texture:base=(105,75,42)
+        elif "mycelium_top" in texture:base=(139,117,140)
+        elif "podzol" in texture or "mycelium" in texture:base=(118,86,61)
         tile=Image.new("RGBA",(16,16));d=ImageDraw.Draw(tile)
         for py in range(16):
             for px in range(16):

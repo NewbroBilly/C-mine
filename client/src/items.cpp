@@ -1,9 +1,10 @@
+#include <language.h>
 #include <items.h>
 #include <algorithm>
 #include <cmath>
 namespace Items {
 static bool wool(int id){return id==WHITE_WOOL || id==RED_WOOL || id==BLUE_WOOL || (id>=ORANGE_WOOL && id<=BLACK_WOOL);}
-static bool wood(int id){return id==LOG || id==PLANKS || id==SPRUCE_PLANKS || id==BIRCH_PLANKS || (id>=JUNGLE_PLANKS && id<=DARK_OAK_LOG) || id==CRAFTING_TABLE || id==BOOKSHELF;}
+static bool wood(int id){return id==LOG || id==SPRUCE_LOG || id==BIRCH_LOG || id==PLANKS || id==SPRUCE_PLANKS || id==BIRCH_PLANKS || (id>=JUNGLE_PLANKS && id<=DARK_OAK_LOG) || id==CRAFTING_TABLE || id==BOOKSHELF;}
 static bool stone_material(int id){return (id>=GRANITE && id<=POLISHED_ANDESITE) || (id>=WHITE_CONCRETE && id<=BLUE_TERRACOTTA && id!=RED_SAND) || (id>=PURPUR_BLOCK && id<=PRISMARINE_ROUGH);}
 int food_points(int id){switch(id){
 case APPLE:return 4;case BREAD:case BAKED_POTATO:case COOKED_FISH:case COOKED_RABBIT:return 5;
@@ -28,7 +29,7 @@ int durability(int id){switch(id){
 #include <items.def>
 #undef ITEM
 default:return 0;}}
-const char* name(int id){switch(id){
+const char* english_name(int id){switch(id){
 #define BASE_BLOCK(id,label,...) case id:return label;
 #define EXTRA_BLOCK BASE_BLOCK
 #include <extra_blocks.def>
@@ -41,6 +42,7 @@ case GRASS:return "Grass";case TORCH:return "Torch";case PLANKS:return "Oak Plan
 #include <items.def>
 #undef ITEM
 default:return "";}}
+const char* name(int id){return Language::tr(english_name(id));}
 bool block(int id){return id>AIR && id<BLOCK_COUNT && id!=WATER && id!=FIRE;}
 bool valid(int id){return block(id) || (id>ITEM_START && id<ITEM_END);}
 Tool tool_kind(int id){
@@ -123,6 +125,8 @@ Recipe recipe(const std::array<Stack,9>& grid,int width){
     auto all=[&](int id){for(int y=0;y<h;++y)for(int x=0;x<w;++x)if(at(x,y)!=id)return false;return true;};
     auto all_planks=[&](){for(int y=0;y<h;++y)for(int x=0;x<w;++x)if(!plank(at(x,y)))return false;return true;};
     if(count==1 && at(0,0)==LOG)r.output={PLANKS,4};
+    if(count==1 && at(0,0)==SPRUCE_LOG)r.output={SPRUCE_PLANKS,4};
+    if(count==1 && at(0,0)==BIRCH_LOG)r.output={BIRCH_PLANKS,4};
     if(count==1){
         if(at(0,0)==JUNGLE_LOG)r.output={JUNGLE_PLANKS,4};
         if(at(0,0)==ACACIA_LOG)r.output={ACACIA_PLANKS,4};
@@ -255,7 +259,7 @@ bool harvestable(int id,int tool){
 double break_seconds(int id,int tool,bool grounded){
     double h=hardness(id);if(h<0)return -1;if(h==0)return 0;
     Tool kind=tool_kind(tool);double speed=1.;
-    bool soil=id==DIRT || id==GRASS_BLOCK || id==SAND || id==RED_SAND || id==GRAVEL || id==CLAY || id==SNOW_BLOCK || id==SOUL_SAND || id==FARMLAND || id==GRASS_PATH;
+    bool soil=id==DIRT || id==GRASS_BLOCK || id==PODZOL || id==MYCELIUM || id==SAND || id==RED_SAND || id==GRAVEL || id==CLAY || id==SNOW_BLOCK || id==SOUL_SAND || id==FARMLAND || id==GRASS_PATH;
     if((needs_pick(id) && kind==Tool::Pickaxe) || ((wood(id) || id==PUMPKIN || id==MELON_BLOCK) && kind==Tool::Axe) || (soil && kind==Tool::Shovel))speed=tool_speed(tool);
     if(kind==Tool::Sword)speed=1.5;
     if(tool==SHEARS){if(id==LEAVES)speed=15.;if(wool(id))speed=5.;}

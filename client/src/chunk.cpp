@@ -2,6 +2,7 @@
 #include <oak_tree.h>
 #include <world.h>
 #include <ores.h>
+#include <generation.h>
 
 Chunk::Chunk(const ivec2& _pos)
 {
@@ -86,6 +87,11 @@ void Chunk::set_block_light(const ivec3& p, int value)
 
 void Chunk::load()
 {
+    if(world && world->generator_version==1){
+        auto data=Generation::generate(uint64_t(world->seed),pos.x,pos.y);
+        static_assert(sizeof(blocks)==16*256*16*3,"Generated chunk layout mismatch");
+        std::memcpy(blocks,data.data(),sizeof(blocks));dirty=true;can_draw=true;return;
+    }
     SimplexNoise noise;
     vec3 world_pos = chunk_pos_to_world(pos);
     const uint64_t seed=world?uint64_t(world->seed):0;

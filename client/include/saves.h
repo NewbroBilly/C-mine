@@ -9,6 +9,7 @@ namespace Saves {
 struct Data {
     std::string name="New World";
     int64_t seed=0;
+    int generator_version=0;
     bool survival=true,spawned=false;
     std::array<double,3> position{8.5,122,8.5},forward{0,0,1};
     std::array<double,3> velocity{};

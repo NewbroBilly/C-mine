@@ -20,6 +20,7 @@ struct Text
     Text(const ivec2& _pos);
 
     void set_str(const std::string& _str);
+    static int measure(const std::string& str,int size=1);
     void build();
     void draw();
     void destroy();

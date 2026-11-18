@@ -1,4 +1,5 @@
 #include <text.h>
+#include <language.h>
 
 struct FontVertex
 {
@@ -33,6 +34,14 @@ Text::Text(const ivec2& _pos)
     indices_count = 0;
 }
 
+int Text::measure(const std::string& text,int size){
+    int line=0,width=0;
+    for(size_t i=0;i<text.size();){auto cp=Language::next(text,i);
+        if(cp=='\n'){width=std::max(width,line);line=0;continue;}
+        int glyph=Language::glyph(cp);line+=(glyph>=32 && glyph<=126?font_width[glyph-32]:7)*size;
+    }return std::max(width,line);
+}
+
 void Text::set_str(const std::string& _str)
 {
     if (str == _str) return;
@@ -50,13 +59,14 @@ void Text::build()
 
 
     int index = 0;
-    vec2 start_pos = vec2(pos.x, pos.y - 10 * font_size);
+    vec2 start_pos = vec2(pos.x, pos.y - 12 * font_size);
 
-    for (int i = 0; i < str.size(); i++)
+    for (size_t i = 0; i < str.size();)
     {
-        char c = str[i];
+        auto cp=Language::next(str,i);
+        int c=Language::glyph(cp);
 
-        int width = 8;
+        int width = 7;
 
         if (c >= ' ' && c <= '~')
             width = font_width[c - ' '];
@@ -69,7 +79,7 @@ void Text::build()
             {
                 FontVertex v;
 
-                vec2 p_off = vec2(font_vertex_offset[j].x * width, font_vertex_offset[j].y * 8);
+                vec2 p_off = vec2(font_vertex_offset[j].x * width, font_vertex_offset[j].y * 12);
                 vec2 uv_off = vec2(font_uv_offset[j].x * width / 8.0f, font_uv_offset[j].y) / 16.0f;
 
                 v.p = start_pos + p_off * (float)font_size;
@@ -90,7 +100,7 @@ void Text::build()
         }
 
         if (c == '\n')
-            start_pos = vec2(pos.x, start_pos.y - 10 * font_size);
+            start_pos = vec2(pos.x, start_pos.y - 14 * font_size);
         else
             start_pos += vec2(width * font_size, 0);
     }

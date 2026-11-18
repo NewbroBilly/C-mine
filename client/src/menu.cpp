@@ -1,3 +1,4 @@
+#include <language.h>
 #include <menu.h>
 #include <game.h>
 #include <stb_image.h>
@@ -15,12 +16,12 @@ int selected=0, last_x=-1,last_y=-1;
 int count(bool paused){
 if(Game::screen==Game::Screen::Worlds)return 3;
 if(Game::screen==Game::Screen::CreateWorld)return 5;
-return Game::screen==Game::Screen::Options?8:(Game::screen==Game::Screen::Dead?2:(paused?5:3));}
+return Game::screen==Game::Screen::Options?9:(Game::screen==Game::Screen::Dead?2:(paused?5:3));}
 int button_y(int index){
 if(Game::screen==Game::Screen::Worlds)return int(win_size.y)-174+index*48;
 if(Game::screen==Game::Screen::CreateWorld)return int(win_size.y)/2-125+index*58;
 bool options=Game::screen==Game::Screen::Options;
-return (options?int(win_size.y)/2-170:int(win_size.y)/2-65)+index*(options?46:54);}
+return (options?int(win_size.y)/2-195:int(win_size.y)/2-65)+index*(options?46:54);}
 int first_world(){return std::max(0,Game::world_index-3);}
 int edit_field=-1;
 double panorama_angle=0;
@@ -33,7 +34,7 @@ void rectangle(float x,float y,float w,float h,vec4 color) {
 void text(const std::string& str,int y,int size=3) {
     int width=0;
     auto& t=labels[std::to_string(y)];
-    for (char c:str) width += (c>=' ' && c<='~' ? ::font_width[c-' '] : 8)*size;
+    width=Text::measure(str,size);
     ivec2 pos(-width/2,(int)win_size.y/2-y);
     if (t.pos!=pos || t.font_size!=size) { t.destroy(); t.str.clear(); t.pos=pos; t.font_size=size; }
     t.set_str(str); t.draw();
@@ -62,8 +63,7 @@ void Menu::reset() { selected=Game::screen==Game::Screen::Worlds && Game::saved_
 void Menu::text_input(const char* input){
     if(Game::screen!=Game::Screen::CreateWorld || edit_field<0)return;
     auto& value=edit_field==0?Game::world_name:Game::world_seed;
-    // The bundled bitmap font supports printable ASCII.
-    for(const char* c=input;*c && value.size()<32;++c)if(*c>=' ' && *c<='~')value+=*c;
+    Language::append(value,input,32);
 }
 void Menu::wheel(int amount){if(Game::screen==Game::Screen::Worlds){Game::world_index=std::clamp(Game::world_index-amount,0,std::max(0,int(Game::saved_worlds.size())-1));}}
 int Menu::update(bool paused) {
@@ -79,7 +79,7 @@ int Menu::update(bool paused) {
         if(is_key_down(SDLK_UP))selected=(selected+count-1)%count;
         if(is_key_down(SDLK_DOWN) || (create && is_key_down(SDLK_TAB)))selected=(selected+1)%count;
     }
-    if(create){edit_field=selected<2?selected:-1;if(edit_field>=0){SDL_StartTextInput();auto& value=edit_field==0?Game::world_name:Game::world_seed;if(is_key_down(SDLK_BACKSPACE) && !value.empty())value.pop_back();}else SDL_StopTextInput();}
+    if(create){edit_field=selected<2?selected:-1;if(edit_field>=0){SDL_StartTextInput();auto& value=edit_field==0?Game::world_name:Game::world_seed;if(is_key_down(SDLK_BACKSPACE) && !value.empty())Language::pop(value);}else SDL_StopTextInput();}
     int x,y;SDL_GetMouseState(&x,&y);
     if(worlds && is_button_down(0) && x>=int(win_size.x)/2-260 && x<int(win_size.x)/2+260 && y>=95 && y<int(win_size.y)-190){
         int row=(y-95)/58;int index=first_world()+row;
@@ -97,12 +97,12 @@ int Menu::update(bool paused) {
 #ifdef __SWITCH__
     if(create && selected<2 && confirm){
         auto& value=selected==0?Game::world_name:Game::world_seed;SwkbdConfig keyboard;
-        if(R_SUCCEEDED(swkbdCreate(&keyboard,0))){char buffer[128]{};swkbdConfigMakePresetDefault(&keyboard);swkbdConfigSetInitialText(&keyboard,value.c_str());swkbdConfigSetStringLenMax(&keyboard,32);swkbdConfigSetHeaderText(&keyboard,selected==0?"World name":"World seed");
-            if(R_SUCCEEDED(swkbdShow(&keyboard,buffer,sizeof(buffer)))){value.clear();for(const char* p=buffer;*p && value.size()<32;++p)if(*p>=' ' && *p<='~')value+=*p;}swkbdClose(&keyboard);}
+        if(R_SUCCEEDED(swkbdCreate(&keyboard,0))){char buffer[128]{};swkbdConfigMakePresetDefault(&keyboard);swkbdConfigSetInitialText(&keyboard,value.c_str());swkbdConfigSetStringLenMax(&keyboard,32);swkbdConfigSetHeaderText(&keyboard,selected==0?Language::tr("World name"):Language::tr("World seed"));
+            if(R_SUCCEEDED(swkbdShow(&keyboard,buffer,sizeof(buffer)))){value.clear();Language::append(value,buffer,32);}swkbdClose(&keyboard);}
         return -1;
     }
 #endif
-    return (confirm || (options && selected<7 && (is_key_down(SDLK_LEFT) || is_key_down(SDLK_RIGHT))))?selected:-1;
+    return (confirm || (options && selected<8 && (is_key_down(SDLK_LEFT) || is_key_down(SDLK_RIGHT))))?selected:-1;
 }
 void Menu::draw(bool paused) {
     glDisable(GL_DEPTH_TEST); glDisable(GL_CULL_FACE); glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
@@ -115,37 +115,38 @@ void Menu::draw(bool paused) {
     } else rectangle(0,0,win_size.x,win_size.y,vec4(0,0,0,.65));
     bool options=Game::screen==Game::Screen::Options;
     bool worlds=Game::screen==Game::Screen::Worlds,create=Game::screen==Game::Screen::CreateWorld;
-    text(worlds?"SELECT WORLD":(create?"CREATE NEW WORLD":(options?"OPTIONS":(Game::screen==Game::Screen::Dead?"YOU DIED":(paused?"GAME PAUSED":"C-MINE")))),(options || worlds || create)?30:int(win_size.y)/5,(options || worlds || create)?4:(paused?4:7));
+    text(worlds?Language::tr("SELECT WORLD"):(create?Language::tr("CREATE NEW WORLD"):(options?Language::tr("OPTIONS"):(Game::screen==Game::Screen::Dead?Language::tr("YOU DIED"):(paused?Language::tr("GAME PAUSED"):"C-MINE")))),(options || worlds || create)?30:int(win_size.y)/5,(options || worlds || create)?4:(paused?4:7));
     std::vector<std::string> labels;
     auto& o=Settings::options;
-    if(options)labels={"FOV: "+std::to_string(o.fov),"Sensitivity: "+std::to_string(o.sensitivity)+"%",
-        "Render distance: "+std::to_string(o.distance),std::string("VSync: ")+(o.vsync?"ON":"OFF"),
-        std::string("Ambient occlusion: ")+(o.ao?"ON":"OFF"),std::string("Fullscreen: ")+(o.fullscreen?"ON":"OFF"),
-        std::string("Invert mouse Y: ")+(o.invert_y?"ON":"OFF"),"Done"};
-    else if(worlds)labels={"Play Selected World","Create New World","Cancel"};
-    else if(create)labels={"World name: "+Game::world_name.substr(Game::world_name.size()>24?Game::world_name.size()-24:0)+(edit_field==0?"_":""),"Seed: "+Game::world_seed.substr(Game::world_seed.size()>28?Game::world_seed.size()-28:0)+(edit_field==1?"_":""),Game::new_survival?"Game Mode: Survival":"Game Mode: Creative","Create New World","Cancel"};
-    else if(Game::screen==Game::Screen::Dead)labels={"Respawn","Back to Title"};
-    else if(paused)labels={"Resume Game",survival_mode?"Mode: Survival":"Mode: Creative","Options...","Back to Title","Quit Game"};
-    else labels={"Singleplayer","Options...","Quit Game"};
+    if(options)labels={Language::tr("FOV: ")+std::to_string(o.fov),Language::tr("Sensitivity: ")+std::to_string(o.sensitivity)+"%",
+        Language::tr("Render distance: ")+std::to_string(o.distance),std::string(Language::tr("VSync: "))+(o.vsync?Language::tr("ON"):Language::tr("OFF")),
+        std::string(Language::tr("Ambient occlusion: "))+(o.ao?Language::tr("ON"):Language::tr("OFF")),std::string(Language::tr("Fullscreen: "))+(o.fullscreen?Language::tr("ON"):Language::tr("OFF")),
+        std::string(Language::tr("Invert mouse Y: "))+(o.invert_y?Language::tr("ON"):Language::tr("OFF")),Language::tr("Language: English"),Language::tr("Done")};
+    else if(worlds)labels={Language::tr("Play Selected World"),Language::tr("Create New World"),Language::tr("Cancel")};
+    else if(create)labels={Language::tr("World name: ")+Language::tail(Game::world_name,24)+(edit_field==0?"_":""),Language::tr("Seed: ")+Language::tail(Game::world_seed,28)+(edit_field==1?"_":""),Game::new_survival?Language::tr("Game Mode: Survival"):Language::tr("Game Mode: Creative"),Language::tr("Create New World"),Language::tr("Cancel")};
+    else if(Game::screen==Game::Screen::Dead)labels={Language::tr("Respawn"),Language::tr("Back to Title")};
+    else if(paused)labels={Language::tr("Resume Game"),survival_mode?Language::tr("Mode: Survival"):Language::tr("Mode: Creative"),Language::tr("Options..."),Language::tr("Back to Title"),Language::tr("Quit Game")};
+    else labels={Language::tr("Singleplayer"),Language::tr("Options..."),Language::tr("Quit Game")};
     if(worlds){
         rectangle(win_size.x/2.f-270,85,540,float(int(win_size.y)-275),vec4(0,0,0,.55));
-        if(Game::saved_worlds.empty())text("No saved worlds. Create your first world.",120,2);
+        if(Game::saved_worlds.empty())text(Language::tr("No saved worlds. Create your first world."),120,2);
         int first=first_world();
         for(int i=first;i<int(Game::saved_worlds.size());++i){int y=95+(i-first)*58;if(y+54>int(win_size.y)-190)break;
             const auto& d=Game::saved_worlds[i].data;float x=win_size.x/2.f-260;
             rectangle(x,float(y),520,54,i==Game::world_index?vec4(.36,.4,.54,.95):vec4(.13,.13,.13,.9));
             Ui::text("save-name"+std::to_string(i-first),d.name,int(x+10),y+4,2);
-            Ui::text("save-mode"+std::to_string(i-first),std::string(d.survival?"Survival":"Creative")+" / Seed: "+std::to_string(d.seed),int(x+10),y+31,1);
+            Ui::text("save-mode"+std::to_string(i-first),std::string(d.survival?Language::tr("Survival"):Language::tr("Creative"))+Language::tr(" / Seed: ")+std::to_string(d.seed),int(x+10),y+31,1);
         }
     }
     for(int i=0;i<(int)labels.size();++i) {
         float x=win_size.x/2.f-210,y=float(button_y(i));
         rectangle(x,y,420,42,i==selected?vec4(.72,.76,.92,1):vec4(.18,.18,.18,1));
         rectangle(x+2,y+2,416,38,i==selected?vec4(.37,.42,.61,1):vec4(.34,.34,.34,1));
-        text(labels[i],(int)y+4,(options || create)?2:3);
+        int size=(options || create)?2:3;while(size>1 && Text::measure(labels[i],size)>400)--size;
+        text(labels[i],(int)y+4,size);
     }
     if(!Game::message.empty())text(Game::message,70,1);
-    text(create?"Enter name and seed / Up-Down: field / Empty seed: random":(worlds?"Up-Down: world / Left-Right: action / Enter: confirm":(options?"Click / Left-Right to change  /  Esc: back":(paused?"World is paused":"E: inventory  /  Tab: game mode"))),(int)win_size.y-25,1);
+    text(create?Language::tr("Enter name and seed / Up-Down: field / Empty seed: random"):(worlds?Language::tr("Up-Down: world / Left-Right: action / Enter: confirm"):(options?Language::tr("Click / Left-Right to change  /  Esc: back"):(paused?Language::tr("World is paused"):Language::tr("E: inventory  /  Tab: game mode")))),(int)win_size.y-25,1);
     glEnable(GL_DEPTH_TEST);glEnable(GL_CULL_FACE);
 }
 void Menu::destroy() {
