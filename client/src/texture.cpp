@@ -5,7 +5,7 @@
 
 Texture::Texture(const char* path, int _unit)
 {
-    uint8_t* data = stbi_load(path, &width, &height, &chan_num, 0);
+    stbi_uc* data = stbi_load(path, &width, &height, &chan_num, 0);
 
     if (!data)
     {
@@ -47,7 +47,7 @@ void Texture::use_mipmap(const char* path, int level)
     int mipmap_height;
     int mipmap_chan_num;
 
-    uint8_t* mipmap_data = stbi_load(path, &mipmap_width, &mipmap_height, &mipmap_chan_num, 0);
+    stbi_uc* mipmap_data = stbi_load(path, &mipmap_width, &mipmap_height, &mipmap_chan_num, 0);
 
     if (!mipmap_data)
     {
