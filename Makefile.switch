@@ -27,7 +27,7 @@ $(SWITCH_BUILD)/MineCppClone.nro: $(SWITCH_BUILD)/MineCppClone.elf $(wildcard cl
 	mkdir -p $(SWITCH_BUILD)/romfs
 	cp -r client/shaders client/textures $(SWITCH_BUILD)/romfs/
 	cp client/ported_mc/DEJAVU-LICENSE.txt client/PORTED-MC.md client/CLASSIC-RELEASE.md $(SWITCH_BUILD)/romfs/
-	nacptool --create "C-mine" "C-mine contributors" "0.8.0" $(SWITCH_BUILD)/MineCppClone.nacp
+	nacptool --create "C-mine" "C-mine contributors" "0.8.1" $(SWITCH_BUILD)/MineCppClone.nacp
 	elf2nro $< $@ --nacp=$(SWITCH_BUILD)/MineCppClone.nacp --romfsdir=$(SWITCH_BUILD)/romfs
 
 -include $(SWITCH_OBJECTS:.o=.d)

@@ -49,6 +49,11 @@ void Menu::init() {
 #endif
     if(!std::filesystem::exists(path))path="textures/widgets.png";
     widgets=Texture(path.c_str(),13);logo=Texture("textures/logo.png",14);
+    // The supplied logo is artwork rather than pixel art; filter its outline
+    // smoothly when fitting it to the menu, without changing widget filtering.
+    logo.bind();
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
     panorama=Shader("shaders/screen_vert.glsl","shaders/panorama_frag.glsl");
     glGenVertexArrays(1,&vao); glGenTextures(1,&cube);
     glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_CUBE_MAP,cube);
