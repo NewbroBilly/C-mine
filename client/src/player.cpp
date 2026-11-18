@@ -192,8 +192,10 @@ Camera Player::view_camera() {
     Camera view = cam;
     float roll=float(Movement::hurt_roll(vitals.hurt_ticks,vital_clock/.05));
     view.up=rotate(cam.up,radians(roll),cam.forward);
-    if(world->underwater(render_position()+dvec3(cam.pos)))view.fov*=60.f/70.f;
-    if (!third_person) return view;
+    if (!third_person) {
+        if(world->underwater(render_position()+dvec3(view.pos)))view.fov*=60.f/70.f;
+        return view;
+    }
     vec3 offset = cam.forward * (third_person == 1 ? -3.5f : 3.5f);
     float fraction = 0;
     for (float t=.05f;t<=1.f;t+=.05f) {
@@ -207,6 +209,7 @@ Camera Player::view_camera() {
     }
     view.pos += offset*fraction;
     if (third_person==2) view.forward = -cam.forward;
+    if(world->underwater(render_position()+dvec3(view.pos)))view.fov*=60.f/70.f;
     return view;
 }
 

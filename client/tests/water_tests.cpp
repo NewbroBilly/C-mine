@@ -32,5 +32,18 @@ int main(){
     for(int i=0;i<20;++i)sim.tick(get,set);check(get({-1,1,0})==2,"unloaded chunk frontier must not drain water");
     cells[{-2,1,0}]=0;sim.changed({-2,1,0});for(int i=0;i<10;++i)sim.tick(get,set);check(get({-1,1,0})==1,"water must resume at negative chunk coordinates");
     check(std::abs(Water::height(0)-8./9)<1e-9 && Water::height(8)==Water::height(0),"source and falling surface height");
+    cells.clear();
+    for(int level=0;level<16;++level){
+        for(int y=1;y<=4;++y)cells[{-1,y,-1}]=level;
+        // A submerged camera must stay wet at every integer boundary, even
+        // through the upper part of a falling/flowing cell.
+        for(int i=0;i<3000;++i)
+            check(Water::contains({-.5,1.+i*.001,-.5},get),"no internal air gaps in a water column");
+        double surface=4.+Water::height(level);
+        check(Water::contains({-.5,surface-.00001,-.5},get),"camera below exposed water surface stays underwater");
+        check(!Water::contains({-.5,surface+.00001,-.5},get),"camera above exposed water surface is in air");
+        check(!Water::contains({-.5,5.,-.5},get),"camera outside water column is dry");
+        check(!Water::contains({.5,2.,-.5},get),"neighboring air must remain dry");
+    }
     std::cout<<"Water scheduling, levels, range, falling, drainage, source regeneration, path selection and chunk frontier passed\n";
 }

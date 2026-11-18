@@ -22,7 +22,7 @@ void World::set_fluid(Water::Pos p,int level){
     BlockState b{char(level==Water::Air?AIR:WATER),char(level&15),0};c->set(local,&b);
     if(old.id==TORCH)update_lighting(c,local,false,&old);
 }
-bool World::underwater(dvec3 p)const{Water::Pos q{int(floor(p.x)),int(floor(p.y)),int(floor(p.z))};int l=fluid(q);return Water::liquid(l) && p.y<q[1]+Water::height(l)-.111111;}
+bool World::underwater(dvec3 p)const{return Water::contains({p.x,p.y,p.z},[&](Water::Pos q){return fluid(q);});}
 bool World::submerged(dvec3 p,dvec3* current)const{
     bool found=false;dvec3 flow(0);
     auto get=[&](Water::Pos q){return fluid(q);};

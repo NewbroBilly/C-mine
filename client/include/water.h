@@ -11,6 +11,7 @@ using Query=std::function<int(Pos)>;
 using Write=std::function<void(Pos,int)>;
 bool liquid(int level);
 double height(int level);
+bool contains(std::array<double,3> point,const Query& get);
 std::array<double,3> flow(Pos p,const Query& get);
 // BlockDynamicLiquid water rules, scheduled every five 20 Hz game ticks.
 class Simulator {

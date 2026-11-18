@@ -352,6 +352,17 @@ int main(int argc, char** argv)
                 player->vitals.hurt_ticks=8;auto hurt=player->view_camera();if(abs(hurt.up.x)<.1)return 48;
                 Game::draw();save_frame("smoke-hurt.bmp");
                 player->vitals.hurt_ticks=0;
+                // Swim the camera through two complete water cells. Fog and
+                // FOV must not switch to air near internal block boundaries.
+                int old_view=player->third_person;player->third_person=0;
+                for(int i=0;i<2000;++i){
+                    dvec3 eye=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,230.+i*.001,8.5);
+                    player->pos=player->previous_position=eye-dvec3(player->cam.pos);
+                    auto view=player->view_camera();
+                    if(!world->underwater(eye) || abs(view.fov-player->cam.fov*60.f/70.f)>.001f)return 59;
+                }
+                player->third_person=old_view;
+                SDL_Log("Swimming regression passed: continuous underwater fog/FOV across water block boundaries");
                 player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,230,8.5);player->vel=dvec3(0);player->flying=false;
                 if(!world->submerged(player->pos) || !world->underwater(player->pos+dvec3(0,1.62,0)))return 49;
                 Game::set_mode(true);player->air=0;player->vital_clock=0;

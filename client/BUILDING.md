@@ -80,6 +80,8 @@ It exits after 415 frames and requires a real OpenGL context. It also exercises
 world creation/name/seed/mode, falling/spreading water, buckets, drowning,
 hurt-camera roll, creative search/categories, chunk eviction/reload and a saved-world
 reopen. Smoke saves/options are isolated from normal player data.
+It also sweeps the camera through stacked water blocks to catch fog/FOV flicker
+at internal block boundaries; only the exposed top surface ends submersion.
 
 ## PrismLauncher resource source
 

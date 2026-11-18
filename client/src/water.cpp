@@ -16,6 +16,14 @@ int cost(Pos p,int depth,int back,const Query& get){
 }
 bool liquid(int v){return v>=0 && v<16;}
 double height(int v){return liquid(v)?1.-((v>=8?0:v)+1)/9.:0.;}
+bool contains(std::array<double,3> point,const Query& get){
+    Pos p{int(std::floor(point[0])),int(std::floor(point[1])),int(std::floor(point[2]))};
+    int level=get(p);
+    if(!liquid(level))return false;
+    // Only the exposed surface has a lowered liquid height. Applying that
+    // height inside a column creates an air gap at every block boundary.
+    return liquid(get(add(p,{0,1,0}))) || point[1]<p[1]+height(level);
+}
 std::array<double,3> flow(Pos p,const Query& get){
     int raw=get(p);if(!liquid(raw))return {0,0,0};int level=raw>=8?0:raw;
     std::array<double,3> v{};
