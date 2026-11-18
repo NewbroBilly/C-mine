@@ -53,8 +53,10 @@ jobs:
     container: devkitpro/devkita64:latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Switch libraries
-        run: dkp-pacman -Sy --noconfirm --needed switch-sdl2 switch-glm switch-glad
+      - name: Verify bundled Switch libraries
+        # devkita64 already includes switch-portlibs. Avoid refreshing remote
+        # package databases for libraries supplied by the build image.
+        run: dkp-pacman -Q switch-sdl2 switch-glm switch-glad
       - name: Build Switch homebrew
         run: make -f Makefile.switch -j2
       - name: Upload Switch homebrew
