@@ -331,6 +331,13 @@ int main(int argc, char** argv)
             }
             if(frame==355){
                 if(!world->spawned)return 44;
+                size_t natural_water=0;
+                for(auto* c:world->chunk_vector)
+                    for(auto& column:c->blocks)for(auto& row:column)for(auto b:row)if(b.id==WATER){
+                        ++natural_water;if(b.data1!=0 || b.data2!=0)return 60;
+                    }
+                if(!natural_water || world->water.pending()!=0)return 61;
+                SDL_Log("Generation regression passed: %zu settled water blocks, zero scheduled fluid updates",natural_water);
                 auto* c=world->get_chunk_from_pos(player->pos);water_chunk=c->pos;
                 for(int x=2;x<=14;++x)for(int z=2;z<=14;++z){BlockState b{STONE,0,0};c->set(ivec3(x,229,z),&b);
                     for(int y=230;y<=236;++y){BlockState a{AIR,0,0};c->set(ivec3(x,y,z),&a);}}
@@ -390,12 +397,12 @@ int main(int argc, char** argv)
                 if(world->chunk_map.count(water_chunk))return 52;
                 player->pos=saved_position;Game::update();
                 c=world->get_chunk_from_pos(saved_position);
-                if(!c || c->get(ivec3(8,232,8))->id!=WATER || c->get(ivec3(3,229,3))->id!=STONE)return 53;
+                if(!c || c->get(ivec3(8,232,8))->id!=WATER || !(c->get(ivec3(8,232,8))->data2&1) || c->get(ivec3(3,229,3))->id!=STONE)return 53;
                 Game::title();Game::select_worlds();Game::draw();save_frame("smoke-worlds.bmp");
                 if(Game::saved_worlds.size()!=1)return 54;
                 Game::load_world(0);Game::update();
                 if(survival_mode || length(player->pos-saved_position)>.01 || player->inventory.survival.main[2].damage!=17 || player->hotbar.index!=2 || player->vitals.health!=13)return 55;
-                c=world->get_chunk_from_pos(player->pos);if(!c || c->get(ivec3(8,232,8))->id!=WATER)return 56;
+                c=world->get_chunk_from_pos(player->pos);if(!c || c->get(ivec3(8,232,8))->id!=WATER || world->water.pending()==0)return 56;
                 SDL_Log("Water/menu/save smoke passed: create/name/seed/mode, flowing/falling water, creative categories/search, source bucket pickup, hurt roll, underwater, chunk unload/reload, world save/reopen and both inventories");
                 closed=true;
             }

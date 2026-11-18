@@ -90,26 +90,31 @@ void Chunk::load()
     const uint64_t seed=world?uint64_t(world->seed):0;
     float ox=float(seed&0xffff)*.25f,oz=float((seed>>16)&0xffff)*.25f;
 
-    auto terrain=[&](int x,int y,int z)->int {
+    auto height_at=[&](int x,int z){return int(noise.fractal(6,(x+ox)*.002f,(z+oz)*.002f)*40+120);};
+    auto terrain=[&](int x,int y,int z,int height)->int {
         if(y<0 || y>=CHUNK_HEIGHT)return AIR;
         if(y==0)return BEDROCK;
-        int height=int(noise.fractal(6,(x+ox)*.002f,(z+oz)*.002f)*40+120);
         if(y>=height)return y<112?WATER:AIR;
         if(noise.fractal(3,(x+ox)*.01f,y*.01f,(z+oz)*.01f)>=.3f)return AIR;
         if(y==height-1)return GRASS_BLOCK;
         return y>=height-4?DIRT:STONE;
     };
-    for(int x=0;x<CHUNK_WIDTH;++x)for(int z=0;z<CHUNK_WIDTH;++z)
-        for(int y=0;y<CHUNK_HEIGHT;++y)blocks[x][y][z].id=terrain(int(world_pos.x)+x,y,int(world_pos.z)+z);
+    for(int x=0;x<CHUNK_WIDTH;++x)for(int z=0;z<CHUNK_WIDTH;++z){
+        int wx=int(world_pos.x)+x,wz=int(world_pos.z)+z;
+        // The column height is constant for all 256 blocks. Oceans are written
+        // directly as settled sources, without scheduling a spawn-time flood.
+        int height=height_at(wx,wz);
+        for(int y=0;y<CHUNK_HEIGHT;++y)blocks[x][y][z].id=terrain(wx,y,wz,height);
+    }
     // Each nearby eight-block cell owns one candidate. Query base terrain in
     // world coordinates and clip writes, so crowns continue across chunk seams.
     for(int gx=pos.x*2-1;gx<=pos.x*2+2;++gx)for(int gz=pos.y*2-1;gz<=pos.y*2+2;++gz){
         Trees::Random random(uint64_t(int64_t(gx))*341873128712ULL+uint64_t(int64_t(gz))*132897987541ULL+1122+seed);
         if(random.next(3)==0)continue;
         int tx=gx*8+2+random.next(4),tz=gz*8+2+random.next(4);
-        int height=int(noise.fractal(6,(tx+ox)*.002f,(tz+oz)*.002f)*40+120);
+        int height=height_at(tx,tz);
         auto get=[&](int x,int y,int z)->Trees::Cell {
-            switch(terrain(x,y,z)) {case AIR:return Trees::Air;case GRASS_BLOCK:return Trees::Grass;case DIRT:return Trees::Dirt;default:return Trees::Other;}
+            switch(terrain(x,y,z,height_at(x,z))) {case AIR:return Trees::Air;case GRASS_BLOCK:return Trees::Grass;case DIRT:return Trees::Dirt;default:return Trees::Other;}
         };
         auto set=[&](int x,int y,int z,Trees::Cell cell){
             int lx=x-int(world_pos.x),lz=z-int(world_pos.z);

@@ -82,6 +82,7 @@ hurt-camera roll, creative search/categories, chunk eviction/reload and a saved-
 reopen. Smoke saves/options are isolated from normal player data.
 It also sweeps the camera through stacked water blocks to catch fog/FOV flicker
 at internal block boundaries; only the exposed top surface ends submersion.
+Fresh terrain is checked for prefilled source water and an empty fluid queue.
 
 ## PrismLauncher resource source
 
@@ -152,7 +153,11 @@ click takes an item, clicking again fills the cursor stack. The Player Inventory
 tab exposes the current creative bag. As before, survival and creative bags are
 separate, unlike Java's shared bag.
 
-Water sources appear below the terrain's sea level and can be placed with a
+Natural water is generated immediately as settled sources below sea level;
+chunk loading does not schedule the entire ocean for simulation. Player edits
+wake nearby water, and saved disturbed sources/flow resume when chunks reload.
+Terrain height is evaluated once per column instead of once per block.
+Water sources can also be placed with a
 water bucket from Miscellaneous/Search. In survival craft a bucket from three iron
 ingots in a V in the 3x3 table; right-click a source to fill, or a surface to pour.
 Flowing water cannot be collected. Water updates every five game ticks, falls

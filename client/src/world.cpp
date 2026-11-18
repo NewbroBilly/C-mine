@@ -13,13 +13,24 @@ int World::fluid(Water::Pos p)const{
     if(bs->id==WATER)return bs->data1&15;
     return bs->id==AIR || bs->id==GRASS || bs->id==TORCH?Water::Air:Water::Solid;
 }
-void World::notify_water(Chunk* c,ivec3 p){ivec3 q=ivec3(chunk_pos_to_world_hp(c->pos))+p;water.changed({q.x,q.y,q.z});}
+void World::notify_water(Chunk* c,ivec3 p){
+    ivec3 q=ivec3(chunk_pos_to_world_hp(c->pos))+p;
+    // Persist which sources have been disturbed, so loading a saved ocean
+    // does not turn every generated shoreline into an active fluid update.
+    for(int f=-1;f<6;++f){
+        ivec3 local=p+(f<0?ivec3(0):face_normal[f]);auto* n=get_neighbor_chunk(c,local);
+        if(n && n->get(local)->id==WATER && !(n->get(local)->data2&1)){
+            n->get(local)->data2|=1;n->modified=true;
+        }
+    }
+    water.changed({q.x,q.y,q.z});
+}
 void World::set_fluid(Water::Pos p,int level){
     auto* c=get_chunk_from_pos(vec3(p[0],p[1],p[2]));if(!c || p[1]<0 || p[1]>=256)return;
     ivec3 local=ivec3(p[0],p[1],p[2])-ivec3(chunk_pos_to_world_hp(c->pos));auto old=*c->get(local);
     if(level!=Water::Air && old.id!=AIR && old.id!=WATER && old.id!=GRASS && old.id!=TORCH)return;
     if(old.id==TORCH || old.id==GRASS){auto loot=Items::drop(old.id,-1,0);if(!loot.empty())player->drops.push_back({loot,dvec3(p[0]+.5,p[1]+.5,p[2]+.5),dvec3(0),0});}
-    BlockState b{char(level==Water::Air?AIR:WATER),char(level&15),0};c->set(local,&b);
+    BlockState b{char(level==Water::Air?AIR:WATER),char(level&15),char(level==Water::Air?0:1)};c->set(local,&b);
     if(old.id==TORCH)update_lighting(c,local,false,&old);
 }
 bool World::underwater(dvec3 p)const{return Water::contains({p.x,p.y,p.z},[&](Water::Pos q){return fluid(q);});}
@@ -145,13 +156,23 @@ void World::update2() {
     chunk_map.emplace(p, chunk);
     chunk_vector.push_back(chunk);
     calculate_lighting(chunk);
-    // Resume saved water, including both sides of newly loaded chunk seams.
-    for(auto* c:{chunk,chunk->north,chunk->south,chunk->east,chunk->west})if(c)
-        for(int x=0;x<16;++x)for(int y=0;y<256;++y)for(int z=0;z<16;++z)if(c->blocks[x][y][z].id==WATER){
-            bool active=(c->blocks[x][y][z].data1&15)!=0;
-            for(int f=0;f<6;++f){if(f==2)continue;ivec3 p=ivec3(x,y,z)+face_normal[f];auto* n=get_neighbor_chunk(c,p);if(n && (n->get(p)->id==AIR || n->get(p)->id==GRASS || n->get(p)->id==TORCH))active=true;}
-            if(active)notify_water(c,ivec3(x,y,z));
+    // Natural water is already generated at its final level. Resume only
+    // disturbed/saved water, and inspect neighbor seams instead of rescanning
+    // five complete chunks every time a new chunk arrives.
+    auto resume=[&](Chunk* c,int x,int y,int z){
+        auto b=c->blocks[x][y][z];
+        if(b.id==WATER && ((b.data2&1) || (b.data1&15)!=0)){
+            ivec3 q=ivec3(chunk_pos_to_world_hp(c->pos))+ivec3(x,y,z);
+            water.schedule({q.x,q.y,q.z});
         }
+    };
+    for(int x=0;x<16;++x)for(int y=0;y<256;++y)for(int z=0;z<16;++z)resume(chunk,x,y,z);
+    for(int y=0;y<256;++y)for(int a=0;a<16;++a){
+        if(chunk->north)resume(chunk->north,a,y,0);
+        if(chunk->south)resume(chunk->south,a,y,15);
+        if(chunk->east)resume(chunk->east,0,y,a);
+        if(chunk->west)resume(chunk->west,15,y,a);
+    }
     // Saved emitting blocks need their block light restored too.
     for(int x=0;x<16;++x)for(int y=0;y<256;++y)for(int z=0;z<16;++z){auto b=chunk->blocks[x][y][z];if(get_block_by_id(b.id)->light>0)update_lighting(chunk,ivec3(x,y,z),true,&b);}
 }
