@@ -3,7 +3,8 @@
 #include <gtc/matrix_transform.hpp>
 namespace {
 Shader shader;
-Texture skin;
+Texture skin,mob_skins[Mobs::Count],fur,armor_skins[5][2];
+vec2 texture_size(64);
 GLuint vao,vbo;
 struct Vertex { vec3 position; vec2 uv; float shade; };
 std::vector<Vertex> vertices;
@@ -18,7 +19,19 @@ void box(mat4 transform,vec3 minimum,ivec3 size,ivec2 uv,float inflate=0) {
         {u+d,v+d,u+d+w,v+d+h},{u+d+w+d,v+d,u+d+w+d+w,v+d+h}};
     float shades[]={.78f,.78f,1.f,.65f,.9f,.8f};
     for(int f=0;f<6;++f){vec4 r=rects[f];vec2 tex[4]={{r.z,r.y},{r.x,r.y},{r.x,r.w},{r.z,r.w}};
-        for(int n:{0,1,2,0,2,3})vertices.push_back({p[faces[f][n]],tex[n]/64.f,shades[f]});}
+        for(int n:{0,1,2,0,2,3})vertices.push_back({p[faces[f][n]],tex[n]/texture_size,shades[f]});}
+}
+void flush(Texture& texture,const mat4& camera,float flash=0){
+    texture.bind();shader.bind();shader.upload_texture("skin",texture);shader.upload_mat4("cam_mat",camera);shader.upload_float("flash",flash);
+    glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);
+    glDisable(GL_CULL_FACE);glDrawArrays(GL_TRIANGLES,0,(GLsizei)vertices.size());glEnable(GL_CULL_FACE);vertices.clear();
+}
+Texture load_skin(const std::string& name){std::string path="resource_pack/"+name+".png";
+#ifdef __SWITCH__
+    path="sdmc:/switch/C-mine/resource_pack/"+name+".png";
+#endif
+    if(!std::filesystem::exists(path))path="textures/"+name+".png";
+    return Texture(path.c_str(),6);
 }
 }
 void Avatar::init() {
@@ -29,14 +42,18 @@ void Avatar::init() {
 #endif
     if(!std::filesystem::exists(path))path="textures/player.png";
     skin=Texture(path.c_str(),6);
+    const char* names[]={"pig","cow","sheep","zombie","creeper"};
+    for(int i=0;i<Mobs::Count;++i)mob_skins[i]=load_skin(names[i]);fur=load_skin("sheep_fur");
+    const char* mats[]={"leather","chainmail","iron","gold","diamond"};
+    for(int m=0;m<5;++m)for(int l=0;l<2;++l)armor_skins[m][l]=load_skin(std::string(mats[m])+"_layer_"+std::to_string(l+1));
     glGenVertexArrays(1,&vao);glGenBuffers(1,&vbo);
     glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);
     glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)offsetof(Vertex,position));glEnableVertexAttribArray(0);
     glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)offsetof(Vertex,uv));glEnableVertexAttribArray(1);
     glVertexAttribPointer(2,1,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)offsetof(Vertex,shade));glEnableVertexAttribArray(2);
 }
-void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,float amount,float attack) {
-    vertices.clear();
+void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,float amount,float attack,const std::array<Items::Stack,4>* armor) {
+    vertices.clear();texture_size=vec2(64);
     mat4 body=translate(mat4(1),vec3(position));
     body=rotate(body,atan2(forward.x,forward.z),vec3(0,1,0));
     body=scale(body,vec3(.9375f));body=translate(body,vec3(0,1.5,0));body=scale(body,vec3(1,-1,-1)/16.f);
@@ -59,17 +76,65 @@ void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,fl
     box(right_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,32),.25f);
     box(left_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(16,48));
     box(left_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,48),.25f);
-    skin.bind();shader.bind();shader.upload_texture("skin",skin);shader.upload_mat4("cam_mat",camera);
-    glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);
-    glDisable(GL_CULL_FACE);glDrawArrays(GL_TRIANGLES,0,(GLsizei)vertices.size());glEnable(GL_CULL_FACE);
+    flush(skin,camera);
+    if(armor){texture_size=vec2(64,32);
+        for(int i=0;i<4;++i){auto& item=(*armor)[i];int material=Items::armor_material(item.id);if(item.empty() || material<0 || Items::armor_slot(item.id)!=i)continue;
+            float f=i==2?.5f:1.f;
+            if(i==0)box(head,vec3(-4,-8,-4),ivec3(8),ivec2(0),f);
+            if(i==1 || i==2)box(body,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16),f);
+            if(i==1){box(right_arm,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16),f);box(left_arm,vec3(-1,-2,-2),ivec3(4,12,4),ivec2(40,16),f);}
+            if(i==2 || i==3){box(right_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16),f);box(left_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16),f);}
+            flush(armor_skins[material][i==2?1:0],camera);
+        }
+    }texture_size=vec2(64);
 }
 void Avatar::hand(const mat4& matrix){
-    vertices.clear();
+    vertices.clear();texture_size=vec2(64);
     mat4 m=translate(scale(mat4(1),vec3(1.f/16)),vec3(-5,2,0));
     box(m,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16));
     box(m,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,32),.25f);
-    skin.bind();shader.bind();shader.upload_texture("skin",skin);shader.upload_mat4("cam_mat",matrix);
+    skin.bind();shader.bind();shader.upload_texture("skin",skin);shader.upload_mat4("cam_mat",matrix);shader.upload_float("flash",0);
     glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);
     glDisable(GL_CULL_FACE);glDrawArrays(GL_TRIANGLES,0,(GLsizei)vertices.size());glEnable(GL_CULL_FACE);
 }
-void Avatar::destroy() {skin.destroy();glDeleteBuffers(1,&vbo);glDeleteVertexArrays(1,&vao);shader.destroy();}
+// ModelPig/ModelCow/ModelSheep1+2/ModelZombie/ModelCreeper, 1.12.2
+// ModelRenderer pivots and ModelBox UV rectangles, converted to our Y-up world.
+void Avatar::mob(const Mobs::Entity& e,const mat4& camera,double partial){
+    vertices.clear();auto p=mix(dvec3(e.previous[0],e.previous[1],e.previous[2]),dvec3(e.position[0],e.position[1],e.position[2]),std::clamp(partial,0.,1.));
+    mat4 root=translate(mat4(1),vec3(p));root=rotate(root,float(e.yaw),vec3(0,1,0));root=translate(root,vec3(0,1.5,0));root=scale(root,vec3(1,-1,-1)/16.f);
+    float walk=length(dvec2(e.velocity[0],e.velocity[2]))>.1?cos(float(e.phase)*.6662f)*1.4f:0;
+    auto pivot=[&](vec3 pos,float angle=0.f){return rotate(translate(root,pos),angle,vec3(1,0,0));};
+    texture_size=vec2(64,e.kind==Mobs::Zombie?64:32);
+    if(e.kind==Mobs::Zombie){
+        box(root,vec3(-4,-8,-4),ivec3(8),ivec2(0));box(root,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16));
+        // Zombies hold both arms forward, with the original small idle sway.
+        mat4 b=translate(root,vec3(0,0,0));
+        box(pivot(vec3(-5,2,0),-1.5708f+.05f*sin(float(e.phase))),vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16));
+        box(pivot(vec3(5,2,0),-1.5708f-.05f*sin(float(e.phase))),vec3(-1,-2,-2),ivec3(4,12,4),ivec2(40,16));
+        box(pivot(vec3(-1.9,12,0),walk),vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16));
+        box(pivot(vec3(1.9,12,0),-walk),vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16));
+    }else if(e.kind==Mobs::Creeper){
+        box(pivot(vec3(0,6,0)),vec3(-4,-8,-4),ivec3(8),ivec2(0));
+        box(pivot(vec3(0,6,0)),vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16));
+        for(int i=0;i<4;++i)box(pivot(vec3(i%2?2:-2,18,i<2?4:-4),(i==0 || i==3)?walk:-walk),vec3(-2,0,-2),ivec3(4,6,4),ivec2(0,16));
+    }else{
+        bool cow=e.kind==Mobs::Cow,sheep=e.kind==Mobs::Sheep;
+        if(cow){auto h=pivot(vec3(0,4,-8));box(h,vec3(-4,-4,-6),ivec3(8,8,6),ivec2(0));
+            box(h,vec3(-5,-5,-4),ivec3(1,3,1),ivec2(22,0));box(h,vec3(4,-5,-4),ivec3(1,3,1),ivec2(22,0));
+            auto body=pivot(vec3(0,5,2),1.57079633f);box(body,vec3(-6,-10,-7),ivec3(12,18,10),ivec2(18,4));box(body,vec3(-2,2,-8),ivec3(4,6,1),ivec2(52,0));
+        }else if(sheep){box(pivot(vec3(0,6,-8)),vec3(-3,-4,-6),ivec3(6,6,8),ivec2(0));box(pivot(vec3(0,5,2),1.57079633f),vec3(-4,-10,-7),ivec3(8,16,6),ivec2(28,8));}
+        else{auto h=pivot(vec3(0,12,-6));box(h,vec3(-4,-4,-8),ivec3(8),ivec2(0));box(h,vec3(-2,0,-9),ivec3(4,3,1),ivec2(16,16));box(pivot(vec3(0,11,2),1.57079633f),vec3(-5,-10,-7),ivec3(10,16,8),ivec2(28,8));}
+        int height=e.kind==Mobs::Pig?6:12;
+        for(int i=0;i<4;++i)box(pivot(vec3((i%2?1:-1)*(cow?4:3),24-height,i<2?7:(cow?-6:-5)),(i==0 || i==3)?walk:-walk),vec3(-2,0,-2),ivec3(4,height,4),ivec2(0,16));
+    }
+    float flash=e.hurt>0?.4f:0.f;if(e.kind==Mobs::Creeper && e.fuse>0 && int(e.fuse*10)%2)flash=.65f;
+    flush(mob_skins[e.kind],camera,flash);
+    if(e.kind==Mobs::Sheep && !e.sheared){
+        box(pivot(vec3(0,6,-8)),vec3(-3,-4,-4),ivec3(6),ivec2(0),.6f);
+        box(pivot(vec3(0,5,2),1.57079633f),vec3(-4,-10,-7),ivec3(8,16,6),ivec2(28,8),1.75f);
+        for(int i=0;i<4;++i)box(pivot(vec3(i%2?3:-3,12,i<2?7:-5),(i==0 || i==3)?walk:-walk),vec3(-2,0,-2),ivec3(4,6,4),ivec2(0,16),.5f);
+        flush(fur,camera,flash);
+    }
+    texture_size=vec2(64);
+}
+void Avatar::destroy() {for(auto& t:mob_skins)t.destroy();fur.destroy();for(auto& a:armor_skins)for(auto& t:a)t.destroy();skin.destroy();glDeleteBuffers(1,&vbo);glDeleteVertexArrays(1,&vao);shader.destroy();}

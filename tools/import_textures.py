@@ -76,12 +76,24 @@ def main():
         atlas = build_atlas(archive)
         skin = archive.read("assets/minecraft/textures/entity/steve.png")
         gui_assets = {"inventory.png": "container/inventory.png",
-                      "crafting.png": "container/crafting_table.png", "icons.png": "icons.png"}
+                      "crafting.png": "container/crafting_table.png", "icons.png": "icons.png", "widgets.png": "widgets.png"}
         args.output.mkdir(parents=True, exist_ok=True)
         for target, source in gui_assets.items():
             (args.output / target).write_bytes(archive.read("assets/minecraft/textures/gui/" + source))
         for target, source in [("creative.png", "tab_items.png"), ("creative_tabs.png", "tabs.png")]:
             (args.output / target).write_bytes(archive.read("assets/minecraft/textures/gui/container/creative_inventory/" + source))
+        entities={"pig":"pig/pig", "cow":"cow/cow", "sheep":"sheep/sheep", "sheep_fur":"sheep/sheep_fur", "zombie":"zombie/zombie", "creeper":"creeper/creeper"}
+        for target,source in entities.items():
+            (args.output/(target+".png")).write_bytes(archive.read("assets/minecraft/textures/entity/"+source+".png"))
+        for material in ("leather","chainmail","iron","gold","diamond"):
+            for layer in (1,2):
+                target=f"{material}_layer_{layer}.png"
+                image=Image.open(io.BytesIO(archive.read("assets/minecraft/textures/models/armor/"+target))).convert("RGBA")
+                if material=="leather":
+                    image=ImageChops.multiply(image,Image.new("RGBA",image.size,(160,101,64,255)))
+                    overlay=Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/models/armor/leather_layer_{layer}_overlay.png"))).convert("RGBA")
+                    image=Image.alpha_composite(image,overlay)
+                image.save(args.output/target)
         items = Image.new("RGBA", (256, 256))
         catalog = Path(__file__).resolve().parents[1] / "client/include/items.def"
         entries = catalog.read_text().splitlines()

@@ -115,3 +115,23 @@ and world reopen with both bags, pose and vitals.
 The new 0.6.0 catalog appends IDs: 55 blocks and 40 items. Imported images stay
 in local resource packs; repository fallback textures are independently drawn.
 The game's complete Java registries/recipe system are not loaded at runtime.
+
+## Classic models and equipment (0.8.0)
+
+ModelBox UV rectangles, ModelQuadruped/ModelPig/ModelCow/ModelSheep1/2,
+ModelZombie and ModelCreeper geometry and limb pivots were adapted in
+`src/avatar.cpp`. Reference source:
+https://github.com/KealJones/mc-1.12.2-source_files/tree/master/src/minecraft/net/minecraft/client/model
+The runtime reads entity, armor and widget textures from the user's local 1.12.2
+JAR with `tools/import_textures.py`; these images are not committed to GitHub.
+The logo is the image explicitly supplied by the user, prepared by
+`tools/import_logo.py`. Other new repository images are authored by
+`tools/classic_fallbacks.py` and `tools/update_tool_fallbacks.py`.
+
+Armor adapts the supplied clone's equipment/quick-equip rules and 1.12.2
+ItemArmor material values and CombatRules damage formula, including diamond
+toughness and raw-damage durability wear. Protection applies to ordinary attacks
+and fire; fall/drowning/void/starvation keep their bypass behavior.
+The mob simulation is a C++ adaptation with basic local steering, rather than a
+port of the entire Java entity AI/task/pathfinding engine. See CLASSIC-RELEASE.md
+for the exact implemented scope and save compatibility.

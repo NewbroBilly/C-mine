@@ -27,7 +27,7 @@ add_custom_command(TARGET MineCppClone POST_BUILD
 install(TARGETS MineCppClone RUNTIME DESTINATION .)
 install(DIRECTORY textures shaders DESTINATION .)
 install(FILES README.md ORIGIN.md ORIGIN-PANORAMA.md VANILLA-REFERENCE.md BUILDING.md DESTINATION .)
-install(FILES PORTED-MC.md ported_mc/DEJAVU-LICENSE.txt DESTINATION .)
+install(FILES PORTED-MC.md CLASSIC-RELEASE.md ported_mc/DEJAVU-LICENSE.txt DESTINATION .)
 
 if(MC_BUILD_TESTS)
     add_executable(client_water_tests tests/water_tests.cpp src/water.cpp)

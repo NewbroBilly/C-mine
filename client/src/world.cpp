@@ -114,6 +114,7 @@ void World::update() {
                 }
     }
     update2();
+    if(spawned)update_mobs();
     water_clock+=std::min(delta_time,.05);
     while(water_clock>=.05){water.tick([&](Water::Pos p){return fluid(p);},[&](Water::Pos p,int l){set_fluid(p,l);});water_clock-=.05;}
     fire_clock+=delta_time;
@@ -154,8 +155,17 @@ void World::update2() {
     Chunk* chunk = new Chunk(p);
     chunk->load();
     if(!save_path.empty()){
-        if(Saves::load_chunk(save_path,p.x,p.y,reinterpret_cast<unsigned char*>(chunk->blocks),sizeof(chunk->blocks))){
+        std::vector<unsigned char> natural;
+        auto bytes=reinterpret_cast<unsigned char*>(chunk->blocks);
+        if(generator_version==1)natural.assign(bytes,bytes+sizeof(chunk->blocks));
+        int revision=0;
+        if(Saves::load_chunk(save_path,p.x,p.y,bytes,sizeof(chunk->blocks),&revision)){
             for(auto& column:chunk->blocks)for(auto& row:column)for(auto& b:row)if(b.id<0 || b.id>=BLOCK_COUNT)b={AIR,0,0};
+            if(generator_version==1 && revision==1){
+                auto repaired=Generation::repair_legacy_cactus(bytes,natural.data());
+                chunk->modified=true; // Mark this chunk as migrated even if no column matched.
+                if(repaired)SDL_Log("Replaced %u legacy stone cactus cells",unsigned(repaired));
+            }
         }
     }
     auto neighbor = [&](ivec2 offset) -> Chunk* {
@@ -205,6 +215,7 @@ void World::draw() {
     block_shader.upload_int("underwater",underwater(player->render_position()+dvec3(view.pos))?1:0);
     block_shader.upload_float("water_time",SDL_GetTicks()/1000.f);
     for (Chunk* chunk : chunk_vector) chunk->draw();
+    draw_mobs(cam_mat);
     std::vector<Chunk*> sorted=chunk_vector;
     std::sort(sorted.begin(),sorted.end(),[&](Chunk* a,Chunk* b){return distance(chunk_pos_to_world(a->pos),vec3(player->pos))>distance(chunk_pos_to_world(b->pos),vec3(player->pos));});
     glDepthMask(GL_FALSE);glDisable(GL_CULL_FACE);

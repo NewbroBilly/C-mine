@@ -12,6 +12,7 @@
 #include <misc.h>
 #include <water.h>
 #include <saves.h>
+#include <mobs.h>
 
 struct World
 {
@@ -26,6 +27,16 @@ struct World
     bool spawn_known=false;
     dvec3 spawn_point{8.5,122,8.5};
     double day_ticks=6000;
+    std::vector<Mobs::Entity> mobs;
+    double mob_clock=0,mob_spawn_clock=0;
+    bool initial_mobs=false;
+    uint32_t mob_random=1;
+    void update_mobs();
+    void draw_mobs(const mat4& camera);
+    int target_mob(dvec3 origin,dvec3 direction,double reach);
+    void hit_mob(int index,float damage,dvec3 direction);
+    void explode(dvec3 center);
+    int mob_cell(int x,int y,int z) const;
     int64_t seed=0;
     int generator_version=0;
     std::filesystem::path save_path;

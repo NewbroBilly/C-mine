@@ -71,6 +71,7 @@ bool Player::place_selected(Chunk* c,ivec3 local,ivec3 normal){
     if(!world->place_block(c,local,&bs))return false;
     swing();if(survival_mode){--stack.count;Items::normalize(stack);}return true;
 }
+void Player::hurt(float damage,bool bypass){if(!survival_mode || vitals.hurt_ticks>0 || damage<=0)return;vitals.hurt(bypass?damage:Items::absorb_damage(inventory.data().armor,damage));}
 void Player::handle_clicks(){
     action_delay=std::max(0.,action_delay-delta_time);
     if(show_inventory){hit_info.hit=false;break_progress=eat_progress=0;return;}
@@ -78,6 +79,13 @@ void Player::handle_clicks(){
     hit_info=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin));
     bool attack=is_button_down(0) || is_button_pressed(0);
     if(attack)swing();
+    double reach=hit_info.hit?double(length(hit_info.hit_point-origin)):(survival_mode?4.5:5.);
+    int mob=world->target_mob(origin,cam.forward,reach);
+    if(mob>=0){
+        if(is_button_down(2) && hotbar.get_item()==Items::SHEARS && world->mobs[mob].kind==Mobs::Sheep && !world->mobs[mob].sheared){world->mobs[mob].sheared=true;drop_item({WHITE_WOOL,2});if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());swing();}
+        if(attack && action_delay<=0){world->hit_mob(mob,Mobs::melee_damage(hotbar.get_item()),dvec3(cam.forward));if(survival_mode && Items::durability(hotbar.get_item()))Items::wear(hotbar.slots[hotbar.index].value(),Items::tool_kind(hotbar.get_item())==Items::Tool::Sword?1:2);action_delay=.6;}
+        hit_info.hit=false;break_progress=0;return;
+    }
     if(hit_info.hit){
         int id=hit_info.chunk->get(hit_info.block_pos)->id;
         ivec3 target=ivec3(chunk_pos_to_world_hp(hit_info.chunk->pos))+hit_info.block_pos;
@@ -103,6 +111,7 @@ void Player::handle_clicks(){
     if(!attack)break_progress=0;
     bool use=is_button_down(2) || is_button_pressed(2);
     int held=hotbar.get_item();
+    if(is_button_down(2) && Items::armor_slot(held)>=0){if(Items::equip(inventory.data().armor,hotbar.slots[hotbar.index].value()))swing();return;}
     if(is_button_down(2) && action_delay<=0 && held==Items::FISHING_ROD){
         if(fishing){
             if(fish_bite>0){Items::Stack catch_item{Items::RAW_FISH,1};if(inventory.data().add(catch_item))drop_item(catch_item);if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());}
@@ -272,13 +281,13 @@ void Player::update()
     if(survival_mode)for(int x=int(floor(pos.x-.3));x<=int(floor(pos.x+.3));++x)
         for(int y=int(floor(pos.y));y<=int(floor(pos.y+1.8));++y)for(int z=int(floor(pos.z-.3));z<=int(floor(pos.z+.3));++z){
             auto* c=world->get_chunk_from_pos(dvec3(x,y,z));if(c && y>=0 && y<256){ivec3 p=ivec3(x,y,z)-ivec3(chunk_pos_to_world_hp(c->pos));if(c->get(p)->id==FIRE)burning=true;}}
-    if(burning){burn_clock+=delta_time;if(burn_clock>=1){vitals.hurt(1);burn_clock=0;}}else burn_clock=0;
+    if(burning){burn_clock+=delta_time;if(burn_clock>=1){hurt(1);burn_clock=0;}}else burn_clock=0;
     vital_clock+=delta_time;while(vital_clock>=.05){
-        if(survival_mode){vitals.tick();if(world->underwater(pos+dvec3(cam.pos))){if(--air<=-20){air=0;vitals.hurt(2);}}else air=300;}
+        if(survival_mode){vitals.tick();if(world->underwater(pos+dvec3(cam.pos))){if(--air<=-20){air=0;hurt(2,true);}}else air=300;}
         else{air=300;if(vitals.hurt_ticks>0)--vitals.hurt_ticks;}
         vital_clock-=.05;
     }
-    if(survival_mode){if(pos.y<0)vitals.hurt(4);if(vitals.health<=0)Game::die();}
+    if(survival_mode){if(pos.y<0)hurt(4,true);if(vitals.health<=0)Game::die();}
 }
 
 void Player::draw()
@@ -290,7 +299,7 @@ void Player::draw()
         mat4 m=scale(translate(cam_mat,center),vec3(1.002f));
         ItemModel::cracks(int(break_progress/break_duration*10),m);
     }
-    if (third_person) Avatar::draw(render_position(),cam.forward,walk_phase,cam_mat,flying?0.f:float(length(dvec2(vel.x,vel.z))/5.6),float(swing_progress));
+    if (third_person) Avatar::draw(render_position(),cam.forward,walk_phase,cam_mat,flying?0.f:float(length(dvec2(vel.x,vel.z))/5.6),float(swing_progress),&inventory.data().armor);
     line_shader.bind();
     line_shader.upload_mat4("cam_mat", cam_mat);
     if(fishing){
@@ -355,6 +364,8 @@ void Player::draw_hud(){
     glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);
     int bottom=int(win_size.y)-100;
     if(survival_mode){
+        int armor_points=0;for(auto& s:inventory.data().armor)if(!s.empty())armor_points+=Items::armor_points(s.id);
+        if(armor_points)for(int i=0;i<10;++i)Ui::image(Ui::icons_texture(),win_size.x/2.f-270+i*24,float(bottom-26),24,24,vec4(armor_points>=i*2+2?34:(armor_points>i*2?25:16),9,9,9));
         if(air<300)for(int i=0;i<int(ceil(std::max(0,air)/30.));++i)Ui::image(Ui::icons_texture(),win_size.x/2.f+246-i*24,float(bottom-26),24,24,vec4(16,18,9,9));
         for(int i=0;i<10;++i){int x=int(win_size.x)/2-270+i*24;
             Ui::image(Ui::icons_texture(),float(x),float(bottom),24,24,vec4(16,0,9,9));

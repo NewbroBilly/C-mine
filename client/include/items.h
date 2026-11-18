@@ -30,6 +30,14 @@ Tool tool_kind(int id);
 int tool_tier(int id);
 double tool_speed(int id);
 void wear(Stack& stack,int amount=1);
+// Equipment is ordered as the GUI: helmet, chestplate, leggings, boots.
+int armor_slot(int id);
+int armor_material(int id);
+int armor_points(int id);
+float armor_toughness(int id);
+float absorb_damage(std::array<Stack,4>& armor,float damage);
+bool equip(std::array<Stack,4>& armor,Stack& source);
+void armor_click(Stack& slot,Stack& cursor,int part,bool right);
 int mining_wear(int block_id,int tool);
 int use_on_block(int block_id,int tool,bool air_above,bool bottom_face);
 int clock_frame(double day_ticks);

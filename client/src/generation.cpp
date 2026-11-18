@@ -62,6 +62,18 @@ struct Generator {
 std::unique_ptr<Generator> generator;
 }
 void clear_cache(){generator.reset();}
+size_t repair_legacy_cactus(unsigned char* saved,const unsigned char* natural){
+    auto index=[](int x,int y,int z){return ((x*256+y)*16+z)*3;};size_t repaired=0;
+    for(int x=0;x<16;++x)for(int z=0;z<16;++z)for(int y=1;y<253;++y){
+        if(natural[index(x,y,z)]!=CACTUS || natural[index(x,y-1,z)]==CACTUS)continue;
+        int top=y;while(top<255 && natural[index(x,top+1,z)]==CACTUS)++top;
+        int ground=natural[index(x,y-1,z)];
+        if(top-y>=3 || (ground!=SAND && ground!=RED_SAND) || saved[index(x,y-1,z)]!=ground || saved[index(x,top+1,z)]!=AIR)continue;
+        bool untouched=true;for(int a=y;a<=top;++a){auto i=index(x,a,z);if(saved[i]!=STONE || saved[i+1] || saved[i+2])untouched=false;}
+        if(untouched)for(int a=y;a<=top;++a){saved[index(x,a,z)]=CACTUS;++repaired;}
+        y=top;
+    }return repaired;
+}
 std::vector<unsigned char> generate(uint64_t seed,int cx,int cz){
     if(!generator || generator->seed!=seed)generator=std::make_unique<Generator>(seed);
     auto& g=*generator;mc::Chunk* nb[9];

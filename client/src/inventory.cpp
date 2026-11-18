@@ -27,24 +27,26 @@ for(int i=0;i<45;++i){auto& s=slots[i/9][i%9];int n=scroll_row*9+i,id=n<int(entr
 catalog[i]={id,1};Items::normalize(catalog[i]);s.pos=location(float(x+(9+i%9*18)*3),float(y+(18+i/9*18)*3));}
 for(int i=0;i<9;++i)storage[i].pos=location(float(x+(9+i*18)*3),float(y+112*3));
 if(catalog_page==11)for(int i=9;i<36;++i)storage[i].pos=location(float(x+(9+i%9*18)*3),float(y+(54+(i/9-1)*18)*3));
+if(catalog_page==11)for(int i=0;i<4;++i)bind(armor[i],data().armor[i],9+i*18,18);
 }else{int width=workbench?3:2;for(int i=0;i<width*width;++i)bind(craft_slots[i],data().craft[i],(workbench?30:98)+(i%width)*18,(workbench?17:18)+(i/width)*18);
 result=Items::recipe(data().craft,width).output;bind(result_slot,result,workbench?124:154,workbench?35:28);bind(offhand,data().offhand,77,62);for(int i=0;i<4;++i)bind(armor[i],data().armor[i],8,8+i*18);}}
 Slot* Inventory::slot_at(int i){
-if(!survival_mode){if(catalog_page==11)return &storage[i<27?i+9:i-27];return i<45?&slots[i/9][i%9]:&storage[i-45];}
+if(!survival_mode){if(catalog_page==11)return i>=36?&armor[i-36]:&storage[i<27?i+9:i-27];return i<45?&slots[i/9][i%9]:&storage[i-45];}
 if(i<36)return &storage[i];if(i<result_index())return &craft_slots[i-36];
-if(i==result_index())return &result_slot;return &offhand;}
+if(i==result_index())return &result_slot;if(!workbench && i>=42)return &armor[i-42];return &offhand;}
 void Inventory::activate(int i,bool right,bool quick){
-auto& d=data();if(!survival_mode){if(catalog_page==11){int n=i<27?i+9:i-27;if(quick)d.quick_move(n);else Items::click(d.main[n],d.cursor,right);layout();return;}if(i<45){auto s=catalog[i];if(s.empty())return;if(quick){s.count=Items::limit(s.id);d.main[player->hotbar.index]=s;return;}
+auto& d=data();if(!survival_mode){if(catalog_page==11){if(i>=36){auto& s=d.armor[i-36];if(quick){s.count=d.add(s);Items::normalize(s);}else Items::armor_click(s,d.cursor,i-36,right);layout();return;}int n=i<27?i+9:i-27;if(quick)d.quick_move(n);else Items::click(d.main[n],d.cursor,right);layout();return;}if(i<45){auto s=catalog[i];if(s.empty())return;if(quick){s.count=Items::limit(s.id);d.main[player->hotbar.index]=s;return;}
 if(!d.cursor.empty() && d.cursor.id==s.id)d.cursor.count=right?std::min(Items::limit(s.id),d.cursor.count+1):Items::limit(s.id);
 else{d.cursor=s;d.cursor.count=1;}}else Items::click(d.main[i-45],d.cursor,right);
 }else if(i<36){if(quick)d.quick_move(i);else Items::click(d.main[i],d.cursor,right);}
 else if(i<result_index()){int n=i-36;if(quick){auto& s=d.craft[n];s.count=d.add(s);Items::normalize(s);}else Items::click(d.craft[n],d.cursor,right);}
 else if(i==result_index()){if(quick){while(d.take_result(workbench?3:2,true)){};}else d.take_result(workbench?3:2,false);}
+else if(!workbench && i>=42){auto& s=d.armor[i-42];if(quick){s.count=d.add(s);Items::normalize(s);}else Items::armor_click(s,d.cursor,i-42,right);}
 else if(!workbench)Items::click(d.offhand,d.cursor,right);layout();}
 void Inventory::update(){
 layout();over=nullptr;ivec2 mouse;SDL_GetMouseState(&mouse.x,&mouse.y);if(mouse!=last_mouse){keyboard_navigation=false;last_mouse=mouse;}
 int move=0;if(is_key_down(SDLK_LEFT))move=-1;if(is_key_down(SDLK_RIGHT))move=1;if(is_key_down(SDLK_UP))move=-9;if(is_key_down(SDLK_DOWN))move=9;
-int count=survival_mode?(workbench?46:42):(catalog_page==11?36:54);
+int count=survival_mode?46:(catalog_page==11?40:54);
 selected=std::clamp(selected,0,count-1);
 if(move){
 if(move==1 || move==-1)selected=(selected+move+count)%count;
@@ -55,7 +57,7 @@ if(found>=0)selected=found;
 if(keyboard_navigation)over=slot_at(selected);else{vec2 p(mouse.x-win_size.x/2.f,win_size.y/2.f-mouse.y);for(int i=0;i<count;++i){auto* s=slot_at(i);if(s && s->is_point_over(p)){over=s;selected=i;break;}}}
 bool quick=is_key_pressed(SDLK_LSHIFT) || is_key_pressed(SDLK_RSHIFT);
 if(over && (is_button_down(0) || is_button_down(2) || is_key_down(SDLK_RETURN)))activate(selected,is_button_down(2),quick);
-if(!(catalog_page==5 && !survival_mode) && over && selected!=(survival_mode?result_index():-1))for(int i=0;i<9;++i)if(is_key_down(SDLK_1+i)){if(!survival_mode && catalog_page!=11 && selected<45){if(!catalog[selected].empty()){data().main[i]=catalog[selected];data().main[i].count=Items::limit(catalog[selected].id);}}else if(over->stack!=&data().main[i])std::swap(*over->stack,data().main[i]);}
+if(!(catalog_page==5 && !survival_mode) && over && selected!=(survival_mode?result_index():-1))for(int i=0;i<9;++i)if(is_key_down(SDLK_1+i)){if(!survival_mode && catalog_page!=11 && selected<45){if(!catalog[selected].empty()){data().main[i]=catalog[selected];data().main[i].count=Items::limit(catalog[selected].id);}}else if(over->stack!=&data().main[i]){int part=(!workbench && survival_mode && selected>=42)?selected-42:(!survival_mode && catalog_page==11 && selected>=36?selected-36:-1);if(part<0 || data().main[i].empty() || Items::armor_slot(data().main[i].id)==part)std::swap(*over->stack,data().main[i]);}}
 if(!over && !(!survival_mode && mouse.x>=(int(win_size.x)-585)/2 && mouse.x<(int(win_size.x)+585)/2 && mouse.y>=(int(win_size.y)-408)/2-96 && mouse.y<(int(win_size.y)+408)/2+96) && is_button_down(0) && !data().cursor.empty()){player->drop_item(data().cursor);data().cursor.clear();}
 if(!survival_mode){
 if((catalog_page!=5 && is_key_down(SDLK_p)) || is_key_down(SDLK_RIGHTBRACKET) || is_key_down(SDLK_PAGEDOWN))tab((catalog_page+1)%12);
@@ -77,12 +79,12 @@ Ui::item({CreativeTabs::icon(t),1},float(tx+18),float(ty+18),48,false);};
 if(!survival_mode)for(int t=0;t<12;++t)if(t!=catalog_page)draw_tab(t);
 Ui::image(Ui::inventory_texture(!survival_mode,workbench),float(x),float(y),survival_mode?528.f:585.f,survival_mode?498.f:408.f,vec4(0,0,survival_mode?176:195,survival_mode?166:136));
 if(!survival_mode)draw_tab(catalog_page);
-if(survival_mode){if(!workbench){glViewport(x+75,int(win_size.y)-y-225,120,192);glEnable(GL_DEPTH_TEST);glClear(GL_DEPTH_BUFFER_BIT);mat4 matrix=ortho(-.65f,.65f,-.1f,1.95f,-5.f,5.f)*lookAt(vec3(0,0,3),vec3(0),vec3(0,1,0));Avatar::draw(dvec3(0),vec3(.2f,0,1),0,matrix,0);glViewport(0,0,win_size.x,win_size.y);glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);}
+if(survival_mode){if(!workbench){glViewport(x+75,int(win_size.y)-y-225,120,192);glEnable(GL_DEPTH_TEST);glClear(GL_DEPTH_BUFFER_BIT);mat4 matrix=ortho(-.65f,.65f,-.1f,1.95f,-5.f,5.f)*lookAt(vec3(0,0,3),vec3(0),vec3(0,1,0));Avatar::draw(dvec3(0),vec3(.2f,0,1),0,matrix,0,1,&data().armor);glViewport(0,0,win_size.x,win_size.y);glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);}
 Ui::rect(float(x+(workbench?28:97)*3-2),float(y+12),110,15,vec4(.25,.25,.25,1));Ui::text("inv-title",workbench?Language::tr("Crafting Table"):Language::tr("Crafting"),x+(workbench?28:97)*3,y+12,1);
-for(auto& slot:storage)slot.draw();for(int i=0;i<(workbench?9:4);++i)craft_slots[i].draw();result_slot.draw();if(!workbench)offhand.draw();
+for(auto& slot:storage)slot.draw();for(int i=0;i<(workbench?9:4);++i)craft_slots[i].draw();result_slot.draw();if(!workbench){offhand.draw();for(auto& s:armor)s.draw();}
 }else{
 Ui::text("inv-title",catalog_page==5?(std::string(Language::tr("Search: "))+search+"_"):CreativeTabs::name(catalog_page),x+27,y+13,2);
-if(catalog_page==11){Ui::rect(float(x+21),float(y+48),543,276,vec4(.78,.78,.78,1));for(auto& slot:storage){float sx=slot.pos.x+win_size.x/2.f,sy=win_size.y/2.f-slot.pos.y-48;Ui::rect(sx-3,sy-3,54,54,vec4(.35,.35,.35,1));Ui::rect(sx,sy,48,48,vec4(.55,.55,.55,1));slot.draw();}}
+if(catalog_page==11){Ui::rect(float(x+21),float(y+48),543,276,vec4(.78,.78,.78,1));for(int i=0;i<4;++i){auto& slot=armor[i];float sx=slot.pos.x+win_size.x/2.f,sy=win_size.y/2.f-slot.pos.y-48;Ui::image(Ui::inventory_texture(false),sx-3,sy-3,54,54,vec4(7,7+i*18,18,18));slot.draw();}for(auto& slot:storage){float sx=slot.pos.x+win_size.x/2.f,sy=win_size.y/2.f-slot.pos.y-48;Ui::rect(sx-3,sy-3,54,54,vec4(.35,.35,.35,1));Ui::rect(sx,sy,48,48,vec4(.55,.55,.55,1));slot.draw();}}
 else{for(int i=0;i<45;++i)slots[i/9][i%9].draw();for(int i=0;i<9;++i)storage[i].draw();
 auto entries=CreativeTabs::entries(catalog_page,search);int maximum=std::max(0,(int(entries.size())+8)/9-5);
 Ui::image(Ui::tabs_texture(),float(x+525),float(y+54+(maximum?int(scroll_row/float(maximum)*237):0)),36,45,vec4(maximum?232:244,0,12,15));

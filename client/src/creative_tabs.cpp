@@ -16,7 +16,7 @@ std::vector<int> entries(int tab,const std::string& search){
         bool brewing=id==Items::NETHER_WART || id==Items::BLAZE_POWDER || id==Items::MAGMA_CREAM || id==Items::GHAST_TEAR;
         bool misc=id==Items::BUCKET || id==Items::WATER_BUCKET || id==Items::SNOWBALL;
         bool redstone=id==REDSTONE_BLOCK || id==Items::REDSTONE_DUST;
-        bool combat=Items::tool_kind(id)==Items::Tool::Sword;
+        bool combat=Items::tool_kind(id)==Items::Tool::Sword || Items::armor_slot(id)>=0;
         bool tool=(Items::tool_kind(id)!=Items::Tool::None && !combat) || id==Items::FLINT_AND_STEEL || id==Items::FISHING_ROD || id==Items::CLOCK || id==Items::COMPASS;
         bool include=tab==5?(lower(Items::name(id)).find(query)!=std::string::npos || lower(Items::english_name(id)).find(query)!=std::string::npos):
             (tab==0?Items::block(id) && !decor && id!=REDSTONE_BLOCK:

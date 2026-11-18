@@ -14,15 +14,22 @@ int main(){
     d.day_ticks=18345.5;d.spawn_point={-15.5,103,20.5};d.inventory.main[1]={Items::GOLD_HOE,1,17};
     check(Saves::save(two,d) && Saves::load(two,loaded) && loaded.day_ticks==d.day_ticks && loaded.spawn_point==d.spawn_point && loaded.inventory.main[1]==d.inventory.main[1],"new tools, clock and compass save roundtrip");
     auto legacy=root/"legacy";std::filesystem::create_directories(legacy);
-    {std::ifstream f(one/"world.txt");std::string bytes((std::istreambuf_iterator<char>(f)),{});bytes[6]='1';for(int i=0;i<2;++i)bytes.erase(bytes.rfind('\n',bytes.size()-2)+1);std::ofstream out(legacy/"world.txt");out<<bytes;}
+    {std::ifstream f(one/"world.txt");std::string bytes((std::istreambuf_iterator<char>(f)),{});bytes[6]='1';for(int i=0;i<3;++i)bytes.erase(bytes.rfind('\n',bytes.size()-2)+1);std::ofstream out(legacy/"world.txt");out<<bytes;}
     check(Saves::load(legacy,loaded) && loaded.inventory.main[0].id==Items::WATER_BUCKET && loaded.day_ticks==6000,"legacy save accepted");
-    {std::ifstream f(one/"world.txt");std::string bytes((std::istreambuf_iterator<char>(f)),{});bytes[6]='2';bytes.erase(bytes.rfind('\n',bytes.size()-2)+1);std::ofstream out(legacy/"world.txt");out<<bytes;}
+    {std::ifstream f(one/"world.txt");std::string bytes((std::istreambuf_iterator<char>(f)),{});bytes[6]='2';for(int i=0;i<2;++i)bytes.erase(bytes.rfind('\n',bytes.size()-2)+1);std::ofstream out(legacy/"world.txt");out<<bytes;}
     check(Saves::load(legacy,loaded) && loaded.generator_version==0,"version 2 worlds keep the old generator");
     auto localized=root/"localized";auto russian=d;russian.name="Мой мир \"Берёзы\"";russian.generator_version=1;
     check(Saves::save(localized,russian) && Saves::load(localized,loaded) && loaded.name==russian.name && loaded.generator_version==1,"Russian name and generation version roundtrip");
+    auto entities=russian;Mobs::Entity sheep;sheep.kind=Mobs::Sheep;sheep.position={-22.5,117,54.25};sheep.health=5;sheep.sheared=true;sheep.yaw=1.3;sheep.random=0xabc123;
+    entities.mobs.push_back(sheep);entities.initial_mobs=true;entities.inventory.armor[2]={Items::DIAMOND_LEGGINGS,1,101};
+    auto mobworld=root/"entities";
+    check(Saves::save(mobworld,entities) && Saves::load(mobworld,loaded) && loaded.initial_mobs && loaded.mobs.size()==1 && loaded.mobs[0].position==sheep.position && loaded.mobs[0].health==5 && loaded.mobs[0].sheared && loaded.mobs[0].random==sheep.random && loaded.inventory.armor==entities.inventory.armor,"living mobs, sheep shearing and worn armor roundtrip");
     std::vector<unsigned char> blocks(16*256*16*3,0);blocks[0]=BEDROCK;blocks[3]=WATER;blocks[4]=9;blocks[blocks.size()-3]=GLOWSTONE;
     check(Saves::save_chunk(one,-2,-1,blocks.data(),blocks.size()),"write negative chunk");auto copy=blocks;std::fill(copy.begin(),copy.end(),42);
     check(Saves::load_chunk(one,-2,-1,copy.data(),copy.size()) && copy==blocks,"chunk RLE roundtrip including water metadata");
+    int revision=0;check(Saves::load_chunk(one,-2,-1,copy.data(),copy.size(),&revision) && revision==2,"new chunks carry the completed cactus migration revision");
+    {std::fstream f(one/"chunks/-2_-1.cmc",std::ios::in|std::ios::out|std::ios::binary);f.seekp(3);f.put('1');}
+    check(Saves::load_chunk(one,-2,-1,copy.data(),copy.size(),&revision) && revision==1 && copy==blocks,"legacy chunk format remains readable for migration");
     check(!Saves::load_chunk(two,-2,-1,copy.data(),copy.size()),"world chunk isolation");
     {std::ofstream f(one/"chunks/-3_0.cmc",std::ios::binary);f<<"CMC1garbage";}auto before=copy;
     check(!Saves::load_chunk(one,-3,0,copy.data(),copy.size()) && copy==before,"truncated chunk must leave destination intact");

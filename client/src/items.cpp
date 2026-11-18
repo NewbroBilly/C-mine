@@ -8,7 +8,8 @@ static bool wood(int id){return id==LOG || id==SPRUCE_LOG || id==BIRCH_LOG || id
 static bool stone_material(int id){return (id>=GRANITE && id<=POLISHED_ANDESITE) || (id>=WHITE_CONCRETE && id<=BLUE_TERRACOTTA && id!=RED_SAND) || (id>=PURPUR_BLOCK && id<=PRISMARINE_ROUGH);}
 int food_points(int id){switch(id){
 case APPLE:return 4;case BREAD:case BAKED_POTATO:case COOKED_FISH:case COOKED_RABBIT:return 5;
-case RAW_FISH:case MELON_SLICE:case COOKIE:return 2;
+case RAW_FISH:case MELON_SLICE:case COOKIE:case RAW_CHICKEN:case RAW_MUTTON:return 2;
+case ROTTEN_FLESH:return 4;
 case CARROT:case RAW_BEEF:case RAW_PORKCHOP:case RABBIT:return 3;
 case POTATO:case BEETROOT:return 1;
 case STEAK:case COOKED_PORKCHOP:case PUMPKIN_PIE:return 8;
@@ -68,6 +69,19 @@ double tool_speed(int id){
     bool gold=id==GOLD_PICKAXE || id==GOLD_AXE || id==GOLD_SHOVEL || id==GOLD_HOE || id==GOLD_SWORD;
     return gold?12.:2.+2.*tool_tier(id);
 }
+int armor_slot(int id){return id>=LEATHER_HELMET && id<=DIAMOND_BOOTS?(id-LEATHER_HELMET)%4:-1;}
+int armor_material(int id){return armor_slot(id)<0?-1:(id-LEATHER_HELMET)/4;}
+int armor_points(int id){static const int points[5][4]={{1,3,2,1},{2,5,4,1},{2,6,5,2},{2,5,3,1},{3,8,6,3}};int m=armor_material(id);return m<0?0:points[m][armor_slot(id)];}
+float armor_toughness(int id){return armor_material(id)==4?2.f:0.f;}
+float absorb_damage(std::array<Stack,4>& armor,float damage){
+    if(damage<=0)return 0;float points=0,tough=0;
+    for(int i=0;i<4;++i)if(!armor[i].empty() && armor_slot(armor[i].id)==i){points+=armor_points(armor[i].id);tough+=armor_toughness(armor[i].id);}
+    float effective=std::min(20.f,std::max(points*.2f,points-damage/(2.f+tough/4.f)));
+    for(int i=0;i<4;++i)if(!armor[i].empty() && armor_slot(armor[i].id)==i)wear(armor[i],std::max(1,int(damage/4.f)));
+    return damage*(1.f-effective/25.f);
+}
+bool equip(std::array<Stack,4>& armor,Stack& source){int slot=armor_slot(source.id);if(source.empty() || slot<0 || !armor[slot].empty())return false;armor[slot]=source;armor[slot].count=1;--source.count;normalize(source);return true;}
+void armor_click(Stack& slot,Stack& cursor,int part,bool right){if(cursor.empty() || armor_slot(cursor.id)==part)click(slot,cursor,right);}
 void wear(Stack& s,int amount){int max=durability(s.id);if(max && amount>0 && (s.damage+=amount)>max)s.clear();}
 int mining_wear(int id,int tool){
     if(tool==SHEARS && id==GRASS)return 1;
@@ -111,6 +125,7 @@ int insert(Stack* slots,int count,Stack v){
 }
 void Inventory::quick_move(int i){
     if(i<0 || i>=36 || main[i].empty())return;
+    if(equip(armor,main[i]))return;
     main[i].count=insert(main.data()+(i<9?9:0),i<9?27:9,main[i]);normalize(main[i]);
 }
 static bool plank(int id){return id==PLANKS || id==BIRCH_PLANKS || id==SPRUCE_PLANKS || id==JUNGLE_PLANKS || id==ACACIA_PLANKS || id==DARK_OAK_PLANKS;}
@@ -160,6 +175,13 @@ Recipe recipe(const std::array<Stack,9>& grid,int width){
             else if(s.empty() || (c=='S'?s.id!=STICK:c=='T'?s.id!=STRING:material==PLANKS?!plank(s.id):s.id!=material))return false;
         }return true;
     };
+    const int armor_materials[]={LEATHER,-1,IRON_INGOT,GOLD_INGOT,DIAMOND};
+    for(int m=0;m<5;++m)if(armor_materials[m]>0){int base=LEATHER_HELMET+m*4;
+        if(shape("RRRR R",3,2,armor_materials[m]))r.output={base,1};
+        if(shape("R RRRRRRR",3,3,armor_materials[m]))r.output={base+1,1};
+        if(shape("RRRR RR R",3,3,armor_materials[m]))r.output={base+2,1};
+        if(shape("R RR R",3,2,armor_materials[m]))r.output={base+3,1};
+    }
     const int materials[]={PLANKS,COBBLESTONE,IRON_INGOT,DIAMOND,GOLD_INGOT};
     const int picks[]={WOOD_PICKAXE,STONE_PICKAXE,IRON_PICKAXE,DIAMOND_PICKAXE,GOLD_PICKAXE};
     for(int m=0;m<5;++m){
@@ -228,6 +250,7 @@ if(id>=WHITE_CONCRETE && id<=BLACK_CONCRETE)return 1.8;
 if(id==COAL_BLOCK)return 5.;if(id==RED_SAND)return .5;
 if(id==HAY_BLOCK)return .5;if(id==PUMPKIN)return 1.;if(id==MELON_BLOCK)return 1.;
 if(id==SEA_LANTERN)return .3;
+if(id==CACTUS)return .4;
 if(id==RED_SANDSTONE)return .8;if(id>=HARDENED_CLAY && id<=BLUE_TERRACOTTA)return 1.25;
 switch(id){
 case BEDROCK:return -1;case GRASS:case TORCH:case FIRE:return 0;

@@ -20,7 +20,9 @@ this document records provenance rather than assigning them a new license.
 New worlds use generator 1: the imported climate/biome, density, cave, aquifer,
 ore and decoration algorithms. CMINE metadata version 3 stores that choice.
 Versions 1 and 2, and upgraded existing worlds, keep generator 0. Block IDs
-and the CMC1 chunk representation are unchanged; new block IDs are appended.
+remain stable; new block IDs are appended. Release 0.8.0 adds CMINE 4 metadata
+for mobs and CMC2 chunk tags for the one-time stone/cactus migration; CMC1's
+three-byte cells and RLE encoding are unchanged. All older formats remain readable.
 
 Our height remains 256. Imported Y -64..-1 is sampled into Y 0..31;
 source Y 0..159 is translated to Y 32..191 without scaling, and source

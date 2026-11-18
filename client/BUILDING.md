@@ -17,6 +17,9 @@ cmake --install build/client --config Release --prefix dist/MineCppClone
 Run MineCppClone.exe from the installed directory. Shaders and textures are
 resolved relative to the executable. Requires OpenGL 3.3.
 
+Release 0.8.0 adds the supplied logo, classic buttons, five mobs, twenty armor
+pieces and fourteen blocks; controls and compatibility are in CLASSIC-RELEASE.md.
+
 WASD moves; mouse looks; double Space toggles creative flight, Space/Shift ascends/descends.
 Hold left click to mine; right click places/uses; middle click selects an existing block (creates it in creative).
 Mouse wheel or 1-9 selects the hotbar, E/I opens inventory, Tab switches mode, F11 fullscreen.

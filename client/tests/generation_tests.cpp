@@ -10,6 +10,13 @@ void check(bool ok,const char* why){if(!ok){std::cerr<<why<<'\n';std::exit(1);}}
 int cell(const std::vector<unsigned char>& v,int x,int y,int z){return v[((x*256+y)*16+z)*3];}
 int main(){
     auto start=std::chrono::steady_clock::now();
+    std::vector<unsigned char> natural(16*256*16*3),legacy;
+    auto put=[&](int x,int y,int id){natural[((x*256+y)*16+2)*3]=static_cast<unsigned char>(id);};
+    for(int x=1;x<=3;++x){put(x,90,RED_SAND);put(x,91,CACTUS);put(x,92,CACTUS);}
+    legacy=natural;for(size_t i=0;i<legacy.size();i+=3)if(legacy[i]==CACTUS)legacy[i]=STONE;
+    legacy[((2*256+92)*16+2)*3]=PLANKS;legacy[((3*256+93)*16+2)*3]=STONE;legacy[((4*256+91)*16+2)*3]=STONE;
+    check(Generation::repair_legacy_cactus(legacy.data(),natural.data())==2,"only a complete original legacy pillar is migrated");
+    check(cell(legacy,1,91,2)==CACTUS && cell(legacy,2,91,2)==STONE && cell(legacy,2,92,2)==PLANKS && cell(legacy,3,91,2)==STONE && cell(legacy,4,91,2)==STONE,"migration preserves edited pillars, added blocks and unrelated stone");
     auto a=Generation::generate(12345,-1,0),b=Generation::generate(12345,0,0);
     Generation::clear_cache();
     auto reverse_b=Generation::generate(12345,0,0),reverse_a=Generation::generate(12345,-1,0);
@@ -37,6 +44,11 @@ int main(){
     }
     check(water>0 && cave>0 && ore>0,"terrain includes oceans, caves and ores");
     check(forest,"sample contains a birch forest");
+    int desert_x=0,desert_z=0;bool desert=false;
+    for(int x=-8192;x<=8192 && !desert;x+=256)for(int z=-8192;z<=8192;z+=256){auto biome=terrain.column(x,z).biome;if(biome==mc::Biome::Desert || biome==mc::Biome::Badlands){desert_x=x/16;desert_z=z/16;desert=true;break;}}
+    check(desert,"sample contains an arid biome");
+    size_t cactus=0;for(int dx=0;dx<4;++dx)for(int dz=0;dz<4;++dz){auto data=Generation::generate(12345,desert_x+dx,desert_z+dz);for(size_t i=0;i<data.size();i+=3)if(data[i]==CACTUS)++cactus;}
+    check(cactus>0,"arid decoration must map cactus into cactus, never stone pillars");
     auto tree_a=Generation::generate(12345,forest_x,forest_z),tree_b=Generation::generate(12345,forest_x+1,forest_z);
     size_t leaves=0;for(size_t i=0;i<tree_a.size();i+=3){if(tree_a[i]==BIRCH_LOG)++logs;if(tree_a[i]==LEAVES)++leaves;}
     check(logs>0 && leaves>0,"forest trees map into usable logs and leaf crowns");

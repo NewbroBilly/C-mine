@@ -515,6 +515,34 @@ int main(int argc, char** argv)
                 if(survival_mode || world->generator_version!=1 || Game::saved_worlds[0].data.name!="Водный мир" || length(player->pos-saved_position)>.01 || player->inventory.survival.main[2].damage!=17 || player->hotbar.index!=2 || player->vitals.health!=13)return 55;
                 c=world->get_chunk_from_pos(player->pos);if(!c || c->get(ivec3(8,232,8))->id!=WATER || world->water.pending()==0)return 56;
                 SDL_Log("Water/menu/save smoke passed: create/name/seed/mode, flowing/falling water, creative categories/search, source bucket pickup, hurt roll, underwater, chunk unload/reload, world save/reopen and both inventories");
+                // Exercise the new runtime paths with original entity and armor skins.
+                Game::set_mode(true);player->flying=false;player->third_person=0;
+                c=world->get_chunk_from_pos(player->pos);
+                for(int x=1;x<15;++x)for(int z=1;z<15;++z){BlockState floor{GRASS_BLOCK,0,0};c->set(ivec3(x,229,z),&floor);for(int y=230;y<240;++y){BlockState air{AIR,0,0};c->set(ivec3(x,y,z),&air);}}
+                world->rebuild_dirty();world->mobs.clear();world->initial_mobs=true;
+                dvec3 base=chunk_pos_to_world_hp(c->pos);
+                for(int kind=0;kind<Mobs::Count;++kind){dvec3 p=base+dvec3(3+kind*2.3,230,10);auto mob=Mobs::create(kind,{p.x,p.y,p.z},kind+1);mob.phase=kind*1.2;mob.yaw=3.14159;mob.velocity[0]=1;mob.grounded=true;world->mobs.push_back(mob);}
+                player->pos=player->previous_position=base+dvec3(8.5,231,2.5);player->vel=dvec3(0);player->cam.forward=normalize(vec3(0,-.2,1));
+                Game::draw();save_frame("smoke-classic-mobs.bmp");
+                auto& equipment=player->inventory.survival;
+                for(int part=0;part<4;++part)equipment.armor[part]={Items::DIAMOND_HELMET+part,1};
+                player->vitals={};player->hurt(10);if(abs(player->vitals.health-17)>1e-4 || equipment.armor[0].damage!=2)return 80;
+                Game::inventory(true);Game::draw();save_frame("smoke-classic-armor.bmp");
+                equipment.cursor={DIRT,1};player->inventory.activate(42,false,false);
+                if(equipment.cursor.id!=DIRT || equipment.armor[0].id!=Items::DIAMOND_HELMET)return 81;
+                equipment.cursor.clear();player->inventory.activate(42,false,true);
+                if(!equipment.armor[0].empty())return 82;
+                int helmet=-1;for(int i=0;i<36;++i)if(equipment.main[i].id==Items::DIAMOND_HELMET)helmet=i;
+                if(helmet<0)return 83;player->inventory.activate(helmet,false,true);
+                if(equipment.armor[0].id!=Items::DIAMOND_HELMET)return 84;
+                Game::inventory(false);Game::set_mode(false);Game::inventory(true);player->inventory.tab(8);Game::draw();save_frame("smoke-classic-combat.bmp");
+                player->inventory.tab(11);player->inventory.data().cursor={Items::IRON_CHESTPLATE,1};player->inventory.activate(37,false,false);
+                if(player->inventory.data().armor[1].id!=Items::IRON_CHESTPLATE || !player->inventory.data().cursor.empty())return 85;
+                Game::draw();save_frame("smoke-classic-creative-equipment.bmp");Game::inventory(false);Game::set_mode(true);
+                if(!Game::save_world())return 86;
+                Game::title();Game::select_worlds();Game::load_world(0);
+                if(world->mobs.size()!=Mobs::Count || !world->initial_mobs || player->inventory.survival.armor[0].id!=Items::DIAMOND_HELMET || player->inventory.creative.armor[1].id!=Items::IRON_CHESTPLATE)return 87;
+                SDL_Log("Classic release smoke passed: all five textured mob models, armored avatar/HUD, damage mitigation, survival and creative equipment validation, shift equip, all mobs and armor saved/reopened");
                 if(glGetError()!=GL_NO_ERROR)return 70;
                 closed=true;
             }

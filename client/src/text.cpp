@@ -125,12 +125,13 @@ void Text::build()
     indices_count = indices.size();
 }
 
-void Text::draw()
+void Text::draw(vec3 color)
 {
     if (str.empty())
         return;
 
     font_shader.bind();
+    font_shader.upload_vec3("tint",color);
 
     glBindVertexArray(vao);
 

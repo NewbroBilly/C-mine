@@ -11,6 +11,7 @@
 extern int font_width[];
 namespace {
 Shader flat, panorama;
+Texture widgets,logo;
 GLuint vao=0, cube=0;
 int selected=0, last_x=-1,last_y=-1;
 int count(bool paused){
@@ -31,17 +32,23 @@ void rectangle(float x,float y,float w,float h,vec4 color) {
     flat.upload_vec4("rect",vec4(x,y,w,h)); flat.upload_vec4("color",color);
     glBindVertexArray(vao); glDrawArrays(GL_TRIANGLES,0,6);
 }
-void text(const std::string& str,int y,int size=3) {
+void text(const std::string& str,int y,int size=3,vec3 color=vec3(1)) {
     int width=0;
     auto& t=labels[std::to_string(y)];
     width=Text::measure(str,size);
     ivec2 pos(-width/2,(int)win_size.y/2-y);
     if (t.pos!=pos || t.font_size!=size) { t.destroy(); t.str.clear(); t.pos=pos; t.font_size=size; }
-    t.set_str(str); t.draw();
+    t.set_str(str); t.draw(color);
 }
 }
 void Menu::init() {
     flat=Shader("shaders/screen_vert.glsl","shaders/screen_frag.glsl");
+    std::string path="resource_pack/widgets.png";
+#ifdef __SWITCH__
+    path="sdmc:/switch/C-mine/resource_pack/widgets.png";
+#endif
+    if(!std::filesystem::exists(path))path="textures/widgets.png";
+    widgets=Texture(path.c_str(),13);logo=Texture("textures/logo.png",14);
     panorama=Shader("shaders/screen_vert.glsl","shaders/panorama_frag.glsl");
     glGenVertexArrays(1,&vao); glGenTextures(1,&cube);
     glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_CUBE_MAP,cube);
@@ -115,7 +122,8 @@ void Menu::draw(bool paused) {
     } else rectangle(0,0,win_size.x,win_size.y,vec4(0,0,0,.65));
     bool options=Game::screen==Game::Screen::Options;
     bool worlds=Game::screen==Game::Screen::Worlds,create=Game::screen==Game::Screen::CreateWorld;
-    text(worlds?Language::tr("SELECT WORLD"):(create?Language::tr("CREATE NEW WORLD"):(options?Language::tr("OPTIONS"):(Game::screen==Game::Screen::Dead?Language::tr("YOU DIED"):(paused?Language::tr("GAME PAUSED"):"C-MINE")))),(options || worlds || create)?30:int(win_size.y)/5,(options || worlds || create)?4:(paused?4:7));
+    if(Game::screen==Game::Screen::Title){float w=std::min(float(win_size.x)-50.f,660.f),h=w*logo.height/logo.width;float top=std::max(8.f,(win_size.y/2.f-85-h)*.5f);Ui::image(logo,(win_size.x-w)/2,top,w,h,vec4(0,0,logo.width,logo.height));}
+    else text(worlds?Language::tr("SELECT WORLD"):(create?Language::tr("CREATE NEW WORLD"):(options?Language::tr("OPTIONS"):(Game::screen==Game::Screen::Dead?Language::tr("YOU DIED"):(paused?Language::tr("GAME PAUSED"):"C-MINE")))),(options || worlds || create)?30:int(win_size.y)/5,(options || worlds || create)?4:(paused?4:7));
     std::vector<std::string> labels;
     auto& o=Settings::options;
     if(options)labels={Language::tr("FOV: ")+std::to_string(o.fov),Language::tr("Sensitivity: ")+std::to_string(o.sensitivity)+"%",
@@ -140,10 +148,12 @@ void Menu::draw(bool paused) {
     }
     for(int i=0;i<(int)labels.size();++i) {
         float x=win_size.x/2.f-210,y=float(button_y(i));
-        rectangle(x,y,420,42,i==selected?vec4(.72,.76,.92,1):vec4(.18,.18,.18,1));
-        rectangle(x+2,y+2,416,38,i==selected?vec4(.37,.42,.61,1):vec4(.34,.34,.34,1));
+        // Two original 100px halves preserve the classic border at any width.
+        int sprite_y=i==selected?86:66;
+        Ui::image(widgets,x,y,210,42,vec4(0,sprite_y,100,20));
+        Ui::image(widgets,x+210,y,210,42,vec4(100,sprite_y,100,20));
         int size=(options || create)?2:3;while(size>1 && Text::measure(labels[i],size)>400)--size;
-        text(labels[i],(int)y+4,size);
+        text(labels[i],(int)y+(42-size*12)/2,size,i==selected?vec3(1,1,.63):vec3(.88));
     }
     if(!Game::message.empty())text(Game::message,70,1);
     text(create?Language::tr("Enter name and seed / Up-Down: field / Empty seed: random"):(worlds?Language::tr("Up-Down: world / Left-Right: action / Enter: confirm"):(options?Language::tr("Click / Left-Right to change  /  Esc: back"):(paused?Language::tr("World is paused"):Language::tr("E: inventory  /  Tab: game mode")))),(int)win_size.y-25,1);
@@ -151,5 +161,5 @@ void Menu::draw(bool paused) {
 }
 void Menu::destroy() {
     for(auto& entry:labels) entry.second.destroy(); labels.clear();
-    glDeleteTextures(1,&cube);glDeleteVertexArrays(1,&vao);flat.destroy();panorama.destroy();
+    widgets.destroy();logo.destroy();glDeleteTextures(1,&cube);glDeleteVertexArrays(1,&vao);flat.destroy();panorama.destroy();
 }

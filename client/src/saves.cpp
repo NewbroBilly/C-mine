@@ -28,7 +28,7 @@ void inventory(std::ostream& f,const Items::Inventory& d){for(auto s:d.main)stac
 bool inventory(std::istream& f,Items::Inventory& d){for(auto& s:d.main)if(!stack(f,s))return false;for(auto& s:d.craft)if(!stack(f,s))return false;for(auto& s:d.armor)if(!stack(f,s))return false;return stack(f,d.offhand) && stack(f,d.cursor);}
 bool read(const std::filesystem::path& file,Data& result){
     std::ifstream f(file);std::string magic;int version;Data d;
-    if(!(f>>magic>>version) || magic!="CMINE" || version<1 || version>3)return false;
+    if(!(f>>magic>>version) || magic!="CMINE" || version<1 || version>4)return false;
     if(!(f>>std::quoted(d.name)>>d.seed>>d.survival>>d.spawned) || d.name.empty() || d.name.size()>128)return false;
     for(auto& v:d.position)if(!(f>>v) || !std::isfinite(v) || std::abs(v)>30000000)return false;
     double length=0;for(auto& v:d.forward){if(!(f>>v) || !std::isfinite(v))return false;length+=v*v;}if(length<.99 || length>1.01 || d.forward[0]*d.forward[0]+d.forward[2]*d.forward[2]<1e-12)return false;
@@ -49,19 +49,31 @@ bool read(const std::filesystem::path& file,Data& result){
         for(auto& n:d.spawn_point)if(!(f>>n) || !std::isfinite(n) || std::abs(n)>30000000)return false;
     }
     if(version>=3 && (!(f>>d.generator_version) || d.generator_version<0 || d.generator_version>1))return false;
+    if(version>=4){
+        int n;if(!(f>>d.initial_mobs>>n) || n<0 || n>128)return false;
+        for(int i=0;i<n;++i){Mobs::Entity e;
+            if(!(f>>e.kind) || e.kind<0 || e.kind>=Mobs::Count)return false;
+            for(auto& p:e.position)if(!(f>>p) || !std::isfinite(p) || std::abs(p)>30000000)return false;
+            for(auto& v:e.velocity)if(!(f>>v) || !std::isfinite(v) || std::abs(v)>1000)return false;
+            if(!(f>>e.yaw>>e.phase>>e.health>>e.sheared>>e.random>>e.fuse) || !std::isfinite(e.yaw) || !std::isfinite(e.phase) || !std::isfinite(e.health) || !std::isfinite(e.fuse) || std::abs(e.yaw)>1e9 || std::abs(e.phase)>1e12 || e.health<=0 || e.health>20 || e.fuse<0 || e.fuse>1.5)return false;
+            e.previous=e.position;d.mobs.push_back(e);
+        }
+    }
     f>>std::ws;if(!f.eof())return false;result=d;return true;
 }
 std::filesystem::path chunk_path(const std::filesystem::path& root,int x,int z){return root/"chunks"/(std::to_string(x)+"_"+std::to_string(z)+".cmc");}
 }
 bool load(const std::filesystem::path& path,Data& data){return read(path/"world.txt",data) || read(path/"world.txt.bak",data);}
 bool save(const std::filesystem::path& path,const Data& d){
-    std::ostringstream f;f<<std::setprecision(17)<<"CMINE 3\n"<<std::quoted(d.name)<<'\n'<<d.seed<<' '<<d.survival<<' '<<d.spawned<<'\n';
+    std::ostringstream f;f<<std::setprecision(17)<<"CMINE 4\n"<<std::quoted(d.name)<<'\n'<<d.seed<<' '<<d.survival<<' '<<d.spawned<<'\n';
     for(auto v:d.position)f<<v<<' ';for(auto v:d.forward)f<<v<<' ';for(auto v:d.velocity)f<<v<<' ';f<<d.flying;
     const auto& v=d.vitals;f<<'\n'<<v.health<<' '<<v.food<<' '<<v.saturation<<' '<<v.exhaustion<<' '<<v.timer<<' '<<v.fallen<<' '<<d.hotbar<<' '<<d.air<<'\n';
     inventory(f,d.inventory);inventory(f,d.creative);f<<d.drops.size()<<'\n';
     for(auto& a:d.drops){stack(f,a.stack);for(auto n:a.position)f<<n<<' ';for(auto n:a.velocity)f<<n<<' ';f<<a.age<<'\n';}
     f<<d.day_ticks<<' ';for(auto n:d.spawn_point)f<<n<<' ';f<<'\n';
     f<<d.generator_version<<'\n';
+    f<<d.initial_mobs<<' '<<d.mobs.size()<<'\n';
+    for(auto& e:d.mobs){f<<e.kind<<' ';for(auto p:e.position)f<<p<<' ';for(auto v:e.velocity)f<<v<<' ';f<<e.yaw<<' '<<e.phase<<' '<<e.health<<' '<<e.sheared<<' '<<e.random<<' '<<e.fuse<<'\n';}
     return commit(path/"world.txt",f.str());
 }
 std::vector<Entry> list(const std::filesystem::path& root){
@@ -82,16 +94,16 @@ int64_t seed_from_text(const std::string& text){
     return int32_t(hash);
 }
 bool save_chunk(const std::filesystem::path& root,int x,int z,const unsigned char* data,size_t size){
-    if(size%3)return false;std::ostringstream f(std::ios::binary);f.write("CMC1",4);
+    if(size%3)return false;std::ostringstream f(std::ios::binary);f.write("CMC2",4);
     for(size_t i=0;i<size;){uint32_t count=1;while(i+count*3<size && count<65535 && std::equal(data+i,data+i+3,data+i+count*3))++count;
         unsigned char length[]={static_cast<unsigned char>(count&255),static_cast<unsigned char>(count>>8)};f.write((char*)length,2);f.write((const char*)data+i,3);i+=count*3;}
     return commit(chunk_path(root,x,z),f.str());
 }
-bool load_chunk(const std::filesystem::path& root,int x,int z,unsigned char* data,size_t size){
+bool load_chunk(const std::filesystem::path& root,int x,int z,unsigned char* data,size_t size,int* revision){
     auto path=chunk_path(root,x,z);
     for(int attempt=0;attempt<2;++attempt){std::ifstream f(path,std::ios::binary);char magic[4];std::vector<unsigned char> out;out.reserve(size);
-        if(f.read(magic,4) && std::string(magic,4)=="CMC1")while(out.size()<size){unsigned char b[5];if(!f.read((char*)b,5))break;size_t count=b[0]+(unsigned(b[1])<<8);if(!count || out.size()+count*3>size)break;for(size_t i=0;i<count;++i)out.insert(out.end(),b+2,b+5);}
-        if(out.size()==size && f.peek()==EOF){std::copy(out.begin(),out.end(),data);return true;}path=chunk_path(root,x,z);path+=".bak";
+        if(f.read(magic,4) && (std::string(magic,4)=="CMC1" || std::string(magic,4)=="CMC2"))while(out.size()<size){unsigned char b[5];if(!f.read((char*)b,5))break;size_t count=b[0]+(unsigned(b[1])<<8);if(!count || out.size()+count*3>size)break;for(size_t i=0;i<count;++i)out.insert(out.end(),b+2,b+5);}
+        if(out.size()==size && f.peek()==EOF){std::copy(out.begin(),out.end(),data);if(revision)*revision=magic[3]-'0';return true;}path=chunk_path(root,x,z);path+=".bak";
     }return false;
 }
 }

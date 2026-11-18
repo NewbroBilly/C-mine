@@ -34,6 +34,16 @@ for index, fields in enumerate(entries):
         else:
             d.line([(6, 10), (13, 3)], fill=color, width=4)
             d.line([(4, 8), (8, 12)], fill="#514337", width=2)
+    elif name.endswith(("HELMET","CHESTPLATE","LEGGINGS","BOOTS")):
+        color={"LEATHER":"#a06540","CHAIN":"#919b9d","IRON":"#d7dfe2","GOLD":"#e8c54a","DIAMOND":"#48d4c3"}[family]
+        if name.endswith("HELMET"):
+            d.polygon([(2,10),(2,3),(5,1),(11,1),(14,3),(14,10),(11,10),(11,6),(5,6),(5,10)],fill=color,outline="#354040")
+        elif name.endswith("CHESTPLATE"):
+            d.polygon([(1,2),(5,1),(6,4),(9,4),(10,1),(14,2),(15,7),(12,8),(12,14),(3,14),(3,8),(0,7)],fill=color,outline="#354040")
+        elif name.endswith("LEGGINGS"):
+            d.rectangle((3,1,12,6),fill=color);d.rectangle((3,6,6,14),fill=color);d.rectangle((9,6,12,14),fill=color)
+        else:
+            d.rectangle((3,3,6,12),fill=color);d.rectangle((9,3,12,12),fill=color);d.rectangle((1,11,6,14),fill=color);d.rectangle((9,11,14,14),fill=color)
     elif name == "SHEARS":
         d.line([(3, 3), (12, 12)], fill="#dce4e6", width=3)
         d.line([(12, 3), (3, 12)], fill="#aebbc1", width=3)
@@ -156,6 +166,12 @@ for line in (root / "client/include/extra_blocks.def").read_text().splitlines():
         elif "prismarine" in texture:base=(64,132,115)
         elif "sea_lantern" in texture:base=(184,216,197)
         elif "coal" in texture:base=(40,41,41)
+        elif "cactus" in texture:base=(71,131,44)
+        elif "sponge" in texture:base=(179,171,54)
+        elif "nether" in texture:base=(106,42,41)
+        elif "bone_block" in texture:base=(216,210,181)
+        elif "magma" in texture:base=(174,81,35)
+        elif "mushroom" in texture:base=(160,66,53) if "red" in texture else (139,106,81)
         elif "ice" in texture:base=(145,181,217)
         elif "podzol_top" in texture:base=(105,75,42)
         elif "mycelium_top" in texture:base=(139,117,140)

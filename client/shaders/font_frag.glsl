@@ -5,6 +5,7 @@ in vec2 uv;
 out vec4 FragColor;
 
 uniform sampler2D tex3;
+uniform vec3 tint;
 
 void main()
 {
@@ -13,5 +14,5 @@ void main()
     if(color.w < 0.1f)
         discard;
 
-    FragColor = color;
+    FragColor = vec4(color.rgb*tint,color.a);
 }

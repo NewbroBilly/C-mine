@@ -179,6 +179,7 @@ void Game::load_world(int index){
     if(index<0 || index>=int(saved_worlds.size()))return;Saves::Data d;auto path=saved_worlds[index].path;
     if(!Saves::load(path,d)){message=Language::tr("This save could not be read.");return;}
     start(d.survival);current_save=d;world->seed=d.seed;world->generator_version=d.generator_version;world->save_path=path;world->spawned=d.spawned;
+    world->mobs=d.mobs;world->initial_mobs=d.initial_mobs;
     world->day_ticks=d.day_ticks;world->spawn_point=dvec3(d.spawn_point[0],d.spawn_point[1],d.spawn_point[2]);world->spawn_known=d.spawned;
     player->pos=player->previous_position=dvec3(d.position[0],d.position[1],d.position[2]);
     player->cam.forward=vec3(d.forward[0],d.forward[1],d.forward[2]);player->vitals=d.vitals;player->air=d.air;
@@ -192,6 +193,7 @@ bool Game::save_world(){
     auto& d=current_save;d.generator_version=world->generator_version;d.survival=survival_mode;d.spawned=world->spawned;d.vitals=player->vitals;d.air=player->air;
     d.day_ticks=world->day_ticks;d.spawn_point={world->spawn_point.x,world->spawn_point.y,world->spawn_point.z};
     for(int i=0;i<3;++i){d.position[i]=player->pos[i];d.forward[i]=player->cam.forward[i];d.velocity[i]=player->vel[i];}d.flying=player->flying;
+    d.mobs=world->mobs;d.initial_mobs=world->initial_mobs;
     d.inventory=player->inventory.survival;d.creative=player->inventory.creative;d.hotbar=player->hotbar.index;d.drops.clear();
     for(auto& a:player->drops)d.drops.push_back({a.stack,{a.position.x,a.position.y,a.position.z},{a.velocity.x,a.velocity.y,a.velocity.z},a.age});
     bool ok=world->save_chunks() && Saves::save(world->save_path,d);message=ok?"":Language::tr("Save failed. Check free space before leaving.");
@@ -214,6 +216,7 @@ void Game::die(){
     if(show_inventory)inventory(false);
     auto& d=player->inventory.survival;
     for(auto& s:d.main){player->drop_item(s);s.clear();}
+    for(auto& s:d.armor){player->drop_item(s);s.clear();}
     player->drop_item(d.offhand);d.offhand.clear();
     screen=Screen::Dead;capture(false);
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include <items.h>
+#include <mobs.h>
 #include <array>
 #include <string>
 #include <vector>
@@ -21,6 +22,8 @@ struct Data {
     int hotbar=0,air=300;
     struct Drop {Items::Stack stack;std::array<double,3> position,velocity;double age;};
     std::vector<Drop> drops;
+    std::vector<Mobs::Entity> mobs;
+    bool initial_mobs=false;
 };
 struct Entry {std::filesystem::path path;Data data;};
 extern std::string root_override;
@@ -31,5 +34,5 @@ std::filesystem::path unique_path(const std::filesystem::path& root);
 int64_t seed_from_text(const std::string& text);
 // RLE block snapshots, separate from lighting/meshes. A failed read leaves data intact.
 bool save_chunk(const std::filesystem::path& root,int x,int z,const unsigned char* data,size_t size);
-bool load_chunk(const std::filesystem::path& root,int x,int z,unsigned char* data,size_t size);
+bool load_chunk(const std::filesystem::path& root,int x,int z,unsigned char* data,size_t size,int* revision=nullptr);
 }
