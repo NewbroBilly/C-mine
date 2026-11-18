@@ -48,7 +48,14 @@ void Player::handle_keys()
     }
     if(!survival_mode && is_key_down(SDLK_SPACE)){
         double now=SDL_GetTicks()/1000.;
-        if(flight_tap>=0 && now-flight_tap<.35){flying=!flying;vel=dvec3(0);accumulator=0;previous_position=pos;flight_tap=-1;}
+        if(flight_tap>=0 && now-flight_tap<.35){
+            // Toggling flight changes the travel rules, not the current momentum
+            // or interpolation clock. In particular, leaving flight must not
+            // erase the horizontal motion used by the following falling ticks.
+            flying=!flying;
+            if(flying){grounded=false;jump_cooldown=0;vitals.fallen=0;}
+            flight_tap=-1;
+        }
         else flight_tap=now;
     }
 }
@@ -381,9 +388,16 @@ void Player::draw_hand(){
     float phase=float(walk_phase)*.6662f;
     m=translate(m,vec3(sin(phase)*bob_amount*.025f,-abs(cos(phase))*bob_amount*.025f,0));
     if(!Items::valid(equipped_item)){
-        m=translate(m,vec3(.64f-.3f*sin(root*pi),-.6f+.2f*sin(root*2*pi)-(1-equip)*.6f,-.72f-.3f*sin(s*pi)));
-        m=rotate(m,radians(35.f-45.f*sin(root*pi)),vec3(1,0,0));
-        m=rotate(m,radians(-25.f),vec3(0,0,1));Avatar::hand(m);return;
+        // 1.12.2 ItemRenderer's right-arm pose, with the ModelBiped shoulder
+        // pivot retained in Avatar::hand instead of centering the arm mesh.
+        m=translate(m,vec3(.64000005f-.3f*sin(root*pi),-.6f+.4f*sin(root*2*pi)-(1-equip)*.6f,-.71999997f-.4f*sin(s*pi)));
+        m=rotate(m,radians(45.f+70.f*sin(root*pi)),vec3(0,1,0));
+        m=rotate(m,radians(-20.f*sin(s*s*pi)),vec3(0,0,1));
+        m=translate(m,vec3(-1.f,3.6f,3.5f));
+        m=rotate(m,radians(120.f),vec3(0,0,1));
+        m=rotate(m,radians(200.f),vec3(1,0,0));
+        m=rotate(m,radians(-135.f),vec3(0,1,0));
+        m=translate(m,vec3(5.6f,0,0));Avatar::hand(m);return;
     }
     if(eat_progress>0){
         float remaining=32.f-float(eat_progress)*20.f+1;

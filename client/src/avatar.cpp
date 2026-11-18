@@ -65,9 +65,9 @@ void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,fl
 }
 void Avatar::hand(const mat4& matrix){
     vertices.clear();
-    mat4 m=scale(mat4(1),vec3(1,-1,1)/16.f);
-    box(m,vec3(-2,-6,-2),ivec3(4,12,4),ivec2(40,16));
-    box(m,vec3(-2,-6,-2),ivec3(4,12,4),ivec2(40,32),.25f);
+    mat4 m=translate(scale(mat4(1),vec3(1.f/16)),vec3(-5,2,0));
+    box(m,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16));
+    box(m,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,32),.25f);
     skin.bind();shader.bind();shader.upload_texture("skin",skin);shader.upload_mat4("cam_mat",matrix);
     glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STREAM_DRAW);
     glDisable(GL_CULL_FACE);glDrawArrays(GL_TRIANGLES,0,(GLsizei)vertices.size());glEnable(GL_CULL_FACE);

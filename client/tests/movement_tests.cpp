@@ -75,6 +75,23 @@ int main() {
     }
     auto target=[](glm::ivec3 p){return p==glm::ivec3(0,0,5);};
     auto empty=[](int,int,int){return false;};
+    // Air steering must remain available even from rest at terminal fall speed.
+    s={{0,200,0},{0,-78.4,0},false};
+    for(int i=0;i<20;++i)Movement::tick(s,{1,0},false,false,false,empty);
+    check(s.position.x>2.4 && s.velocity.x>3.3 && s.position.y<150,
+          "terminal fall must accept horizontal input");
+    double falling_x=s.position.x,falling_z=s.position.z;
+    for(int i=0;i<20;++i)Movement::tick(s,{0,1},false,false,false,empty);
+    check(s.position.x>falling_x && s.position.z>falling_z+2.4,
+          "falling must retain momentum while steering sideways");
+    auto slow_fall=Movement::State{{0,200,0},{2,0,3},false};
+    auto fast_fall=slow_fall;fast_fall.velocity.y=-78.4;
+    for(int i=0;i<20;++i){
+        Movement::tick(slow_fall,{1,0},false,false,false,empty);
+        Movement::tick(fast_fall,{1,0},false,false,false,empty);
+    }
+    check(glm::length(glm::dvec2(slow_fall.position.x-fast_fall.position.x,slow_fall.position.z-fast_fall.position.z))<1e-8,
+          "fall speed must not reduce horizontal air control");
     // Compare a full second of flight to the 1.12.2 recurrence, independently
     // of rendering frequency. Ascending must not reduce horizontal movement.
     s={{0,50,0},{0,0,0},false};double fly_x=0,fly_y=50,mx=0,my=0;

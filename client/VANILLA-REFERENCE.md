@@ -107,6 +107,10 @@ and world reopen with both bags, pose and vitals.
   Walking bob is adapted to this client's distance phase; exact vanilla view
   sway, offhand actions, attack targets, item-use effects and audio are outside
   this implementation. Original destroy_stage_0..9 textures overlay mined cubes.
+  The empty right hand now also retains ItemRenderer's translation/rotation
+  chain and ModelBiped's (-5,2,0) right-shoulder pivot. Flight toggles retain
+  momentum, matching EntityPlayerSP's capability change rather than stopping
+  the entity; falling keeps the existing .02 (.026 sprint) air acceleration.
 
 The new 0.6.0 catalog appends IDs: 55 blocks and 40 items. Imported images stay
 in local resource packs; repository fallback textures are independently drawn.

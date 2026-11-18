@@ -269,3 +269,14 @@ Existing save IDs are retained. Static item icons occupy indices 0-159; clock,
 compass and cast-rod frames occupy 160-224, avoiding catalog collisions.
 The GL smoke compares integrated flight at 10/20/60/144 FPS and captures the expanded
 catalog, held block/tool/empty hand, swings, eating and mining cracks.
+
+## Hand and flight-toggle fixes (0.6.1)
+
+The empty right hand uses the 1.12.2 arm transform and shoulder pivot instead of
+a centered mesh, restoring its lower-right resting pose and attack arc.
+Double Space/A preserves velocity and the interpolation clock when entering or
+leaving flight. WASD continues steering during a fall in both game modes, with
+the existing vanilla air acceleration. SDL release/press events in one render
+frame are accepted, while key-repeat events do not count as extra taps.
+Tests cover terminal-speed air steering, both integrated falling modes, rapid
+SDL taps, ignored repeats and momentum/interpolation across flight toggles.

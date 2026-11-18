@@ -24,7 +24,8 @@ void handle_events()
         {
             int index = event.key.keysym.sym & (~0x40000000);
 
-            if (index >= 0 && index < KEY_MAX && keys[index] == Input::NONE)
+            if (!event.key.repeat && index >= 0 && index < KEY_MAX &&
+                (keys[index] == Input::NONE || keys[index] == Input::UP))
                 keys[index] = Input::DOWN;
         }
         else if(event.type==SDL_TEXTINPUT){if(Game::screen==Game::Screen::Playing && player && show_inventory)player->inventory.text_input(event.text.text);else Menu::text_input(event.text.text);}
@@ -430,7 +431,35 @@ int main(int argc, char** argv)
                     if(fps==10){reference_position=player->pos;reference_velocity=player->vel;}
                     else if(length(player->pos-reference_position)>1e-7 || length(player->vel-reference_velocity)>1e-7)return 71;
                 }
-                keys[SDLK_w]=keys[SDLK_SPACE]=Input::NONE;mouse_control=old_mouse;delta_time=original_dt;
+                keys[SDLK_w]=keys[SDLK_SPACE]=Input::NONE;
+                // Exercise actual SDL edges: a release/press in one render frame
+                // still counts as the second tap; key repeats never toggle flight.
+                player->flying=false;player->flight_tap=-1;player->grounded=false;
+                player->vel=dvec3(3,-2,4);player->accumulator=.023;
+                player->previous_position=player->pos-dvec3(.1);
+                auto momentum=player->vel,interpolation_start=player->previous_position;
+                auto space_event=[](Uint32 type,bool repeat=false){SDL_Event e{};e.type=type;e.key.keysym.sym=SDLK_SPACE;e.key.repeat=repeat;SDL_PushEvent(&e);};
+                space_event(SDL_KEYDOWN);handle_events();player->handle_keys();
+                space_event(SDL_KEYUP);space_event(SDL_KEYDOWN);handle_events();player->handle_keys();
+                if(!player->flying || player->vel!=momentum || player->accumulator!=.023 || player->previous_position!=interpolation_start)return 73;
+                update_inputs();space_event(SDL_KEYDOWN,true);handle_events();player->handle_keys();
+                if(!player->flying || player->flight_tap!=-1)return 74;
+                for(int tap=0;tap<2;++tap){space_event(SDL_KEYUP);space_event(SDL_KEYDOWN);handle_events();player->handle_keys();}
+                if(player->flying || player->vel!=momentum || player->accumulator!=.023)return 75;
+                keys[SDLK_SPACE]=Input::NONE;
+                for(bool survival:{false,true}){
+                    Game::set_mode(survival);
+                    player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,250,4.5);
+                    player->vel=dvec3(0,-4,0);player->grounded=false;player->accumulator=0;
+                    auto falling_start=player->pos;delta_time=.05;
+                    keys[SDLK_w]=keys[SDLK_d]=Input::PRESSED;
+                    for(int i=0;i<12;++i)player->move();
+                    if(player->pos.x<=falling_start.x+.7 || player->pos.z<=falling_start.z+.7 || player->pos.y>=falling_start.y-5 || player->grounded)return 76;
+                    keys[SDLK_w]=keys[SDLK_d]=Input::NONE;
+                }
+                Game::set_mode(false);player->flying=true;
+                mouse_control=old_mouse;delta_time=original_dt;
+                SDL_Log("Flight toggle/fall regression passed: SDL double taps and repeats, momentum and interpolation preserved, WASD while falling in both modes");
                 player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,234,4.5);
                 player->vel=dvec3(0);player->accumulator=0;player->third_person=0;player->cam.forward=normalize(vec3(0,-.5,1));
                 auto old_stack=player->inventory.creative.main[0];
@@ -441,6 +470,8 @@ int main(int argc, char** argv)
                 player->equipped_item=Items::IRON_PICKAXE;player->swing_progress=1;Game::draw();save_frame("smoke-hand-tool.bmp");
                 player->equipped_item=Items::APPLE;player->eat_progress=.6;Game::draw();save_frame("smoke-hand-eating.bmp");
                 player->eat_progress=0;player->equipped_item=-1;Game::draw();save_frame("smoke-hand-empty.bmp");
+                player->swing_progress=.4;Game::draw();save_frame("smoke-hand-empty-swing.bmp");
+                player->swing_progress=1;
                 player->cam.forward=normalize(vec3(0,-1,1));
                 auto target=raycast(vec3(player->pos)+player->cam.pos,player->cam.forward,20.f,world->get_chunk_from_pos(player->pos));
                 if(!target.hit)return 72;
