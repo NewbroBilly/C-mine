@@ -92,6 +92,14 @@ void Player::handle_clicks(){
     if(!attack)break_progress=0;
     bool use=is_button_down(2) || is_button_pressed(2);
     int held=hotbar.get_item();
+    if(use && action_delay<=0 && (held==Items::BUCKET || held==Items::WATER_BUCKET)){
+        auto hit=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin),held==Items::BUCKET);
+        if(hit.hit){auto& stack=hotbar.slots[hotbar.index].value();bool done=false;int result=Items::BUCKET;
+            if(held==Items::BUCKET && hit.chunk->get(hit.block_pos)->id==WATER){world->remove_block(hit.chunk,hit.block_pos,true);done=true;result=Items::WATER_BUCKET;}
+            if(held==Items::WATER_BUCKET){BlockState b{WATER,0,0};done=world->place_block(hit.chunk,hit.block_pos+hit.face_normal,&b);}
+            if(done){if(survival_mode){--stack.count;Items::normalize(stack);Items::Stack out{result,1};if(stack.empty())stack=out;else if(inventory.data().add(out))drop_item(out);}else if(held==Items::BUCKET)stack={Items::WATER_BUCKET,1};action_delay=.25;}
+        }return;
+    }
     bool edible=survival_mode && (held==Items::APPLE || held==Items::BREAD) && vitals.food<20;
     if(use && edible){
         if(eating_item!=held){eating_item=held;eat_progress=0;}
@@ -112,7 +120,8 @@ void Player::update_drops(){
         auto* c=world->get_chunk_from_pos(next);
         if(c && next.y>=0 && next.y<CHUNK_HEIGHT){
             ivec3 local=ivec3(floor(next))-ivec3(chunk_pos_to_world_hp(c->pos));int id=c->get(local)->id;
-            if(id!=AIR && id!=GRASS && id!=TORCH){if(it->velocity.y<0){next.y=floor(next.y)+1.15;it->velocity=dvec3(0);}}
+            if(id==WATER){auto flow=Water::flow({int(floor(next.x)),int(floor(next.y)),int(floor(next.z))},[&](Water::Pos p){return world->fluid(p);});it->velocity*=pow(.8,delta_time*20);it->velocity+=dvec3(flow[0],flow[1],flow[2])*delta_time*5.;}
+            else if(id!=AIR && id!=GRASS && id!=TORCH){if(it->velocity.y<0){next.y=floor(next.y)+1.15;it->velocity=dvec3(0);}}
             it->position=next;
         }
         if(it->age>.4 && length(it->position-(pos+dvec3(0,.8,0)))<1.6){it->stack.count=inventory.data().add(it->stack);if(it->stack.count==0){it=drops.erase(it);continue;}}
@@ -140,7 +149,7 @@ void Player::move()
         if (!c) return true;
         ivec3 local = dvec3(x,y,z)-chunk_pos_to_world_hp(c->pos);
         int id = c->get(local)->id;
-        return id != AIR && id != GRASS && id != TORCH;
+        return id != AIR && id != GRASS && id != TORCH && id!=WATER;
     };
     if(!survival_mode && flying){
         dvec3 flight=dvec3(right)*double(input.x)+normalize(dvec3(cam.forward.x,0,cam.forward.z))*double(input.z);
@@ -160,9 +169,11 @@ void Player::move()
         previous_position=state.position;
         double old_y=state.position.y;
         bool was_grounded=state.grounded;
-        Movement::tick(state,dvec2(direction.x,direction.z),jump,sprint,sneak,solid);
+        dvec3 flow;bool swimming=world->submerged(state.position,&flow);
+        if(swimming){Movement::swim_tick(state,dvec2(direction.x,direction.z),jump,flow,solid);vitals.fallen=0;}
+        else Movement::tick(state,dvec2(direction.x,direction.z),jump,sprint,sneak,solid);
         if(survival_mode){
-            vitals.landing(old_y-state.position.y,state.grounded);
+            if(!swimming)vitals.landing(old_y-state.position.y,state.grounded);
             if(jump && was_grounded && state.velocity.y>0)vitals.exhaust(sprint?.2f:.05f);
             if(sprint && state.grounded)vitals.exhaust(float(length(dvec2(state.velocity.x,state.velocity.z))*.05*.1));
         }
@@ -179,6 +190,9 @@ dvec3 Player::render_position() const {
 
 Camera Player::view_camera() {
     Camera view = cam;
+    float roll=float(Movement::hurt_roll(vitals.hurt_ticks,vital_clock/.05));
+    view.up=rotate(cam.up,radians(roll),cam.forward);
+    if(world->underwater(render_position()+dvec3(cam.pos)))view.fov*=60.f/70.f;
     if (!third_person) return view;
     vec3 offset = cam.forward * (third_person == 1 ? -3.5f : 3.5f);
     float fraction = 0;
@@ -188,7 +202,7 @@ Camera Player::view_camera() {
         if (!c || p.y<0 || p.y>=CHUNK_HEIGHT) break;
         ivec3 local = floor(p)-chunk_pos_to_world_hp(c->pos);
         int id=c->get(local)->id;
-        if (id!=AIR && id!=GRASS && id!=TORCH) break;
+        if (id!=AIR && id!=GRASS && id!=TORCH && id!=WATER) break;
         fraction=t;
     }
     view.pos += offset*fraction;
@@ -200,7 +214,12 @@ void Player::update()
 {
     if (!world->spawned) return;
     handle_keys();handle_clicks();move();update_drops();
-    if(survival_mode){vital_clock+=delta_time;while(vital_clock>=.05){vitals.tick();vital_clock-=.05;}if(pos.y<0)vitals.hurt(4);if(vitals.health<=0)Game::die();}
+    vital_clock+=delta_time;while(vital_clock>=.05){
+        if(survival_mode){vitals.tick();if(world->underwater(pos+dvec3(cam.pos))){if(--air<=-20){air=0;vitals.hurt(2);}}else air=300;}
+        else{air=300;if(vitals.hurt_ticks>0)--vitals.hurt_ticks;}
+        vital_clock-=.05;
+    }
+    if(survival_mode){if(pos.y<0)vitals.hurt(4);if(vitals.health<=0)Game::die();}
 }
 
 void Player::draw()
@@ -264,6 +283,7 @@ void Player::draw_hud(){
     glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);
     int bottom=int(win_size.y)-100;
     if(survival_mode){
+        if(air<300)for(int i=0;i<int(ceil(std::max(0,air)/30.));++i)Ui::image(Ui::icons_texture(),win_size.x/2.f+246-i*24,float(bottom-26),24,24,vec4(16,18,9,9));
         for(int i=0;i<10;++i){int x=int(win_size.x)/2-270+i*24;
             Ui::image(Ui::icons_texture(),float(x),float(bottom),24,24,vec4(16,0,9,9));
             if(vitals.health>i*2)Ui::image(Ui::icons_texture(),float(x),float(bottom),24,24,vec4(vitals.health>=i*2+2?52:61,0,9,9));

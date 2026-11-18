@@ -1,5 +1,6 @@
 #include <chunk.h>
 #include <oak_tree.h>
+#include <world.h>
 
 Chunk::Chunk(const ivec2& _pos)
 {
@@ -29,6 +30,7 @@ void Chunk::set(const ivec3& p, BlockState* bs)
     const BlockState& previous = blocks[p.x][p.y][p.z];
     if (previous.id == bs->id && previous.data1 == bs->data1 && previous.data2 == bs->data2) return;
     dirty = true;
+    modified = true;
 
     blocks[p.x][p.y][p.z] = *bs;
 
@@ -85,13 +87,15 @@ void Chunk::load()
 {
     SimplexNoise noise;
     vec3 world_pos = chunk_pos_to_world(pos);
+    const uint64_t seed=world?uint64_t(world->seed):0;
+    float ox=float(seed&0xffff)*.25f,oz=float((seed>>16)&0xffff)*.25f;
 
     auto terrain=[&](int x,int y,int z)->int {
         if(y<0 || y>=CHUNK_HEIGHT)return AIR;
         if(y==0)return BEDROCK;
-        int height=int(noise.fractal(6,x*.002f,z*.002f)*40+120);
-        if(y>=height)return AIR;
-        if(noise.fractal(3,x*.01f,y*.01f,z*.01f)>=.3f)return AIR;
+        int height=int(noise.fractal(6,(x+ox)*.002f,(z+oz)*.002f)*40+120);
+        if(y>=height)return y<112?WATER:AIR;
+        if(noise.fractal(3,(x+ox)*.01f,y*.01f,(z+oz)*.01f)>=.3f)return AIR;
         if(y==height-1)return GRASS_BLOCK;
         return y>=height-4?DIRT:STONE;
     };
@@ -100,10 +104,10 @@ void Chunk::load()
     // Each nearby eight-block cell owns one candidate. Query base terrain in
     // world coordinates and clip writes, so crowns continue across chunk seams.
     for(int gx=pos.x*2-1;gx<=pos.x*2+2;++gx)for(int gz=pos.y*2-1;gz<=pos.y*2+2;++gz){
-        Trees::Random random(uint64_t(int64_t(gx))*341873128712ULL+uint64_t(int64_t(gz))*132897987541ULL+1122);
+        Trees::Random random(uint64_t(int64_t(gx))*341873128712ULL+uint64_t(int64_t(gz))*132897987541ULL+1122+seed);
         if(random.next(3)==0)continue;
         int tx=gx*8+2+random.next(4),tz=gz*8+2+random.next(4);
-        int height=int(noise.fractal(6,tx*.002f,tz*.002f)*40+120);
+        int height=int(noise.fractal(6,(tx+ox)*.002f,(tz+oz)*.002f)*40+120);
         auto get=[&](int x,int y,int z)->Trees::Cell {
             switch(terrain(x,y,z)) {case AIR:return Trees::Air;case GRASS_BLOCK:return Trees::Grass;case DIRT:return Trees::Dirt;default:return Trees::Other;}
         };

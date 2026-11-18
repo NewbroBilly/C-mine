@@ -17,6 +17,11 @@ struct Inventory
     Items::Stack result;
     bool workbench=false;
     int catalog_page=0;
+    int scroll_row=0;
+    std::string search;
+    void scroll(int amount);
+    void text_input(const char* text);
+    void tab(int index);
     Items::Inventory& data();
     void bind_hotbar();
     void open(bool table=false);

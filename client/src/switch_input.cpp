@@ -46,7 +46,7 @@ void update_switch_input() {
         key(SDLK_LEFT,held & HidNpadButton_Left);key(SDLK_RIGHT,held & HidNpadButton_Right);
         key(SDLK_RETURN,held & HidNpadButton_A);
         key(SDLK_LSHIFT,held & HidNpadButton_L);
-        key(SDLK_p,held & HidNpadButton_R);
+        key(SDLK_PAGEDOWN,held & HidNpadButton_R);
         buttons[2]=(held & HidNpadButton_ZL)?((down & HidNpadButton_ZL)?Input::DOWN:Input::PRESSED):Input::NONE;
         return;
     }

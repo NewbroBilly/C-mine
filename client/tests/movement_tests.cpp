@@ -74,6 +74,19 @@ int main() {
         check(p.y>=0 && p.y<=10.f/16,"torch height must be ten pixels");
     }
     auto target=[](glm::ivec3 p){return p==glm::ivec3(0,0,5);};
+    auto empty=[](int,int,int){return false;};
+    s={{0,50,0},{0,0,0},false};double water_y=50,water_v=0,water_x=0,water_vx=0;
+    for(int i=0;i<100;++i){
+        Movement::swim_tick(s,{1,0},true,{0,0,0},empty);
+        water_v+=.04;water_y+=water_v;water_v=water_v*.8-.02;
+        water_vx+=.0196;water_x+=water_vx;water_vx*=.8;
+        check(std::abs(s.position.y-water_y)<1e-8 && std::abs(s.position.x-water_x)<1e-8,"water motion must follow vanilla recurrence");
+    }
+    s={{0,50,0},{0,0,0},false};Movement::swim_tick(s,{0,0},false,{1,0,0},empty);
+    check(std::abs(s.position.x-.014)<1e-9,"water current must accelerate by .014 per tick");
+    s={{.5,0,.5},{0,-100,0},false};Movement::swim_tick(s,{0,0},false,{0,0,0},floor);
+    check(s.position.y>=-1e-6 && s.grounded,"swimming must retain swept floor collision");
+    check(std::abs(Movement::hurt_roll(10,0))<1e-8 && Movement::hurt_roll(8,0)<-10 && Movement::hurt_roll(0,0)==0,"hurt camera must tilt and recover");
     auto hit=trace_voxels(glm::vec3(.5),glm::vec3(0,0,1),4.5f,target);
     check(hit.hit && hit.distance==4.5f && hit.normal==glm::ivec3(0,0,-1),"axis aligned ray must hit at reach");
     check(!trace_voxels(glm::vec3(.5),glm::vec3(0,0,1),4.49f,target).hit,"ray must not hit beyond reach");

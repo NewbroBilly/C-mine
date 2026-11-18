@@ -10,6 +10,8 @@
 #include <lighting.h>
 #include <player.h>
 #include <misc.h>
+#include <water.h>
+#include <saves.h>
 
 struct World
 {
@@ -21,8 +23,19 @@ struct World
     ivec2 old_p;
     int old_distance=-1;
     bool spawned = false;
+    int64_t seed=0;
+    std::filesystem::path save_path;
+    Water::Simulator water;
+    double water_clock=0;
+    int fluid(Water::Pos p) const;
+    void set_fluid(Water::Pos p,int level);
+    void notify_water(Chunk* chunk,ivec3 pos);
+    bool save_chunks();
+    bool save_chunk(Chunk* chunk);
+    bool submerged(dvec3 feet,dvec3* current=nullptr)const;
+    bool underwater(dvec3 point)const;
 
-    World();
+    World(int64_t seed=0,std::filesystem::path path={});
 
     Chunk* get_chunk_from_pos(const vec3 pos);
 

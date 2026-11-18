@@ -3,7 +3,12 @@
 The SDL/OpenGL game is in `client/`; build and controls: [client/BUILDING.md](client/BUILDING.md).
 It includes a rotating title panorama, pause menu, surface spawning, player gravity,
 collision and jumping, and an animated block player model (F5 camera).
-Windows and Switch NRO artifacts are produced by GitHub Actions. Sessions are not saved.
+It also includes survival/creative inventories and crafting, category tabs and
+search, scheduled water flow/swimming/buckets, underwater air and hurt camera tilt.
+Singleplayer manages named saved worlds with a seed and selected game mode;
+player data, dropped items and edited chunks persist. Saves are native to this
+client, separate from Java Anvil. Windows and Switch NRO artifacts are produced
+by GitHub Actions.
 The sections below document the separate experimental headless core.
 
 # Minecraft 1.12.2 C++ Edition

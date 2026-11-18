@@ -6,4 +6,6 @@ void destroy();
 int update(bool paused);
 void draw(bool paused);
 void reset();
+void text_input(const char* text);
+void wheel(int amount);
 }

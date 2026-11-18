@@ -76,6 +76,7 @@ Recipe recipe(const std::array<Stack,9>& grid,int width){
     }
     if(w==1 && h==2 && count==2 && at(0,0)==COAL && at(0,1)==STICK)r.output={TORCH,4};
     if(w==3 && h==1 && count==3 && all(WHEAT))r.output={BREAD,1};
+    if(w==3 && h==2 && count==3 && at(0,0)==IRON_INGOT && at(2,0)==IRON_INGOT && at(1,1)==IRON_INGOT)r.output={BUCKET,1};
     if(w==3 && h==3 && count==5 && at(1,1)==STICK && at(1,2)==STICK){
         bool p=plank(at(0,0)) && plank(at(1,0)) && plank(at(2,0));
         if(p)r.output={WOOD_PICKAXE,1};

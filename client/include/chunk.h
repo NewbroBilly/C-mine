@@ -21,12 +21,13 @@ struct ChunkMesh
     GLuint ebo;
 
     int indices_count;
+    int opaque_count=0;
 
     ChunkMesh();
     ChunkMesh(Chunk* chunk);
 
     void build();
-    void draw();
+    void draw(bool water=false);
     void destroy();
 };
 
@@ -51,6 +52,7 @@ struct Chunk
 
     bool dirty;
     bool can_draw;
+    bool modified=false;
 
     ChunkMesh mesh;
 

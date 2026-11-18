@@ -104,6 +104,19 @@ void Game::init()
 
 }
 Game::Screen Game::screen = Game::Screen::Title;
+std::vector<Saves::Entry> Game::saved_worlds;
+int Game::world_index=0;
+std::string Game::world_name="New World",Game::world_seed,Game::message;
+bool Game::new_survival=true;
+namespace {Saves::Data current_save;double autosave_clock=0;
+std::filesystem::path save_root(){
+    if(!Saves::root_override.empty())return Saves::root_override;
+#ifdef __SWITCH__
+    return "sdmc:/switch/C-mine/saves";
+#else
+    return std::filesystem::path(options_path()).parent_path()/"saves";
+#endif
+}}
 static void capture(bool value) {
     mouse_control = value;
     SDL_ShowCursor(!value);
@@ -149,6 +162,33 @@ void Game::start(bool survival) {
     show_inventory = false;
     screen = Screen::Playing;
     capture(true);
+    current_save={};autosave_clock=0;
+}
+void Game::select_worlds(){saved_worlds=Saves::list(save_root());world_index=std::clamp(world_index,0,std::max(0,int(saved_worlds.size())-1));screen=Screen::Worlds;message.clear();capture(false);}
+void Game::create_world(){
+    Saves::Data d;d.name=world_name.empty()?"New World":world_name;d.seed=Saves::seed_from_text(world_seed);d.survival=new_survival;
+    auto path=Saves::unique_path(save_root());if(!Saves::save(path,d)){message="Could not create save. Check free space.";return;}
+    start(d.survival);current_save=d;world->seed=d.seed;world->save_path=path;
+}
+void Game::load_world(int index){
+    if(index<0 || index>=int(saved_worlds.size()))return;Saves::Data d;auto path=saved_worlds[index].path;
+    if(!Saves::load(path,d)){message="This save could not be read.";return;}
+    start(d.survival);current_save=d;world->seed=d.seed;world->save_path=path;world->spawned=d.spawned;
+    player->pos=player->previous_position=dvec3(d.position[0],d.position[1],d.position[2]);
+    player->cam.forward=vec3(d.forward[0],d.forward[1],d.forward[2]);player->vitals=d.vitals;player->air=d.air;
+    player->vel=dvec3(d.velocity[0],d.velocity[1],d.velocity[2]);player->flying=!survival_mode && d.flying;
+    player->inventory.survival=d.inventory;player->inventory.creative=d.creative;player->inventory.bind_hotbar();player->hotbar.set_index(d.hotbar);
+    for(auto& a:d.drops)player->drops.push_back({a.stack,dvec3(a.position[0],a.position[1],a.position[2]),dvec3(a.velocity[0],a.velocity[1],a.velocity[2]),a.age});
+    if(d.survival && d.vitals.health<=0){screen=Screen::Dead;capture(false);}
+}
+bool Game::save_world(){
+    if(!world || world->save_path.empty())return true;
+    auto& d=current_save;d.survival=survival_mode;d.spawned=world->spawned;d.vitals=player->vitals;d.air=player->air;
+    for(int i=0;i<3;++i){d.position[i]=player->pos[i];d.forward[i]=player->cam.forward[i];d.velocity[i]=player->vel[i];}d.flying=player->flying;
+    d.inventory=player->inventory.survival;d.creative=player->inventory.creative;d.hotbar=player->hotbar.index;d.drops.clear();
+    for(auto& a:player->drops)d.drops.push_back({a.stack,{a.position.x,a.position.y,a.position.z},{a.velocity.x,a.velocity.y,a.velocity.z},a.age});
+    bool ok=world->save_chunks() && Saves::save(world->save_path,d);message=ok?"":"Save failed. Check free space before leaving.";
+    if(!ok)SDL_Log("%s",message.c_str());return ok;
 }
 void Game::inventory(bool open,bool table){
     if(!player)return;
@@ -172,7 +212,7 @@ void Game::die(){
 }
 void Game::respawn(){
     player->pos=player->previous_position=dvec3(8.5,122,8.5);player->vel=dvec3(0);player->grounded=false;
-    player->accumulator=player->vital_clock=0;player->vitals={};player->break_progress=0;player->hit_info.hit=false;
+    player->accumulator=player->vital_clock=0;player->vitals={};player->air=300;player->break_progress=0;player->hit_info.hit=false;
     world->spawned=false;screen=Screen::Playing;capture(true);
 }
 void Game::pause() {
@@ -183,6 +223,8 @@ void Game::pause() {
 }
 void Game::resume() { screen = Screen::Playing; capture(true); }
 void Game::title() {
+    if(show_inventory)inventory(false);
+    if(!save_world())return;
     if (world) world->destroy();
     if (player) player->destroy();
     world = nullptr; player = nullptr;
@@ -195,6 +237,8 @@ void Game::update()
 {
     if (is_key_down(SDLK_F11)) toggle_fullscreen();
     if (is_key_down(SDLK_ESCAPE)) {
+        if(screen==Screen::Worlds){screen=Screen::Title;capture(false);return;}
+        if(screen==Screen::CreateWorld){SDL_StopTextInput();select_worlds();return;}
         if (screen == Screen::Options) { close_options(); return; }
         if (screen == Screen::Paused) { resume(); return; }
         if (screen == Screen::Playing) {
@@ -218,14 +262,21 @@ void Game::update()
                 apply_options();save_options();
             }
         }else if(screen==Screen::Dead){if(button==0)respawn();else if(button==1)title();}
-        else if(screen==Screen::Title){if(button==0)start(true);else if(button==1)start(false);else if(button==2)open_options();else if(button==3)closed=true;}
-        else if(screen==Screen::Paused){if(button==0)resume();else if(button==1)set_mode(!survival_mode);else if(button==2)open_options();else if(button==3)title();else if(button==4)closed=true;}
+        else if(screen==Screen::Title){if(button==0)select_worlds();else if(button==1)open_options();else if(button==2)closed=true;}
+        else if(screen==Screen::Worlds){
+            if(button==0)load_world(world_index);
+            else if(button==1){screen=Screen::CreateWorld;world_name="New World";world_seed.clear();new_survival=true;message.clear();Menu::reset();}
+            else if(button==2){screen=Screen::Title;Menu::reset();}
+        }
+        else if(screen==Screen::CreateWorld){if(button==2)new_survival=!new_survival;else if(button==3){SDL_StopTextInput();create_world();}else if(button==4){SDL_StopTextInput();select_worlds();}}
+        else if(screen==Screen::Paused){if(button==0)resume();else if(button==1)set_mode(!survival_mode);else if(button==2)open_options();else if(button==3)title();else if(button==4 && save_world())closed=true;}
         return;
     }
     handle_misc_keys();
 
     world->update();
     player->update();
+    autosave_clock+=delta_time;if(autosave_clock>=30){save_world();autosave_clock=0;}
 
     if (show_inventory)
         player->inventory.update();
@@ -314,6 +365,7 @@ void Game::draw()
 
 void Game::destroy()
 {
+    save_world();
     if (world) world->destroy();
     if (player) player->destroy();
     Menu::destroy();

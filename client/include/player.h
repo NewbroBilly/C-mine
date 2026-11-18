@@ -38,6 +38,7 @@ struct Player
     HitInfo hit_info;
     Items::Vitals vitals;
     bool flying=false;
+    int air=300;
     double flight_tap=-1,vital_clock=0,break_progress=0,break_duration=0,action_delay=0,eat_progress=0;
     int eating_item=-1;
     ivec3 mining_position{-1000000};

@@ -51,6 +51,14 @@ def build_atlas(archive):
         elif name == "torch_on":
             image = image.crop((7, 6, 9, 16)).resize((16, 16), Image.Resampling.NEAREST)
         atlas.paste(image, (x * 16, y * 16))
+    # Keep all 32 vanilla water animation frames; the renderer selects at 8 fps.
+    for row, name in [(5, "water_still"), (6, "water_flow")]:
+        strip = Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/blocks/{name}.png"))).convert("RGBA")
+        frames = strip.height // strip.width
+        for frame in range(32):
+            i = frame % frames
+            image = strip.crop((0, i*strip.width, strip.width, (i+1)*strip.width)).resize((16,16), Image.Resampling.BOX)
+            atlas.paste(image, (frame*16, row*16))
     atlas.paste(tile("torch_on"), (48, 16))
     torch_top = tile("torch_on").crop((7, 6, 9, 8)).resize((16, 16), Image.Resampling.NEAREST)
     atlas.paste(torch_top, (32, 16))
@@ -70,14 +78,8 @@ def main():
         args.output.mkdir(parents=True, exist_ok=True)
         for target, source in gui_assets.items():
             (args.output / target).write_bytes(archive.read("assets/minecraft/textures/gui/" + source))
-        source = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/gui/container/creative_inventory/tab_items.png"))).convert("RGBA")
-        creative = Image.new("RGBA", (256, 256))
-        creative.paste(source.crop((0, 0, 176, 112)), (0, 0))
-        creative.paste(source.crop((0, 17, 176, 35)), (0, 107))
-        # Reuse the original hotbar strip under six catalog rows.
-        creative.paste(source.crop((0, 112, 176, 136)), (0, 126))
-        creative.paste(creative.crop((0, 0, 7, 150)).transpose(Image.Transpose.FLIP_LEFT_RIGHT), (169, 0))
-        creative.save(args.output / "creative.png")
+        for target, source in [("creative.png", "tab_items.png"), ("creative_tabs.png", "tabs.png")]:
+            (args.output / target).write_bytes(archive.read("assets/minecraft/textures/gui/container/creative_inventory/" + source))
         items = Image.new("RGBA", (256, 256))
         catalog = Path(__file__).resolve().parents[1] / "client/include/items.def"
         for i, line in enumerate(catalog.read_text().splitlines()):

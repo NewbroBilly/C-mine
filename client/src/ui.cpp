@@ -4,7 +4,7 @@
 #include <map>
 namespace {
 Shader shader;GLuint vao,vbo;
-Texture inventory,creative,table,items,icons;
+Texture inventory,creative,table,items,icons,tabs;
 std::map<std::string,Text> texts;
 Texture load(const char* name,int unit){std::string root="resource_pack/";
 #ifdef __SWITCH__
@@ -18,9 +18,9 @@ if(tex){tex->bind();shader.upload_texture("tex",*tex);}glBindVertexArray(vao);gl
 void Ui::init(){
 shader=Shader("shaders/ui_vert.glsl","shaders/ui_frag.glsl");float vertices[]={0,0,1,0,1,1,0,0,1,1,0,1};
 glGenVertexArrays(1,&vao);glGenBuffers(1,&vbo);glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);glBufferData(GL_ARRAY_BUFFER,sizeof(vertices),vertices,GL_STATIC_DRAW);glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,0,nullptr);glEnableVertexAttribArray(0);
-inventory=load("inventory.png",7);creative=load("creative.png",8);table=load("crafting.png",9);items=load("items.png",10);icons=load("icons.png",11);}
+inventory=load("inventory.png",7);creative=load("creative.png",8);table=load("crafting.png",9);items=load("items.png",10);icons=load("icons.png",11);tabs=load("creative_tabs.png",12);}
 void Ui::clear_text(){for(auto& entry:texts)entry.second.destroy();texts.clear();}
-void Ui::destroy(){clear_text();inventory.destroy();creative.destroy();table.destroy();items.destroy();icons.destroy();shader.destroy();glDeleteBuffers(1,&vbo);glDeleteVertexArrays(1,&vao);}
+void Ui::destroy(){clear_text();inventory.destroy();creative.destroy();table.destroy();items.destroy();icons.destroy();tabs.destroy();shader.destroy();glDeleteBuffers(1,&vbo);glDeleteVertexArrays(1,&vao);}
 void Ui::rect(float x,float y,float w,float h,vec4 color){quad(x,y,w,h,vec4(0),color,nullptr);}
 void Ui::image(Texture& tex,float x,float y,float w,float h,vec4 source){source/=vec4(tex.width,tex.height,tex.width,tex.height);quad(x,y,w,h,source,vec4(1),&tex);}
 void Ui::text(const std::string& key,const std::string& value,int x,int y,int size){auto& t=texts[key];ivec2 p(x-int(win_size.x)/2,int(win_size.y)/2-y);if(t.pos!=p || t.font_size!=size){t.destroy();t.str.clear();t.pos=p;t.font_size=size;}t.set_str(value);t.draw();}
@@ -32,3 +32,4 @@ if(count && s.count>1){std::string str=std::to_string(s.count);text(key.empty()?
 int durability=Items::durability(s.id);if(durability && s.damage){float f=std::max(0.f,1.f-s.damage/float(durability));rect(x,y+size-5,size,5,vec4(0,0,0,1));rect(x+1,y+size-4,(size-2)*f,3,vec4(1-f,f,0,1));}}
 Texture& Ui::inventory_texture(bool c,bool t){return t?table:(c?creative:inventory);}
 Texture& Ui::icons_texture(){return icons;}
+Texture& Ui::tabs_texture(){return tabs;}

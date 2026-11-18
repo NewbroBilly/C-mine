@@ -5,6 +5,7 @@ in float diffuse;
 in vec4 light;
 in float ao;
 in vec2 uv;
+flat in int water;
 
 out vec4 FragColor;
 
@@ -13,6 +14,7 @@ uniform sampler2D tex0;
 uniform vec3 eye_pos;
 uniform vec4 fog_color;
 uniform int show_ao;
+uniform int underwater;
 
 float fog_factor(float d)
 {
@@ -28,6 +30,7 @@ float fog_factor(float d)
 void main()
 {
     float fog_effect = fog_factor(distance(eye_pos, pos));
+    if(underwater==1)fog_effect=1.0-exp(-distance(eye_pos,pos)*.1);
 
     //vec4 color = vec4(1);
     vec4 color = texture(tex0, uv);
@@ -40,9 +43,9 @@ void main()
     if(show_ao > 0)
         color *= ao;
 
-    color.w = 1.0f;
+    color.w = water==1 ? .65 : 1.0;
 
     //FragColor = color;
 
-    FragColor = mix(color, fog_color, fog_effect);
+    FragColor = vec4(mix(color.rgb,underwater==1?vec3(.02,.08,.22):fog_color.rgb,fog_effect),color.w);
 }

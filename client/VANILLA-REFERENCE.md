@@ -23,7 +23,7 @@ The texture importer reads `assets/minecraft/textures/entity/steve.png` from the
 local JAR into the ignored resource pack. Local Windows/Switch packages include
 it; GitHub builds use authored fallback art unless a resource pack is supplied.
 
-Not covered: exact vanilla biome/seed generation, water/lava swimming, ladders,
+Not covered: exact vanilla biome/seed generation, lava swimming, ladders,
 elytra, potions, combat or networking. The player is not a full Java entity.
 Tree anchors use this project's deterministic grid, while tree shapes and Java
 random operations follow the inspected small-oak generator. Clipped crowns are
@@ -50,4 +50,40 @@ Inventory/container GUI images, hearts, hunger and item icons are read from the
 user's installed 1.12.2 resource JAR. Repository fallback art remains authored.
 Survival/creative inventories are deliberately separate to preserve gathered
 supplies when changing mode; that convenience differs from vanilla's shared bag.
-There is no armor system, furnace, complete recipe set or world persistence yet.
+There is no armor system, furnace or complete recipe set. Persistence uses a separate native format.
+
+* `aqe` / `BlockDynamicLiquid`, `aru` / `BlockLiquid`: water levels 0 source,
+  1-7 horizontal and 8-15 falling; five-game-tick scheduling, downward priority,
+  horizontal decay by one, source regeneration with two adjacent sources and
+  support, removal decay, and a four-cell minimum-cost search for downhill routes.
+  Height is `1 - (effectiveLevel + 1)/9`; falling uses effective level zero.
+  The renderer averages corner heights with source/falling weighting and draws
+  water after opaque blocks with depth writes disabled. Active updates are bounded
+  to 1024 scheduled entries per game tick; saturated workloads may advance late.
+  Unloaded boundaries wait and are revisited on chunk arrival.
+* `vp` / `EntityLivingBase` water travel: acceleration .02, input damping .98,
+  motion drag .8, gravity .02, swim jump .04, obstacle shore boost .3. `BlockLiquid`
+  flow gradients normalize to an entity acceleration of .014 per tick. The C++
+  movement solver still uses its swept voxel clipping. Water clears fall distance;
+  air is 300 ticks, then drowning deals two HP every 20 ticks. No Depth Strider.
+* `buq` / `EntityRenderer.hurtCameraEffect`: Z tilt in degrees
+  `-sin(((hurtTime - partialTicks)/10)^4 * PI) * 14`. This client has no directional
+  combat yet, so attacked-at-yaw is zero. Tilt changes the rendered camera only.
+  Underwater FOV uses the original 60/70 multiplier.
+* `bmp` / `GuiContainerCreative` and `ahp` / `CreativeTabs`: 195x136 body,
+  five rows of nine catalog slots, hotbar at 112, six top/six bottom tabs and
+  a scrollbar. Categories use the implemented item subset, with empty sections
+  for unsupported content. The importer reads unmodified `tab_items.png` and
+  `tabs.png`; Search and the player bag share this body's layout.
+* `bok` / `GuiWorldSelection`, `boi` / `GuiCreateWorld`: title Singleplayer ->
+  saved-world list -> creation with world name, seed and game mode. Numeric seeds
+  parse signed 64-bit values; text seeds use Java UTF-16 String.hashCode. An empty
+  seed chooses a time-based seed. The C++ world generator and RLE save format are
+  independent of Java terrain and Anvil. Inventories and chunk edits persist;
+  chunk snapshots are file-atomic with fallback backups, not a transactional database.
+
+Water tests cover flow/drainage/source regeneration and frontier resumption;
+movement tests check the water recurrence, current impulse, collision and hurt tilt.
+The graphics smoke covers water rendering, source pickup, survival bucket pouring,
+underwater/drowning, tabs/search, creation fields, world mode, edited chunk eviction
+and world reopen with both bags, pose and vitals.

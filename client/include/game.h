@@ -12,8 +12,16 @@
 
 namespace Game
 {
-    enum class Screen { Title, Playing, Paused, Options, Dead };
+    enum class Screen { Title, Worlds, CreateWorld, Playing, Paused, Options, Dead };
     extern Screen screen;
+    extern std::vector<Saves::Entry> saved_worlds;
+    extern int world_index;
+    extern std::string world_name,world_seed,message;
+    extern bool new_survival;
+    void select_worlds();
+    void create_world();
+    void load_world(int index);
+    bool save_world();
     void open_options();
     void close_options();
     void apply_options();

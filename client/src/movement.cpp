@@ -37,6 +37,21 @@ static bool move_axis(State& state, int axis, double distance, const SolidQuery&
     return false;
 }
 
+double hurt_roll(double ticks,double partial){
+    double t=std::clamp((ticks-partial)/10.,0.,1.);
+    return -std::sin(t*t*t*t*3.141592653589793)*14.;
+}
+void swim_tick(State& state,const glm::dvec2& input,bool jump,const glm::dvec3& flow,const SolidQuery& solid){
+    glm::dvec3 motion=state.velocity*.05+flow*.014;
+    glm::dvec2 control=input*.98;control/=std::max(1.,glm::length(control));
+    motion.x+=control.x*.02;motion.z+=control.y*.02;if(jump)motion.y+=.04;
+    double old_y=state.position.y;state.velocity=motion;
+    bool y=move_axis(state,1,motion.y,solid);
+    bool x=move_axis(state,0,motion.x,solid),z=move_axis(state,2,motion.z,solid);
+    state.grounded=y && motion.y<0;state.velocity*=.8;state.velocity.y-=.02;
+    if((x || z) && !overlaps(state.position+glm::dvec3(motion.x,.6-state.position.y+old_y,motion.z),solid))state.velocity.y=.3;
+    state.velocity*=20.;state.jump_cooldown=0;
+}
 void tick(State& state, const glm::dvec2& input, bool jump, bool sprint,
           bool sneak, const SolidQuery& solid, double slipperiness) {
     glm::dvec3 motion=state.velocity*.05;

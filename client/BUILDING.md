@@ -25,8 +25,19 @@ Escape pauses/resumes (or closes inventory). Losing window focus also pauses.
 F5 cycles first person, third person behind, and third person front; F7 wireframe.
 The title menu uses the six panorama faces supplied in Original-Panorama-old.zip;
 see ORIGIN-PANORAMA.md. Select buttons with mouse or Up/Down and Enter.
-Back to Title discards this session; it does not save.
-Edits are not persisted: this imported client has no world-save implementation.
+Singleplayer opens saved worlds. Select a world and Play, or Create New World:
+enter a name/optional seed and choose Survival or Creative before creating.
+Up/Down or wheel selects a saved world; Left/Right selects the action, Enter confirms.
+Creation fields use Up/Down/Tab; names use the bundled font's printable ASCII set.
+The Switch build opens the system keyboard when A confirms a name/seed field.
+World edits, water levels, player pose/velocity, flight, health/food/air, dropped items,
+hotbar and both inventories persist on chunk unload, every 30 active seconds,
+Back to Title and normal exit. Pausing also freezes water.
+
+Windows saves live in `%APPDATA%/C-mine/C-mine/saves/`; Switch uses
+`sdmc:/switch/C-mine/saves/`. Each world has versioned metadata and compressed
+chunk snapshots. Writes use temporary files and recoverable previous-file backups.
+This is this client's save format; Java Anvil worlds cannot be imported.
 
 ## Original 1.12.2 block textures
 
@@ -39,7 +50,7 @@ python tools/import_textures.py CLIENT.jar --output dist/MineCppClone/resource_p
 ```
 
 This imports the blocks supported by the client, with grass/foliage tint and
-separate grass/log faces, inventory/crafting GUI images, item icons and Steve.
+separate grass/log faces, all 32 frames of still/flowing water, inventory/crafting/creative GUI images and tabs, item icons and Steve.
 Imported files stay local and are ignored by Git.
 
 ## Nintendo Switch homebrew
@@ -55,7 +66,7 @@ to sprint; B sneaks in survival/descends in creative; X opens inventory; Y toggl
 ZR removes; ZL places; Plus pauses/resumes; right-stick click changes camera.
 Menus: D-pad Up/Down selects, A confirms. In inventories, D-pad moves the
 selection, A moves stacks, ZL splits/deposits one, L+A quick-moves; R switches
-creative catalog pages. L/R changes hotbar slot outside inventories.
+creative category tabs. In world selection, Up/Down changes world and Left/Right changes action. L/R changes hotbar slot outside inventories.
 
 ## Graphics smoke test
 
@@ -65,7 +76,10 @@ and removal, and return-to-title/restart. It checks GL errors and writes BMP fra
 The cave regression scene also checks the bedrock floor and torch geometry.
 `client_movement_tests` checks falls, jumps, walls, ceilings, high-speed collision,
 torch bounds, axis-aligned block selection and the 4.5-block reach limit.
-It exits after 340 frames and requires a real OpenGL context.
+It exits after 415 frames and requires a real OpenGL context. It also exercises
+world creation/name/seed/mode, falling/spreading water, buckets, drowning,
+hurt-camera roll, creative search/categories, chunk eviction/reload and a saved-world
+reopen. Smoke saves/options are isolated from normal player data.
 
 ## PrismLauncher resource source
 
@@ -101,7 +115,7 @@ fullscreen and mouse Y inversion apply immediately and persist. Windows stores
 preferences in SDL's C-mine application-data folder; Switch uses
 `sdmc:/switch/C-mine/options.txt`. F11 and F6 update the same preferences.
 
-E or I opens inventory; Escape/E/I closes it. Survival starts empty, with
+E or I opens inventory; Escape/E/I closes it. In creative Search, letters type a query and Escape closes. Survival starts empty, with
 36 main slots (nine in the hotbar), offhand storage, and 2x2 personal crafting.
 Left click picks up, merges or swaps a stack. Right click takes the larger half
 or deposits one. Shift-click transfers between the main inventory and hotbar.
@@ -113,7 +127,7 @@ above two sticks make a wooden pickaxe. Cobblestone, iron and diamond pickaxes,
 torches, bread, sandstone and selected block compression recipes are supported.
 Shift-click the output to craft as much as inventory capacity allows.
 
-Select Survival or Creative at the title screen. Tab/Y or the pause menu changes
+Choose Survival or Creative when creating a world in Singleplayer. Tab/Y or the pause menu changes
 mode in the current world, preserving separate survival and creative inventories.
 Survival spends blocks only after successful placement. Hold LMB/ZR to mine;
 hardness, harvest tier, tool speed and durability affect mining and loot. Ground
@@ -125,17 +139,35 @@ Respawn restores health/food at the surface without replacing the current world.
 Creative has free items, instant breaking, no item consumption/damage/hunger,
 and collision-aware flight (double Space/A; Space/A up, Shift/B down).
 
-Creative has 47 building blocks (including bedrock and the crafting table) and
-19 resource/tool/food items. P/R changes the catalog page; Shift-click gives a
-full stack to the selected hotbar slot. Normal catalog clicks take a cursor item;
-click again for a full stack, or press 1-9 over a catalog item to fill that slot.
-Original inventory/crafting backgrounds, icons and item textures are imported
-from the local 1.12.2 JAR. The creative background is extended to six catalog rows.
+Creative has 47 blocks plus 21 items, including empty/water buckets. The original
+five-by-nine catalog has 12 tabs: Building, Decoration, Redstone, Transportation,
+Miscellaneous, Search, Food, Tools, Combat, Brewing, Materials and Player Inventory.
+Tabs with no implemented items are empty. Click a tab, press P or [ / ], or use
+Switch R to cycle; the wheel/scrollbar scrolls long lists. Search filters names as
+you type (Backspace erases; Escape closes). P is text inside Search; ] still changes
+the tab. Shift-click gives a full stack to the selected hotbar slot; normal catalog
+click takes an item, clicking again fills the cursor stack. The Player Inventory
+tab exposes the current creative bag. As before, survival and creative bags are
+separate, unlike Java's shared bag.
 
-Current limits: no world/inventory save files, mobs/combat, armor equipment,
-furnace/smelting, full recipe registry, farming, fluids or multiplayer. The armor
-slots are part of the original background; offhand is storage only. Sand/gravel
-are static and soul sand has no slowdown. This is a C++ subset of 1.12.2 behavior.
+Water sources appear below the terrain's sea level and can be placed with a
+water bucket from Miscellaneous/Search. In survival craft a bucket from three iron
+ingots in a V in the 3x3 table; right-click a source to fill, or a surface to pour.
+Flowing water cannot be collected. Water updates every five game ticks, falls
+before spreading, travels up to seven horizontal cells, seeks downhill routes
+within four cells, regenerates sources between two sources with support and drains
+when its supply disappears. Loaded chunk seams resume flow when neighbors arrive.
+Space/A swims upward; currents push the player, water resets fall distance, and
+submerged eyes consume 300 air ticks before two drowning damage every 20 ticks.
+The view uses blue underwater fog, narrower underwater FOV, animated translucent
+water and the original 1.12.2 hurt-time camera tilt.
+
+Current limits: no mobs/combat, armor equipment, furnace/smelting, full recipe
+registry, farming, lava or multiplayer. The armor slots are part of the original
+background; offhand is storage only. Sand/gravel are static and soul sand has no
+slowdown. Liquid collision uses voxel terrain; no depth-strider, boats, lava/water
+reactions or special redstone/door fluid interactions. Terrain/biomes and save
+files are this client's own implementation, not vanilla Java worlds.
 
 `include/extra_blocks.def` is shared by the block registry and the texture importer.
 Local packages import each face from the user's 1.12.2 JAR; the repository contains
@@ -147,3 +179,8 @@ glowstone light and keyboard/controller-style inventory selection.
 recipes, tool tiers, food and fall damage. The GL smoke additionally checks
 separate inventories, actual block spending, held-button mining, item drops/pickup,
 crafting screens, death/respawn, creative flight and timed food consumption.
+
+`client_water_tests` covers update delay, spread/range, waterfalls, drainage, source
+regeneration, downhill routing and unloaded frontiers. `client_saves_tests` covers
+player/chunk roundtrips, isolated worlds, negative coordinates, truncated files,
+backup recovery, Java seed hashing and creative category/search coverage.

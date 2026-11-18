@@ -1,6 +1,6 @@
 #include <raycast.h>
 #include <voxel_trace.h>
-HitInfo raycast(const vec3& origin,const vec3& dir,float max_distance,Chunk* chunk) {
+HitInfo raycast(const vec3& origin,const vec3& dir,float max_distance,Chunk* chunk,bool sources) {
     HitInfo result{};
     if(!chunk) return result;
     Chunk* current=chunk;
@@ -12,7 +12,7 @@ HitInfo raycast(const vec3& origin,const vec3& dir,float max_distance,Chunk* chu
         Chunk* next=get_neighbor_chunk(current,local);
         if(!next) { unloaded=true;return true; }
         current=next;
-        return current->get(local)->id!=BlockID::AIR;
+        auto b=*current->get(local);return b.id!=AIR && (b.id!=WATER || (sources && (b.data1&15)==0));
     });
     if(hit.hit && !unloaded) {
         result.hit=true;result.chunk=current;result.block_pos=local;

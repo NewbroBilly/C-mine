@@ -9,4 +9,5 @@ void text(const std::string& key,const std::string& value,int x,int y,int size=2
 void item(const Items::Stack& stack,float x,float y,float size=48,bool count=true,const std::string& key="");
 Texture& inventory_texture(bool creative,bool table=false);
 Texture& icons_texture();
+Texture& tabs_texture();
 }

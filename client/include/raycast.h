@@ -14,4 +14,4 @@ struct HitInfo
     vec3 hit_point;
 };
 
-HitInfo raycast(const vec3& origin, const vec3& dir, float max_distance, Chunk* chunk);
+HitInfo raycast(const vec3& origin, const vec3& dir, float max_distance, Chunk* chunk,bool sources=false);

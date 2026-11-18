@@ -1,5 +1,6 @@
 #include <blocks.h>
 #include <block_geometry.h>
+#include <water.h>
 
 #define RIGHT_FACE  0
 #define LEFT_FACE   1
@@ -580,6 +581,28 @@ struct Bedrock : public Stone {
     vec2 get_texture(Chunk*,const ivec3&,int) override { return vec2(4,1); }
 };
 
+struct WaterBlock : public Block {
+    WaterBlock(){opacity=0;light=0;icon=Sprite(vec2(0),vec2(16),vec2(0,96),&texture_atlas);}
+    vec2 get_texture(Chunk*,const ivec3&,int)override{return vec2(0,5);}
+    void build(Chunk* chunk,const ivec3& p,std::vector<Vertex>& vertices,std::vector<int>& indices,int& index)override{
+        auto at=[&](ivec3 q)->int{auto* c=get_neighbor_chunk(chunk,q);if(!c)return Water::Unloaded;auto b=*c->get(q);return b.id==WATER?(b.data1&15):(get_block_by_id(b.id)->opacity>0?Water::Solid:Water::Air);};
+        auto corner=[&](int cx,int cz){double sum=0,weight=0;
+            for(int dx=-1;dx<=0;++dx)for(int dz=-1;dz<=0;++dz){ivec3 q=p+ivec3(cx+dx,0,cz+dz);if(Water::liquid(at(q+ivec3(0,1,0))))return 1.;int l=at(q);
+                if(Water::liquid(l)){double w=(l==0 || l>=8)?11:1;sum+=Water::height(l)*w;weight+=w;}
+                else if(l!=Water::Solid){++weight;}}
+            return weight?sum/weight:Water::height(chunk->get(p)->data1&15);
+        };
+        int raw=chunk->get(p)->data1&15;bool flowing=raw!=0;
+        double heights[2][2]={{corner(0,0),corner(0,1)},{corner(1,0),corner(1,1)}};
+        for(int f=0;f<6;++f){int neighbor=at(p+face_normal[f]);if(Water::liquid(neighbor) || neighbor==Water::Solid)continue;
+            for(int v=0;v<4;++v){auto o=vertex_offset[f][v];vec3 offset(o);if(o.y)offset.y=float(heights[o.x][o.z]);
+                Vertex vert(vec3(p)+chunk_pos_to_world(chunk->pos)+offset,f,chunk->get_light(p),0,ivec2(0,(flowing || f!=2)?6:5),v);
+                vert.data|=1<<25;vertices.push_back(vert);}
+            for(int v:{0,1,2,0,2,3})indices.push_back(index+v);index+=4;
+        }
+    }
+};
+
 struct CatalogBlock : public Block {
     ivec2 side,top,bottom;
     CatalogBlock(ivec2 s,ivec2 t,ivec2 b,int emission):side(s),top(t),bottom(b){
@@ -592,6 +615,7 @@ struct CatalogBlock : public Block {
 void blocks_init()
 {
     blocks[AIR] = new Air();
+    blocks[WATER] = new WaterBlock();
     blocks[STONE] = new Stone();
     blocks[DIRT] = new Dirt();
     blocks[GRASS_BLOCK] = new Grass_Block();

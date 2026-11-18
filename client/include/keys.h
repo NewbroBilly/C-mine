@@ -31,23 +31,23 @@ void handle_misc_keys()
     if (is_key_down(SDLK_F6))
         {show_ao = !show_ao;Settings::options.ao=show_ao;Game::save_options();}
 
-    if (is_key_down(SDLK_RIGHTBRACKET))
+    if (!show_inventory && is_key_down(SDLK_RIGHTBRACKET))
     {
         if (global_light < 15)
             global_light++;
     }
 
-    if (is_key_down(SDLK_LEFTBRACKET))
+    if (!show_inventory && is_key_down(SDLK_LEFTBRACKET))
     {
         if (global_light > 0)
             global_light--;
     }
 
-    if (is_key_down(SDLK_i) || is_key_down(SDLK_e))
+    if (!(show_inventory && !survival_mode && player->inventory.catalog_page==5) && (is_key_down(SDLK_i) || is_key_down(SDLK_e)))
     {
         Game::inventory(!show_inventory);
     }
 
-    if (is_key_down(SDLK_TAB))
+    if (!(show_inventory && !survival_mode && player->inventory.catalog_page==5) && is_key_down(SDLK_TAB))
         Game::set_mode(!survival_mode);
 }

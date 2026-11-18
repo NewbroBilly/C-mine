@@ -8,9 +8,11 @@ out float diffuse;
 out vec4 light;
 out float ao;
 out vec2 uv;
+flat out int water;
 
 uniform mat4 cam_mat;
 uniform int global_light;
+uniform float water_time;
 
 uniform sampler2D tex1;
 uniform sampler2D tex2;
@@ -63,6 +65,8 @@ void main()
     int vi = (data >> 13) & 3;
     int u = (data >> 15) & 0x1f;
     int v = (data >> 20) & 0x1f;
+    water=(data>>25)&1;
+    if(water==1)u=int(water_time*8.0) % 32;
 
     uv = (vec2(u, v) + uv_offsets[vi]) / 32.0f;
 }

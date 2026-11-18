@@ -26,7 +26,7 @@ $(SWITCH_BUILD)/MineCppClone.elf: $(SWITCH_OBJECTS)
 $(SWITCH_BUILD)/MineCppClone.nro: $(SWITCH_BUILD)/MineCppClone.elf $(wildcard client/shaders/* client/textures/* client/textures/panorama/*)
 	mkdir -p $(SWITCH_BUILD)/romfs
 	cp -r client/shaders client/textures $(SWITCH_BUILD)/romfs/
-	nacptool --create "C-mine" "C-mine contributors" "0.3.0" $(SWITCH_BUILD)/MineCppClone.nacp
+	nacptool --create "C-mine" "C-mine contributors" "0.4.0" $(SWITCH_BUILD)/MineCppClone.nacp
 	elf2nro $< $@ --nacp=$(SWITCH_BUILD)/MineCppClone.nacp --romfsdir=$(SWITCH_BUILD)/romfs
 
 -include $(SWITCH_OBJECTS:.o=.d)

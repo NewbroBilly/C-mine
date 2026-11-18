@@ -1,6 +1,7 @@
 #include <global.h>
 #include <game.h>
 #include <settings.h>
+#include <menu.h>
 #ifdef __SWITCH__
 #include <switch.h>
 #include <unistd.h>
@@ -26,6 +27,7 @@ void handle_events()
             if (index >= 0 && index < KEY_MAX && keys[index] == Input::NONE)
                 keys[index] = Input::DOWN;
         }
+        else if(event.type==SDL_TEXTINPUT){if(Game::screen==Game::Screen::Playing && player && show_inventory)player->inventory.text_input(event.text.text);else Menu::text_input(event.text.text);}
         else if (event.type == SDL_KEYUP)
         {
             int index = event.key.keysym.sym & (~0x40000000);
@@ -33,9 +35,12 @@ void handle_events()
             if (index >= 0 && index < KEY_MAX)
                 keys[index] = Input::UP;
         }
-        else if(event.type==SDL_MOUSEWHEEL && Game::screen==Game::Screen::Playing && player && !show_inventory) {
+        else if(event.type==SDL_MOUSEWHEEL){
             int wheel=event.wheel.direction==SDL_MOUSEWHEEL_FLIPPED?-event.wheel.y:event.wheel.y;
-            if(wheel) player->hotbar.set_index(player->hotbar.get_index()-(wheel>0?1:-1));
+            if(Game::screen==Game::Screen::Playing && player){
+                if(show_inventory)player->inventory.scroll(-wheel);
+                else if(wheel)player->hotbar.set_index(player->hotbar.get_index()-(wheel>0?1:-1));
+            }else Menu::wheel(wheel);
         }
         else if (event.type == SDL_MOUSEBUTTONDOWN)
         {
@@ -107,6 +112,7 @@ int main(int argc, char** argv)
     bool edit_placed = false;
     dvec3 paused_position(0);
     size_t paused_chunks=0;
+    ivec2 water_chunk(0);dvec3 saved_position(0);std::filesystem::path smoke_world;
     auto save_frame = [](const char* path) {
         SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, win_size.x, win_size.y, 32, SDL_PIXELFORMAT_RGBA32);
         glReadPixels(0, 0, win_size.x, win_size.y, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
@@ -305,6 +311,81 @@ int main(int argc, char** argv)
                 buttons[2]=Input::NONE;
                 if(player->vitals.food!=14 || player->hotbar.slots[0].value().count!=1)return 40;
                 SDL_Log("Timed food consumption passed: no early consumption, one apple after 32 ticks");
+                Game::title();
+                Saves::root_override=Saves::unique_path(std::filesystem::current_path()/"smoke-saves").string();
+                Game::select_worlds();Game::draw();save_frame("smoke-worlds-empty.bmp");
+                keys[SDLK_RETURN]=Input::DOWN;Game::update();
+                if(Game::screen!=Game::Screen::CreateWorld)return 41;
+            }
+            if(frame==341){
+                Game::world_name.clear();Menu::text_input("Water Test");
+                keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();
+                Menu::text_input("12345");keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();
+                keys[SDLK_DOWN&~0x40000000]=Input::NONE;keys[SDLK_RETURN]=Input::DOWN;Game::update();
+                if(Game::new_survival || Game::world_name!="Water Test" || Game::world_seed!="12345")return 42;
+                Game::draw();save_frame("smoke-create-world.bmp");
+                keys[SDLK_RETURN]=Input::NONE;keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();
+                keys[SDLK_DOWN&~0x40000000]=Input::NONE;keys[SDLK_RETURN]=Input::DOWN;Game::update();
+                if(!world || world->seed!=12345 || survival_mode)return 43;
+                smoke_world=world->save_path;
+            }
+            if(frame==355){
+                if(!world->spawned)return 44;
+                auto* c=world->get_chunk_from_pos(player->pos);water_chunk=c->pos;
+                for(int x=2;x<=14;++x)for(int z=2;z<=14;++z){BlockState b{STONE,0,0};c->set(ivec3(x,229,z),&b);
+                    for(int y=230;y<=236;++y){BlockState a{AIR,0,0};c->set(ivec3(x,y,z),&a);}}
+                BlockState water{WATER,0,0};world->place_block(c,ivec3(8,232,8),&water);
+                player->flying=true;player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,233,3.5);
+                player->cam.forward=normalize(vec3(0,-.5,1));player->inventory.creative.main[0]={Items::WATER_BUCKET,1};player->hotbar.set_index(0);
+            }
+            if(frame==410){
+                auto* c=world->chunk_map.at(water_chunk);
+                if(c->get(ivec3(8,231,8))->id!=WATER || (c->get(ivec3(8,231,8))->data1&15)!=8 || c->get(ivec3(9,230,8))->id!=WATER)return 45;
+                Game::draw();save_frame("smoke-water.bmp");
+                Game::inventory(true);player->inventory.tab(4);Game::draw();save_frame("smoke-creative-water.bmp");
+                player->inventory.tab(5);player->inventory.text_input("water");
+                if(player->inventory.catalog[0].id!=Items::WATER_BUCKET || !player->inventory.catalog[1].empty())return 46;
+                keys[SDLK_e]=Input::DOWN;Game::update();keys[SDLK_e]=Input::NONE;
+                if(!show_inventory || player->inventory.catalog_page!=5)return 47;
+                Game::draw();save_frame("smoke-creative-search.bmp");Game::inventory(false);
+                player->inventory.survival.main[2]={Items::IRON_PICKAXE,1,17};player->vitals.health=13;player->vitals.food=10;
+                player->vitals.hurt_ticks=8;auto hurt=player->view_camera();if(abs(hurt.up.x)<.1)return 48;
+                Game::draw();save_frame("smoke-hurt.bmp");
+                player->vitals.hurt_ticks=0;
+                player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,230,8.5);player->vel=dvec3(0);player->flying=false;
+                if(!world->submerged(player->pos) || !world->underwater(player->pos+dvec3(0,1.62,0)))return 49;
+                Game::set_mode(true);player->air=0;player->vital_clock=0;
+            }
+            if(frame==415){
+                double original_dt=delta_time;delta_time=.05;
+                for(int i=0;i<20;++i)player->update();delta_time=original_dt;
+                if(player->vitals.health!=11)return 57;
+                Game::draw();save_frame("smoke-underwater.bmp");
+                // Exercise bucket pickup and replacement through normal click handling.
+                Game::set_mode(false);player->flying=true;auto* c=world->chunk_map.at(water_chunk);
+                player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,233,8.5);player->cam.forward=vec3(0,-.99,.01);player->cam.forward=normalize(player->cam.forward);
+                player->inventory.creative.main[0]={Items::BUCKET,1};player->action_delay=0;buttons[2]=Input::DOWN;player->handle_clicks();buttons[2]=Input::NONE;
+                if(c->get(ivec3(8,232,8))->id==WATER || player->hotbar.get_item()!=Items::WATER_BUCKET)return 50;
+                Game::set_mode(true);player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,232.5,8.5);
+                player->inventory.survival.main[0]={Items::WATER_BUCKET,1};player->action_delay=0;buttons[2]=Input::DOWN;player->handle_clicks();buttons[2]=Input::NONE;
+                if(player->hotbar.get_item()!=Items::BUCKET || c->get(ivec3(8,230,8))->data1!=0)return 58;
+                Game::set_mode(false);player->flying=true;player->vitals.health=13;player->vitals.hurt_ticks=0;
+                // Restore a known source and persist the edits, both bags and player pose.
+                BlockState water{WATER,0,0};world->place_block(c,ivec3(8,232,8),&water);
+                player->cam.forward=normalize(vec3(0,-.5,1));player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,234,4.5);
+                saved_position=player->pos;player->hotbar.set_index(2);
+                if(!Game::save_world())return 51;
+                player->pos+=dvec3(1000,0,1000);Game::update();
+                if(world->chunk_map.count(water_chunk))return 52;
+                player->pos=saved_position;Game::update();
+                c=world->get_chunk_from_pos(saved_position);
+                if(!c || c->get(ivec3(8,232,8))->id!=WATER || c->get(ivec3(3,229,3))->id!=STONE)return 53;
+                Game::title();Game::select_worlds();Game::draw();save_frame("smoke-worlds.bmp");
+                if(Game::saved_worlds.size()!=1)return 54;
+                Game::load_world(0);Game::update();
+                if(survival_mode || length(player->pos-saved_position)>.01 || player->inventory.survival.main[2].damage!=17 || player->hotbar.index!=2 || player->vitals.health!=13)return 55;
+                c=world->get_chunk_from_pos(player->pos);if(!c || c->get(ivec3(8,232,8))->id!=WATER)return 56;
+                SDL_Log("Water/menu/save smoke passed: create/name/seed/mode, flowing/falling water, creative categories/search, source bucket pickup, hurt roll, underwater, chunk unload/reload, world save/reopen and both inventories");
                 closed=true;
             }
         }
