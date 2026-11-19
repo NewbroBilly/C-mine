@@ -68,7 +68,7 @@ def build_atlas(archive):
             image = image.crop((7, 6, 9, 16)).resize((16, 16), Image.Resampling.NEAREST)
         atlas.paste(image, (x * 16, y * 16))
     # Keep all 32 vanilla water animation frames; the renderer selects at 8 fps.
-    for row, name in [(5, "water_still"), (6, "water_flow"), (7, "fire_layer_0")]:
+    for row, name in [(5, "water_still"), (6, "water_flow"), (7, "fire_layer_0"), (18, "lava_still")]:
         strip = Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/blocks/{name}.png"))).convert("RGBA")
         frames = strip.height // strip.width
         for frame in range(32):

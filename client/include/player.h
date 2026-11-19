@@ -51,7 +51,8 @@ struct Player
     int fire_resistance_effect=0, night_vision_effect=0;
     void update_fishing();
     void hurt(float damage,bool bypass=false);
-    double flight_tap=-1,vital_clock=0,break_progress=0,break_duration=0,action_delay=0,eat_progress=0;
+    double flight_tap=-1,w_tap=-1,vital_clock=0,break_progress=0,break_duration=0,action_delay=0,eat_progress=0;
+    bool sprinting=false;
     int eating_item=-1;
     double bow_time=0;
     bool blocking=false;

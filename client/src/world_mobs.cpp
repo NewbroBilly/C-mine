@@ -9,7 +9,7 @@ int World::mob_cell(int x,int y,int z) const{
     if(y<0)return 1;if(y>=256)return 0;
     ivec2 cp(int(floor(x/16.)),int(floor(z/16.)));auto it=chunk_map.find(cp);if(it==chunk_map.end() || !it->second->can_draw)return 3;
     int id=it->second->get(ivec3(x-cp.x*16,y,z-cp.y*16))->id;
-    if(id==WATER)return 2;if(id==AIR || id==GRASS || id==TORCH || id==FIRE)return 0;return 1;
+    if(id==WATER || id==LAVA_BLOCK)return 2;if(id==AIR || id==GRASS || id==TORCH || id==FIRE)return 0;return 1;
 }
 int World::target_mob(dvec3 origin,dvec3 direction,double reach){
     int found=-1;for(int i=0;i<int(mobs.size());++i){double t=Mobs::ray_distance(mobs[i],{origin.x,origin.y,origin.z},{direction.x,direction.y,direction.z},reach);if(t>=0 && t<reach){found=i;reach=t;}}return found;

@@ -228,3 +228,4 @@ EXTRA_BLOCK(BROWN_GLAZED_TERRACOTTA,"Brown Glazed Terracotta",12,17,"glazed_terr
 EXTRA_BLOCK(GREEN_GLAZED_TERRACOTTA,"Green Glazed Terracotta",13,17,"glazed_terracotta_green",13,17,"glazed_terracotta_green",13,17,"glazed_terracotta_green",0)
 EXTRA_BLOCK(RED_GLAZED_TERRACOTTA,"Red Glazed Terracotta",14,17,"glazed_terracotta_red",14,17,"glazed_terracotta_red",14,17,"glazed_terracotta_red",0)
 EXTRA_BLOCK(BLACK_GLAZED_TERRACOTTA,"Black Glazed Terracotta",15,17,"glazed_terracotta_black",15,17,"glazed_terracotta_black",15,17,"glazed_terracotta_black",0)
+EXTRA_BLOCK(LAVA_BLOCK,"Lava",0,18,"lava_still",0,18,"lava_still",0,18,"lava_still",15)

@@ -676,7 +676,7 @@ struct CatalogBlock : public Block {
     int id;
     ivec2 side,top,bottom;
     CatalogBlock(int block_id,ivec2 s,ivec2 t,ivec2 b,int emission):id(block_id),side(s),top(t),bottom(b){
-        opacity=block_id==BANNER_BLOCK?0:15;light=char(emission);icon=Sprite(vec2(0),vec2(16),vec2(s.x*16,(s.y+1)*16),&texture_atlas);
+        opacity=(block_id==BANNER_BLOCK || block_id==LAVA_BLOCK)?0:15;light=char(emission);icon=Sprite(vec2(0),vec2(16),vec2(s.x*16,(s.y+1)*16),&texture_atlas);
     }
     vec2 get_texture(Chunk*,const ivec3&,int face) override {return face==TOP_FACE?top:(face==BOTTOM_FACE?bottom:side);}
     void build(Chunk* c,const ivec3& p,std::vector<Vertex>& v,std::vector<int>& i,int& n) override {

@@ -47,6 +47,12 @@ void Player::handle_keys()
         auto& s=hotbar.slots[hotbar.index].value();
         if(!s.empty()){auto one=s;one.count=is_key_pressed(SDLK_LCTRL)?s.count:1;drop_item(one);s.count-=one.count;Items::normalize(s);}
     }
+    if(is_key_down(SDLK_w)){
+        double now=SDL_GetTicks()/1000.;
+        if(w_tap>=0 && now-w_tap<.35)sprinting=true;
+        w_tap=now;
+    }
+    if(!is_key_pressed(SDLK_w))sprinting=false;
     if(!survival_mode && is_key_down(SDLK_SPACE)){
         double now=SDL_GetTicks()/1000.;
         if(flight_tap>=0 && now-flight_tap<.35){
@@ -107,7 +113,7 @@ bool Player::use_item_action(int id,Chunk* c,ivec3 local,ivec3 normal){
         auto target=local+normal;auto* n=get_neighbor_chunk(c,target);
         // Lava simulation is intentionally represented by a lit source block
         // until the world fluid format gains a second fluid type.
-        if(n && n->get(target)->id==AIR){BlockState fire{FIRE,0,0};if(world->place_block(c,target,&fire)){if(survival_mode){auto& s=hotbar.slots[hotbar.index].value();--s.count;Items::normalize(s);Items::Stack empty{Items::BUCKET,1};if(s.empty())s=empty;else if(inventory.data().add(empty))drop_item(empty);}message("Лава размещена","Lava placed");action_delay=.25;return true;}}
+        if(n && n->get(target)->id==AIR){BlockState lava{LAVA_BLOCK,0,0};if(world->place_block(c,target,&lava)){if(survival_mode){auto& s=hotbar.slots[hotbar.index].value();--s.count;Items::normalize(s);Items::Stack empty{Items::BUCKET,1};if(s.empty())s=empty;else if(inventory.data().add(empty))drop_item(empty);}message("Лава размещена","Lava placed");action_delay=.25;return true;}}
     }
     if(id==Items::BED && hit_info.hit && normal.y==1){
         const int orientation=normal.x? (normal.x>0?1:3) : (normal.z>0?2:0);
@@ -301,11 +307,13 @@ void Player::handle_clicks(){
         auto hit=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin),true);
         if(hit.hit && hit.chunk->get(hit.block_pos)->id==WATER){consume_held(Items::POTION);swing();action_delay=.25;}return;
     }
-    if(use && action_delay<=0 && (held==Items::BUCKET || held==Items::WATER_BUCKET)){
+    if(use && action_delay<=0 && (held==Items::BUCKET || held==Items::WATER_BUCKET || held==Items::LAVA_BUCKET)){
         auto hit=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin),held==Items::BUCKET);
         if(hit.hit){auto& stack=hotbar.slots[hotbar.index].value();bool done=false;int result=Items::BUCKET;
             if(held==Items::BUCKET && hit.chunk->get(hit.block_pos)->id==WATER && (hit.chunk->get(hit.block_pos)->data1&15)==0){world->remove_block(hit.chunk,hit.block_pos,true);done=true;result=Items::WATER_BUCKET;}
+            if(held==Items::BUCKET && hit.chunk->get(hit.block_pos)->id==LAVA_BLOCK){world->remove_block(hit.chunk,hit.block_pos,true);done=true;result=Items::LAVA_BUCKET;}
             if(held==Items::WATER_BUCKET){BlockState b{WATER,0,0};done=world->place_block(hit.chunk,hit.block_pos+hit.face_normal,&b);}
+            if(held==Items::LAVA_BUCKET){BlockState b{LAVA_BLOCK,0,0};done=world->place_block(hit.chunk,hit.block_pos+hit.face_normal,&b);}
             if(done){if(survival_mode){--stack.count;Items::normalize(stack);Items::Stack out{result,1};if(stack.empty())stack=out;else if(inventory.data().add(out))drop_item(out);}else if(held==Items::BUCKET)stack={Items::WATER_BUCKET,1};action_delay=.25;}
         }return;
     }
@@ -349,7 +357,7 @@ void Player::update_drops(){
         if(c && next.y>=0 && next.y<CHUNK_HEIGHT){
             ivec3 local=ivec3(floor(next))-ivec3(chunk_pos_to_world_hp(c->pos));int id=c->get(local)->id;
             if(id==WATER){auto flow=Water::flow({int(floor(next.x)),int(floor(next.y)),int(floor(next.z))},[&](Water::Pos p){return world->fluid(p);});it->velocity*=pow(.8,delta_time*20);it->velocity+=dvec3(flow[0],flow[1],flow[2])*delta_time*5.;}
-            else if(id!=AIR && id!=GRASS && id!=TORCH && id!=FIRE){if(it->velocity.y<0){next.y=floor(next.y)+1.15;it->velocity=dvec3(0);}}
+            else if(id!=AIR && id!=GRASS && id!=TORCH && id!=LAVA_BLOCK && id!=FIRE){if(it->velocity.y<0){next.y=floor(next.y)+1.15;it->velocity=dvec3(0);}}
             it->position=next;
         }
         if(it->age>.4 && length(it->position-(pos+dvec3(0,.8,0)))<1.6){it->stack.count=inventory.data().add(it->stack);if(it->stack.count==0){it=drops.erase(it);continue;}}
@@ -378,10 +386,10 @@ void Player::move()
         if (!c) return true;
         ivec3 local = dvec3(x,y,z)-chunk_pos_to_world_hp(c->pos);
         int id = c->get(local)->id;
-        return id != AIR && id != GRASS && id != TORCH && id!=WATER && id!=FIRE;
+        return id != AIR && id != GRASS && id != TORCH && id!=WATER && id!=LAVA_BLOCK && id!=FIRE;
     };
     const bool sneak=!show_inventory && is_key_pressed(SDLK_LSHIFT);
-    const bool sprint=!show_inventory && (is_key_pressed(SDLK_LCTRL) || speed_effect>0) && input.z>0 && !sneak && (!survival_mode || vitals.food>6);
+    const bool sprint=!show_inventory && (is_key_pressed(SDLK_LCTRL) || sprinting || speed_effect>0) && input.z>0 && !sneak && (!survival_mode || vitals.food>6);
     const bool jump=!show_inventory && is_key_pressed(SDLK_SPACE);
     accumulator += dt;
     Movement::State state{pos,vel,grounded,jump_cooldown};
@@ -433,7 +441,7 @@ Camera Player::view_camera() {
         if (!c || p.y<0 || p.y>=CHUNK_HEIGHT) break;
         ivec3 local = floor(p)-chunk_pos_to_world_hp(c->pos);
         int id=c->get(local)->id;
-        if (id!=AIR && id!=GRASS && id!=TORCH && id!=WATER && id!=FIRE) break;
+        if (id!=AIR && id!=GRASS && id!=TORCH && id!=WATER && id!=LAVA_BLOCK && id!=FIRE) break;
         fraction=t;
     }
     view.pos += offset*fraction;
