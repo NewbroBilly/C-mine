@@ -21,7 +21,11 @@ def build_atlas(archive):
         # Keep them in the block atlas so the catalog can use the same
         # three-face texture path as ordinary cubes.
         entity_tiles = {
-            "bed_red": ("assets/minecraft/textures/entity/bed/red.png", (0, 0, 16, 16)),
+            # The entity bed atlas contains separate pillow, side and base
+            # regions. Keep those regions distinct for the world block model.
+            "bed_red_top": ("assets/minecraft/textures/entity/bed/red.png", (0, 0, 16, 16)),
+            "bed_red_side": ("assets/minecraft/textures/entity/bed/red.png", (0, 16, 16, 32)),
+            "bed_red_bottom": ("assets/minecraft/textures/entity/bed/red.png", (16, 16, 32, 32)),
             "banner": ("assets/minecraft/textures/entity/banner_base.png", (2, 0, 18, 16)),
         }
         if name in entity_tiles:

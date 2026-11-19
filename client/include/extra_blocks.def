@@ -129,7 +129,7 @@ EXTRA_BLOCK(NOTE_BLOCK,"Note Block",27,12,"noteblock",27,12,"noteblock",27,12,"n
 EXTRA_BLOCK(REDSTONE_LAMP,"Redstone Lamp",28,12,"redstone_lamp_off",28,12,"redstone_lamp_off",28,12,"redstone_lamp_off",0)
 EXTRA_BLOCK(REDSTONE_TORCH_BLOCK,"Redstone Torch",29,12,"redstone_torch_on",29,12,"redstone_torch_on",29,12,"redstone_torch_on",7)
 EXTRA_BLOCK(TNT_BLOCK,"TNT Block",30,12,"tnt_side",1,12,"tnt_top",2,12,"tnt_bottom",0)
-EXTRA_BLOCK(BED_BLOCK,"Bed",3,13,"bed_red",4,13,"bed_red",5,13,"bed_red",0)
+EXTRA_BLOCK(BED_BLOCK,"Bed",3,13,"bed_red_side",4,13,"bed_red_top",5,13,"bed_red_bottom",0)
 EXTRA_BLOCK(BANNER_BLOCK,"Banner",6,13,"banner",6,13,"banner",6,13,"banner",0)
 EXTRA_BLOCK(OAK_STAIRS,"Oak Stairs",7,13,"planks_oak",7,13,"planks_oak",7,13,"planks_oak",0)
 EXTRA_BLOCK(SPRUCE_STAIRS,"Spruce Stairs",8,13,"planks_spruce",8,13,"planks_spruce",8,13,"planks_spruce",0)

@@ -241,6 +241,23 @@ void build_box(Block* block, Chunk* chunk, const ivec3& pos,
     }
 }
 
+void build_banner(Block* block, Chunk* chunk, const ivec3& pos,
+                  std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    // A banner is a narrow hanging cloth with a slim central pole. The
+    // orientation is stored by placement so side-mounted banners face away
+    // from the supporting block instead of becoming a full voxel cross.
+    const int orientation=chunk->get(pos)->data1&7;
+    const bool along_x=orientation==0 || orientation==2 || orientation==4;
+    if (along_x) {
+        build_box(block,chunk,pos,vec3(.46f,0,.47f),vec3(.54f,1,.53f),vertices,indices,index);
+        build_box(block,chunk,pos,vec3(.10f,.25f,.47f),vec3(.90f,.86f,.53f),vertices,indices,index);
+    } else {
+        build_box(block,chunk,pos,vec3(.47f,0,.46f),vec3(.53f,1,.54f),vertices,indices,index);
+        build_box(block,chunk,pos,vec3(.47f,.25f,.10f),vec3(.53f,.86f,.90f),vertices,indices,index);
+    }
+}
+
 void build_oriented_cube(Block* block, Chunk* chunk, const ivec3& pos, std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
 {
     int orientation = chunk->get(pos)->data1 & 3;
@@ -634,7 +651,7 @@ struct CatalogBlock : public Block {
     void build(Chunk* c,const ivec3& p,std::vector<Vertex>& v,std::vector<int>& i,int& n) override {
         if(c->get(p)->id==FIRE){auto start=v.size();build_cross(this,c,p,v,i,n);for(size_t a=start;a<v.size();++a)v[a].data|=1<<26;}
         else if(id==BED_BLOCK)build_box(this,c,p,vec3(0,0,0),vec3(1,.5625f,1),v,i,n);
-        else if(id==BANNER_BLOCK)build_cross(this,c,p,v,i,n);
+        else if(id==BANNER_BLOCK)build_banner(this,c,p,v,i,n);
         else build_cube(this,c,p,v,i,n);
     }
 };
