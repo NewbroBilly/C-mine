@@ -20,6 +20,17 @@ target_include_directories(MineCppClone PRIVATE include "${glm_SOURCE_DIR}/glm")
 target_link_libraries(MineCppClone PRIVATE SDL2::SDL2main SDL2::SDL2-static glad glm)
 if(MINGW)
     target_link_options(MineCppClone PRIVATE -static-libgcc -static-libstdc++)
+    # SDL's static build still uses MinGW's pthread shim.  Keep the release
+    # self-contained so a clean Windows machine does not need MSYS2 installed.
+    get_filename_component(MINGW_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    foreach(MINGW_RUNTIME_DLL libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll)
+        set(MINGW_RUNTIME_PATH "${MINGW_BIN_DIR}/${MINGW_RUNTIME_DLL}")
+        if(EXISTS "${MINGW_RUNTIME_PATH}")
+            add_custom_command(TARGET MineCppClone POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MINGW_RUNTIME_PATH}" "$<TARGET_FILE_DIR:MineCppClone>/${MINGW_RUNTIME_DLL}")
+            install(FILES "${MINGW_RUNTIME_PATH}" DESTINATION .)
+        endif()
+    endforeach()
 endif()
 add_custom_command(TARGET MineCppClone POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/textures" "$<TARGET_FILE_DIR:MineCppClone>/textures"
