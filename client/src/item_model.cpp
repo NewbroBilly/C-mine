@@ -56,7 +56,8 @@ void ItemModel::draw(int id,Texture& items,int frame,const mat4& matrix){
 void ItemModel::gui(int id,float x,float y,float size){
     mat4 m=ortho(0.f,float(win_size.x),float(win_size.y),0.f,-1000.f,1000.f);
     m=translate(m,vec3(x+size/2,y+size/2,0));m=scale(m,vec3(size,-size,size));
-    m=rotate(m,radians(30.f),vec3(1,0,0));m=rotate(m,radians(225.f),vec3(0,1,0));m=scale(m,vec3(.625f));
+    if(cube(id)){m=rotate(m,radians(30.f),vec3(1,0,0));m=rotate(m,radians(225.f),vec3(0,1,0));m=scale(m,vec3(.625f));}
+    else {m=rotate(m,radians(0.f),vec3(0,1,0));m=scale(m,vec3(.82f));}
     draw(id,texture_atlas,0,m);
 }
 void ItemModel::destroy(){glDeleteBuffers(1,&vbo);glDeleteVertexArrays(1,&vao);shader.destroy();}
