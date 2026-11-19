@@ -115,7 +115,7 @@ void Chunk::load()
     }
     Ores::generate(pos.x,pos.y,seed,
         [&](int x,int y,int z){return int(blocks[x-pos.x*16][y][z-pos.y*16].id);},
-        [&](int x,int y,int z,int id){blocks[x-pos.x*16][y][z-pos.y*16]={char(id),0,0};});
+        [&](int x,int y,int z,int id){blocks[x-pos.x*16][y][z-pos.y*16]={static_cast<unsigned char>(id),0,0};});
     // Each nearby eight-block cell owns one candidate. Query base terrain in
     // world coordinates and clip writes, so crowns continue across chunk seams.
     for(int gx=pos.x*2-1;gx<=pos.x*2+2;++gx)for(int gz=pos.y*2-1;gz<=pos.y*2+2;++gz){
@@ -130,7 +130,7 @@ void Chunk::load()
             int lx=x-int(world_pos.x),lz=z-int(world_pos.z);
             if(!in_chunk(lx,y,lz))return;
             int id=cell==Trees::Log?LOG:(cell==Trees::Leaves?LEAVES:DIRT);
-            blocks[lx][y][lz]={(char)id,(char)(id==LOG?1:0),0};
+            blocks[lx][y][lz]={static_cast<unsigned char>(id),static_cast<char>(id==LOG?1:0),0};
         };
         Trees::oak(tx,height,tz,random,get,set);
     }

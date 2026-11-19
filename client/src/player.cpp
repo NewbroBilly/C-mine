@@ -63,7 +63,7 @@ void Player::handle_keys()
 bool Player::place_selected(Chunk* c,ivec3 local,ivec3 normal){
     auto& stack=hotbar.slots[hotbar.index].value();
     if(stack.empty() || !Items::block(stack.id))return false;
-    BlockState bs{char(stack.id),0,0};
+    BlockState bs{static_cast<unsigned char>(stack.id),0,0};
     if(bs.id==LOG)bs.data1=normal.x?0:(normal.y?1:2);
     if(bs.id==TORCH){if(normal.y<0)return false;bs.data1=normal.y?0:(normal.z==1?1:(normal.z==-1?2:(normal.x==1?3:4)));}
     Hitbox cube(dvec3(local)+chunk_pos_to_world_hp(c->pos)-pos,dvec3(1));
@@ -82,9 +82,9 @@ void Player::apply_item_effect(int id){
 bool Player::use_item_action(int id,Chunk* c,ivec3 local,ivec3 normal){
     auto message=[&](const char* ru,const char* en){item_message=Language::russian?ru:en;item_message_time=2.;};
     auto consume=[&](){if(survival_mode)consume_held();swing();action_delay=.25;};
-    auto place_simple=[&](int block_id,const char* ru,const char* en){
+    auto place_simple=[&](int block_id,const char* ru,const char* en,int data=0){
         if(!hit_info.hit)return false;
-        auto target=local+normal;BlockState b{char(block_id),0,0};
+        auto target=local+normal;BlockState b{static_cast<unsigned char>(block_id),static_cast<char>(data&7),0};
         if(!world->place_block(c,target,&b))return false;
         message(ru,en);consume();return true;
     };
@@ -104,11 +104,23 @@ bool Player::use_item_action(int id,Chunk* c,ivec3 local,ivec3 normal){
         // until the world fluid format gains a second fluid type.
         if(n && n->get(target)->id==AIR){BlockState fire{FIRE,0,0};if(world->place_block(c,target,&fire)){if(survival_mode){auto& s=hotbar.slots[hotbar.index].value();--s.count;Items::normalize(s);Items::Stack empty{Items::BUCKET,1};if(s.empty())s=empty;else if(inventory.data().add(empty))drop_item(empty);}message("Лава размещена","Lava placed");action_delay=.25;return true;}}
     }
-    if(id==Items::BED && hit_info.hit){if(place_simple(PLANKS,"Точка возрождения установлена","Respawn point set")){world->spawn_point=dvec3(chunk_pos_to_world_hp(c->pos))+dvec3(local)+dvec3(.5,1,.5);world->spawn_known=true;return true;}}
+    if(id==Items::BED && hit_info.hit && normal.y==1){
+        const int orientation=normal.x? (normal.x>0?1:3) : (normal.z>0?2:0);
+        if(place_simple(BED_BLOCK,"Точка возрождения установлена","Respawn point set",orientation)){
+            const ivec3 target=local+normal;
+            world->spawn_point=dvec3(chunk_pos_to_world_hp(c->pos))+dvec3(target)+dvec3(.5,0,.5);
+            world->spawn_known=true;return true;
+        }
+    }
     // Items with a physical placement action use a simple solid anchor in the
     // compact renderer; they still obey collision, stack and survival rules.
     if(id==Items::OAK_DOOR || (id>=Items::SPRUCE_DOOR && id<=Items::DARK_OAK_DOOR))return place_simple(PLANKS,"Дверь установлена","Door placed");
-    if(id==Items::FLOWER_POT || id==Items::PAINTING || id==Items::SIGN || id==Items::BANNER || id==Items::ITEM_FRAME || id==Items::ARMOR_STAND || id==Items::SKULL)return place_simple(id==Items::FLOWER_POT?GRASS:PLANKS,"Предмет установлен","Item placed");
+    if(id==Items::FLOWER_POT)return place_simple(FLOWER_POT_BLOCK,"Цветочный горшок установлен","Flower pot placed");
+    if(id==Items::BANNER){
+        const int orientation=normal.y?0:(normal.x? (normal.x>0?1:3) : (normal.z>0?2:4));
+        return place_simple(BANNER_BLOCK,"Баннер установлен","Banner placed",orientation);
+    }
+    if(id==Items::PAINTING || id==Items::SIGN || id==Items::ITEM_FRAME || id==Items::ARMOR_STAND || id==Items::SKULL)return place_simple(PLANKS,"Предмет установлен","Item placed");
     if(id==Items::OAK_BOAT || (id>=Items::SPRUCE_BOAT && id<=Items::DARK_OAK_BOAT) || id==Items::MINECART || id==Items::CHEST_MINECART || id==Items::FURNACE_MINECART || id==Items::TNT_MINECART || id==Items::HOPPER_MINECART || id==Items::COMMAND_BLOCK_MINECART)return place_simple(PLANKS,"Транспорт установлен","Vehicle placed");
     if(id==Items::EMPTY_MAP){if(survival_mode){auto& s=hotbar.slots[hotbar.index].value();s.id=Items::FILLED_MAP;s.damage=0;}message("Карта открыта","Map opened");action_delay=.25;return true;}
     if(id==Items::WRITABLE_BOOK || id==Items::WRITTEN_BOOK || id==Items::ENCHANTED_BOOK || id==Items::KNOWLEDGE_BOOK){message("Книга открыта","Book opened");action_delay=.25;return true;}
@@ -268,7 +280,7 @@ void Player::handle_clicks(){
         bool air=top && top->get(above)->id==AIR;
         int replacement=Items::use_on_block(c->get(p)->id,held,air,hit_info.face_normal.y<0);
         if(replacement!=-1){
-            BlockState b{char(replacement),0,0};c->set(p,&b);world->notify_water(c,p);world->rebuild_dirty();
+            BlockState b{static_cast<unsigned char>(replacement),0,0};c->set(p,&b);world->notify_water(c,p);world->rebuild_dirty();
             swing();if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;return;
         }
         if(held==Items::FLINT_AND_STEEL || held==Items::FIRE_CHARGE){

@@ -33,7 +33,7 @@ struct ChunkMesh
 
 struct BlockState
 {
-    char id;
+    unsigned char id;
     char data1;
     char data2;
 };

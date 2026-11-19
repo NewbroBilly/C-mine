@@ -9,7 +9,9 @@ enum BlockID {
 #undef EXTRA_BLOCK
     BLOCK_COUNT
 };
-static_assert(BLOCK_COUNT<=128,"BlockState's signed byte cannot store more block IDs");
+// BlockState keeps a one-byte id, but it is unsigned.  This leaves room for
+// the rest of the 1.12.2 catalog while preserving the three-byte save format.
+static_assert(BLOCK_COUNT<=256,"BlockState's byte cannot store more block IDs");
 
 // Row 10, columns 0..9 are reserved by ItemModel::cracks and the importers.
 #define BASE_BLOCK(id,label,sx,sy,sname,tx,ty,tname,bx,by,bname,emission) \

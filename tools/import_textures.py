@@ -17,6 +17,18 @@ def build_atlas(archive):
     atlas = Image.new("RGBA", (512, 512))
 
     def tile(name):
+        # A few placeable blocks are entity textures in the vanilla pack.
+        # Keep them in the block atlas so the catalog can use the same
+        # three-face texture path as ordinary cubes.
+        entity_tiles = {
+            "bed_red": ("assets/minecraft/textures/entity/bed/red.png", (0, 0, 16, 16)),
+            "banner": ("assets/minecraft/textures/entity/banner_base.png", (2, 0, 18, 16)),
+        }
+        if name in entity_tiles:
+            path, crop = entity_tiles[name]
+            with archive.open(path) as source:
+                image = Image.open(io.BytesIO(source.read())).convert("RGBA")
+            return image.crop(crop).resize((16, 16), Image.Resampling.NEAREST)
         path = f"assets/minecraft/textures/blocks/{name}.png"
         with archive.open(path) as source:
             image = Image.open(io.BytesIO(source.read())).convert("RGBA")

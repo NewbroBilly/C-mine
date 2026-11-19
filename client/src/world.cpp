@@ -31,7 +31,7 @@ void World::set_fluid(Water::Pos p,int level){
     ivec3 local=ivec3(p[0],p[1],p[2])-ivec3(chunk_pos_to_world_hp(c->pos));auto old=*c->get(local);
     if(level!=Water::Air && old.id!=AIR && old.id!=WATER && old.id!=GRASS && old.id!=TORCH && old.id!=FIRE)return;
     if(old.id==TORCH || old.id==GRASS){auto loot=Items::drop(old.id,-1,0);if(!loot.empty())player->drops.push_back({loot,dvec3(p[0]+.5,p[1]+.5,p[2]+.5),dvec3(0),0});}
-    BlockState b{char(level==Water::Air?AIR:WATER),char(level&15),char(level==Water::Air?0:1)};c->set(local,&b);
+    BlockState b{static_cast<unsigned char>(level==Water::Air?AIR:WATER),static_cast<char>(level&15),static_cast<char>(level==Water::Air?0:1)};c->set(local,&b);
     if(old.id==TORCH || old.id==FIRE)update_lighting(c,local,false,&old);
 }
 bool World::underwater(dvec3 p)const{return Water::contains({p.x,p.y,p.z},[&](Water::Pos q){return fluid(q);});}

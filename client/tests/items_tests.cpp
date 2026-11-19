@@ -86,7 +86,7 @@ int main(){try{
     require(!harvestable(RED_CONCRETE,-1) && harvestable(RED_CONCRETE,WOOD_PICKAXE),"concrete requires a pickaxe");
     require(break_seconds(DARK_OAK_LOG,IRON_AXE,true)<break_seconds(DARK_OAK_LOG,IRON_PICKAXE,true),"extended wood uses axe speed");
     Vitals fed;fed.food=1;fed.saturation=0;require(fed.eat(STEAK) && fed.food==9 && fed.saturation==9,"steak uses vanilla food and saturation cap");
-    require(BLOCK_COUNT<128 && ITEM_END-ITEM_START-1<CLOCK_ICON,"catalog fits persistent IDs and static item atlas region");
+    require(BLOCK_COUNT<=256 && ITEM_END-ITEM_START-1<CLOCK_ICON,"catalog fits persistent IDs and static item atlas region");
     int registry_count=0;
 #define VANILLA_ITEM(key,id) require(from_vanilla_name(#key)==id && valid(id),"vanilla registry names resolve to valid saved IDs");++registry_count;
 #include <vanilla_items.def>

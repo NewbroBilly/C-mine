@@ -191,7 +191,7 @@ int main(int argc, char** argv)
                 Chunk* cave=world->get_chunk_from_pos(vec3(8,1,8));
                 for(int x=4;x<=12;++x) for(int z=4;z<=14;++z) {
                     if(cave->get(ivec3(x,0,z))->id!=BEDROCK) return 7;
-                    for(int y=1;y<=5;++y) { BlockState bs{(char)((z==14 || x==4 || x==12 || y==5)?STONE:AIR),0,0};cave->set(ivec3(x,y,z),&bs); }
+                    for(int y=1;y<=5;++y) { BlockState bs{static_cast<unsigned char>((z==14 || x==4 || x==12 || y==5)?STONE:AIR),0,0};cave->set(ivec3(x,y,z),&bs); }
                 }
                 BlockState torch{TORCH,0,0};
                 world->place_block(cave,ivec3(8,1,11),&torch);
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
                 for(int id=1;id<BLOCK_COUNT;++id){
                     if(id==WATER || id==BEDROCK)continue;
                     if(get_block_by_id(id)==get_block_by_id(AIR))return 16;
-                    BlockState block{char(id),0,0};ivec3 p(8,240,8);
+                    BlockState block{static_cast<unsigned char>(id),0,0};ivec3 p(8,240,8);
                     if(!world->place_block(c,p,&block))return 17;
                     if(id==GLOWSTONE && c->get_block_light(ivec3(9,240,8))<14)return 18;
                     world->remove_block(c,p);if(c->get(p)->id!=AIR)return 19;
