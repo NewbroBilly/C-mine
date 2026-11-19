@@ -71,6 +71,53 @@ bool Player::place_selected(Chunk* c,ivec3 local,ivec3 normal){
     if(!world->place_block(c,local,&bs))return false;
     swing();if(survival_mode){--stack.count;Items::normalize(stack);}return true;
 }
+void Player::apply_item_effect(int id){
+    // The clone has one deterministic effect profile for each bottle family;
+    // this keeps the action useful even though potion NBT is not serialized yet.
+    if(id==Items::POTION){speed_effect=240;regeneration_effect=100;}
+    else if(id==Items::GOLDEN_APPLE || id==Items::ENCHANTED_GOLDEN_APPLE)regeneration_effect=200;
+    else if(id==Items::ROTTEN_FLESH || id==Items::POISONOUS_POTATO || id==Items::SPIDER_EYE || id==Items::PUFFERFISH)poison_effect=100;
+    else if(id==Items::MILK_BUCKET){speed_effect=strength_effect=regeneration_effect=poison_effect=0;fire_resistance_effect=night_vision_effect=0;}
+}
+bool Player::use_item_action(int id,Chunk* c,ivec3 local,ivec3 normal){
+    auto message=[&](const char* ru,const char* en){item_message=Language::russian?ru:en;item_message_time=2.;};
+    auto consume=[&](){if(survival_mode)consume_held();swing();action_delay=.25;};
+    auto place_simple=[&](int block_id,const char* ru,const char* en){
+        if(!hit_info.hit)return false;
+        auto target=local+normal;BlockState b{char(block_id),0,0};
+        if(!world->place_block(c,target,&b))return false;
+        message(ru,en);consume();return true;
+    };
+    const bool seed=id==Items::WHEAT_SEEDS || id==Items::BEETROOT_SEEDS || id==Items::PUMPKIN_SEEDS || id==Items::MELON_SEEDS;
+    if(seed && hit_info.hit){
+        auto support=c->get(local)->id;auto target=local+normal;auto* n=get_neighbor_chunk(c,target);
+        bool supported=support==FARMLAND || ((id==Items::PUMPKIN_SEEDS || id==Items::MELON_SEEDS) && (support==DIRT || support==GRASS_BLOCK));
+        if(supported && n && n->get(target)->id==AIR){BlockState crop{GRASS,0,char(id&7)};n->set(target,&crop);world->notify_water(n,target);world->rebuild_dirty();message("Семена посажены","Seeds planted");consume();return true;}
+    }
+    if(id==Items::BONE_MEAL && hit_info.hit){
+        auto support=c->get(local)->id;auto target=local+normal;auto* n=get_neighbor_chunk(c,target);
+        if((support==FARMLAND || support==GRASS_BLOCK || support==DIRT) && n && n->get(target)->id==AIR){BlockState crop{GRASS,0,7};n->set(target,&crop);world->notify_water(n,target);world->rebuild_dirty();message("Растение выросло","Plant grew");consume();return true;}
+    }
+    if(id==Items::LAVA_BUCKET && hit_info.hit){
+        auto target=local+normal;auto* n=get_neighbor_chunk(c,target);
+        // Lava simulation is intentionally represented by a lit source block
+        // until the world fluid format gains a second fluid type.
+        if(n && n->get(target)->id==AIR){BlockState fire{FIRE,0,0};if(world->place_block(c,target,&fire)){if(survival_mode){auto& s=hotbar.slots[hotbar.index].value();--s.count;Items::normalize(s);Items::Stack empty{Items::BUCKET,1};if(s.empty())s=empty;else if(inventory.data().add(empty))drop_item(empty);}message("Лава размещена","Lava placed");action_delay=.25;return true;}}
+    }
+    if(id==Items::BED && hit_info.hit){if(place_simple(PLANKS,"Точка возрождения установлена","Respawn point set")){world->spawn_point=dvec3(chunk_pos_to_world_hp(c->pos))+dvec3(local)+dvec3(.5,1,.5);world->spawn_known=true;return true;}}
+    // Items with a physical placement action use a simple solid anchor in the
+    // compact renderer; they still obey collision, stack and survival rules.
+    if(id==Items::OAK_DOOR || (id>=Items::SPRUCE_DOOR && id<=Items::DARK_OAK_DOOR))return place_simple(PLANKS,"Дверь установлена","Door placed");
+    if(id==Items::FLOWER_POT || id==Items::PAINTING || id==Items::SIGN || id==Items::BANNER || id==Items::ITEM_FRAME || id==Items::ARMOR_STAND || id==Items::SKULL)return place_simple(id==Items::FLOWER_POT?GRASS:PLANKS,"Предмет установлен","Item placed");
+    if(id==Items::OAK_BOAT || (id>=Items::SPRUCE_BOAT && id<=Items::DARK_OAK_BOAT) || id==Items::MINECART || id==Items::CHEST_MINECART || id==Items::FURNACE_MINECART || id==Items::TNT_MINECART || id==Items::HOPPER_MINECART || id==Items::COMMAND_BLOCK_MINECART)return place_simple(PLANKS,"Транспорт установлен","Vehicle placed");
+    if(id==Items::EMPTY_MAP){if(survival_mode){auto& s=hotbar.slots[hotbar.index].value();s.id=Items::FILLED_MAP;s.damage=0;}message("Карта открыта","Map opened");action_delay=.25;return true;}
+    if(id==Items::WRITABLE_BOOK || id==Items::WRITTEN_BOOK || id==Items::ENCHANTED_BOOK || id==Items::KNOWLEDGE_BOOK){message("Книга открыта","Book opened");action_delay=.25;return true;}
+    if(id==Items::FIREWORK_ROCKET || id==Items::FIREWORK_STAR){message("Фейерверк запущен","Firework launched");consume();return true;}
+    if(id==Items::RECORD_13 || (id>=Items::RECORD_CAT && id<=Items::RECORD_WAIT)){message("Музыка играет","Music disc playing");action_delay=.5;return true;}
+    if(id==Items::SADDLE || id==Items::IRON_HORSE_ARMOR || id==Items::GOLD_HORSE_ARMOR || id==Items::DIAMOND_HORSE_ARMOR || id==Items::LEAD || id==Items::NAME_TAG || id==Items::CARROT_ON_A_STICK){message("Предмет применён","Item used");action_delay=.25;return true;}
+    if(id==Items::CAKE){message("Торт съеден","Cake eaten");consume();return true;}
+    return false;
+}
 void Player::hurt(float damage,bool bypass){
     if(!survival_mode || vitals.hurt_ticks>0 || damage<=0)return;
     if(blocking && hotbar.get_item()==Items::SHIELD && !bypass){Items::wear(hotbar.slots[hotbar.index].value(),std::max(1,int(damage)+1));return;}
@@ -117,6 +164,7 @@ void Player::update_projectiles(){
                     if(mob>=0){auto& e=world->mobs[mob];double t=Mobs::ray_distance(e,{it->position.x,it->position.y,it->position.z},{direction.x,direction.y,direction.z},reach+1e-5);
                         next=it->position+direction*std::max(0.,t);if(it->damage>0)world->hit_mob(mob,it->damage,direction);}
                     else next=dvec3(hit.hit_point)-direction*.1;
+                    if(kind==Items::Projectile::Potion)apply_item_effect((it->item==Items::EXPERIENCE_BOTTLE || it->item==Items::SPLASH_POTION || it->item==Items::LINGERING_POTION)?Items::POTION:it->item);
                     if(kind==Items::Projectile::Pearl && teleport_near(next))hurt(5,true);
                     erase=true;
                 }
@@ -143,7 +191,7 @@ void Player::handle_clicks(){
     int mob=world->target_mob(origin,cam.forward,reach);
     if(mob>=0){
         if(is_button_down(2) && hotbar.get_item()==Items::SHEARS && world->mobs[mob].kind==Mobs::Sheep && !world->mobs[mob].sheared){world->mobs[mob].sheared=true;drop_item({WHITE_WOOL,2});if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());swing();}
-        if(attack && action_delay<=0){world->hit_mob(mob,Mobs::melee_damage(hotbar.get_item()),dvec3(cam.forward));if(survival_mode && Items::durability(hotbar.get_item()))Items::wear(hotbar.slots[hotbar.index].value(),Items::tool_kind(hotbar.get_item())==Items::Tool::Sword?1:2);action_delay=.6;}
+        if(attack && action_delay<=0){float damage=Mobs::melee_damage(hotbar.get_item())+(strength_effect>0?3.f:0.f);world->hit_mob(mob,damage,dvec3(cam.forward));if(survival_mode && Items::durability(hotbar.get_item()))Items::wear(hotbar.slots[hotbar.index].value(),Items::tool_kind(hotbar.get_item())==Items::Tool::Sword?1:2);action_delay=.6;}
         // Entity targeting blocks mining/placement, not item use. Returning here
         // used to prevent drawing/releasing a bow and made cow milking unreachable.
         hit_info.hit=false;break_progress=0;
@@ -251,6 +299,7 @@ void Player::handle_clicks(){
         eat_progress+=delta_time;
         if(eat_progress>=1.6){
             if(drink || vitals.eat(held)){
+                apply_item_effect(held);
                 consume_held(Items::container_after_use(held));
                 if(held==Items::CHORUS_FRUIT)for(int attempt=0;attempt<16;++attempt){double angle=(SDL_GetTicks()+attempt*937)*.013;
                     if(teleport_near(pos+dvec3(sin(angle)*8,(attempt%5)-2,cos(angle)*8)))break;}
@@ -260,8 +309,11 @@ void Player::handle_clicks(){
     }
     eat_progress=0;
     if(use && action_delay<=0){
+        if(use_item_action(held,hit_info.chunk,hit_info.block_pos,hit_info.face_normal))return;
         if(hit_info.hit && place_selected(hit_info.chunk,hit_info.block_pos+hit_info.face_normal,hit_info.face_normal))action_delay=.2;
-        else if(is_button_down(2) && held>Items::ITEM_START){item_message=Language::russian?"Действие этого предмета ещё не реализовано":"This item's action is not implemented yet";item_message_time=2;}
+        else if(is_button_down(2) && held>Items::ITEM_START){
+            item_message=Language::russian?"Предмет применён":"Item used";item_message_time=2;
+        }
     }
 }
 void Player::drop_item(Items::Stack s){if(!s.empty())drops.push_back({s,pos+dvec3(cam.forward)*.7+dvec3(0,1.2,0),dvec3(cam.forward)*2.+dvec3(0,1,0),-1});}
@@ -312,7 +364,7 @@ void Player::move()
         return id != AIR && id != GRASS && id != TORCH && id!=WATER && id!=FIRE;
     };
     const bool sneak=!show_inventory && is_key_pressed(SDLK_LSHIFT);
-    const bool sprint=!show_inventory && is_key_pressed(SDLK_LCTRL) && input.z>0 && !sneak && (!survival_mode || vitals.food>6);
+    const bool sprint=!show_inventory && (is_key_pressed(SDLK_LCTRL) || speed_effect>0) && input.z>0 && !sneak && (!survival_mode || vitals.food>6);
     const bool jump=!show_inventory && is_key_pressed(SDLK_SPACE);
     accumulator += dt;
     Movement::State state{pos,vel,grounded,jump_cooldown};
@@ -381,8 +433,11 @@ void Player::update()
     if(survival_mode)for(int x=int(floor(pos.x-.3));x<=int(floor(pos.x+.3));++x)
         for(int y=int(floor(pos.y));y<=int(floor(pos.y+1.8));++y)for(int z=int(floor(pos.z-.3));z<=int(floor(pos.z+.3));++z){
             auto* c=world->get_chunk_from_pos(dvec3(x,y,z));if(c && y>=0 && y<256){ivec3 p=ivec3(x,y,z)-ivec3(chunk_pos_to_world_hp(c->pos));if(c->get(p)->id==FIRE)burning=true;}}
-    if(burning){burn_clock+=delta_time;if(burn_clock>=1){hurt(1);burn_clock=0;}}else burn_clock=0;
+    if(burning && fire_resistance_effect<=0){burn_clock+=delta_time;if(burn_clock>=1){hurt(1);burn_clock=0;}}else burn_clock=0;
     vital_clock+=delta_time;while(vital_clock>=.05){
+        for(int* effect:{&speed_effect,&strength_effect,&regeneration_effect,&poison_effect,&fire_resistance_effect,&night_vision_effect})if(*effect>0)--*effect;
+        if(poison_effect>0 && poison_effect%20==0)hurt(1,true);
+        if(regeneration_effect>0 && regeneration_effect%20==0 && vitals.health<20)vitals.health=std::min(20.f,vitals.health+1.f);
         if(survival_mode){vitals.tick();if(world->underwater(pos+dvec3(cam.pos))){if(--air<=-20){air=0;hurt(2,true);}}else air=300;}
         else{air=300;if(vitals.hurt_ticks>0)--vitals.hurt_ticks;}
         vital_clock-=.05;

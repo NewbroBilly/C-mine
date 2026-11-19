@@ -75,9 +75,10 @@ int spawn_kind(int id){return id>=PIG_SPAWN_EGG && id<=CREEPER_SPAWN_EGG?id-PIG_
 Projectile projectile(int id){switch(id){
 case ARROW:case SPECTRAL_ARROW:case TIPPED_ARROW:return Projectile::Arrow;
 case SNOWBALL:return Projectile::Snowball;case EGG:return Projectile::Egg;case ENDER_PEARL:return Projectile::Pearl;
+case SPLASH_POTION:case LINGERING_POTION:case EXPERIENCE_BOTTLE:return Projectile::Potion;
 default:return Projectile::None;}}
 float bow_charge(float seconds){float t=std::max(0.f,seconds)*20/20;return std::min(1.f,(t*t+2*t)/3);}
-float projectile_speed(Projectile kind,float charge){return kind==Projectile::Arrow?60.f*charge:30.f;}
+float projectile_speed(Projectile kind,float charge){return kind==Projectile::Arrow?60.f*charge:(kind==Projectile::Potion?24.f:30.f);}
 float projectile_gravity(Projectile kind){return kind==Projectile::Arrow?20.f:12.f;} // blocks/second^2, .05/.03 per tick
 Tool tool_kind(int id){
     if((id>=WOOD_PICKAXE && id<=DIAMOND_PICKAXE) || id==GOLD_PICKAXE)return Tool::Pickaxe;

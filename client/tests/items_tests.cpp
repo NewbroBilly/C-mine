@@ -97,7 +97,7 @@ int main(){try{
     require(container_after_use(MUSHROOM_STEW)==BOWL && container_after_use(MILK_BUCKET)==BUCKET && container_after_use(POTION)==GLASS_BOTTLE && container_after_use(APPLE)==-1,"consumables return the correct container");
     require(spawn_kind(PIG_SPAWN_EGG)==0 && spawn_kind(CREEPER_SPAWN_EGG)==4 && spawn_kind(SPAWN_EGG)==-1,"spawn egg variants map only to implemented entity kinds");
     require(bow_charge(0)==0 && bow_charge(1)==1 && bow_charge(2)==1 && std::abs(bow_charge(.5f)-5.f/12)<1e-5,"original bow charge curve and cap");
-    require(projectile(SNOWBALL)==Projectile::Snowball && projectile(EGG)==Projectile::Egg && projectile(ENDER_PEARL)==Projectile::Pearl && projectile(TIPPED_ARROW)==Projectile::Arrow,"throwable dispatch");
+    require(projectile(SNOWBALL)==Projectile::Snowball && projectile(EGG)==Projectile::Egg && projectile(ENDER_PEARL)==Projectile::Pearl && projectile(TIPPED_ARROW)==Projectile::Arrow && projectile(SPLASH_POTION)==Projectile::Potion && projectile(LINGERING_POTION)==Projectile::Potion,"throwable dispatch");
     require(projectile_speed(Projectile::Arrow)==60 && projectile_gravity(Projectile::Arrow)==20 && projectile_speed(Projectile::Pearl)==30 && projectile_gravity(Projectile::Pearl)==12,"projectile tick values converted to seconds");
     inv={};for(int i:{1,3,7})inv.craft[i]={STICK,1};for(int i:{2,5,8})inv.craft[i]={STRING,1};
     require(recipe(inv.craft,3).output.id==BOW,"bow shaped recipe");

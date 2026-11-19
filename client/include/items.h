@@ -26,7 +26,9 @@ int from_vanilla_name(const char* name);
 bool always_edible(int id);
 int container_after_use(int id);
 int spawn_kind(int id);
-enum class Projectile {None,Arrow,Snowball,Egg,Pearl};
+// Projectiles cover the vanilla throwable items. Potion bottles use the same
+// ballistic path as snowballs, then apply their effect on impact.
+enum class Projectile {None,Arrow,Snowball,Egg,Pearl,Potion};
 Projectile projectile(int id);
 float bow_charge(float seconds);
 float projectile_speed(Projectile kind,float charge=1);

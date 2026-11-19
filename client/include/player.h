@@ -46,6 +46,9 @@ struct Player
     dvec3 bobber{0};
     double fish_timer=0,fish_bite=0;
     double burn_clock=0;
+    // Short-lived vanilla-style item effects. Timers are in simulation ticks.
+    int speed_effect=0, strength_effect=0, regeneration_effect=0, poison_effect=0;
+    int fire_resistance_effect=0, night_vision_effect=0;
     void update_fishing();
     void hurt(float damage,bool bypass=false);
     double flight_tap=-1,vital_clock=0,break_progress=0,break_duration=0,action_delay=0,eat_progress=0;
@@ -75,6 +78,8 @@ struct Player
     void animate();
     void draw_hand();
     bool place_selected(Chunk* chunk,ivec3 local,ivec3 normal);
+    void apply_item_effect(int id);
+    bool use_item_action(int id,Chunk* chunk,ivec3 local,ivec3 normal);
 
     Player() {}
     Player(const dvec3& _pos);
