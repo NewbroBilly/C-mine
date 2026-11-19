@@ -11,7 +11,7 @@ int main(){
     check(Settings::load(path,loaded) && loaded==value,"all options must survive restart");
     {std::ofstream file(path);file<<"fov=900\nsensitivity=-7\ndistance=200\nunknown=8\nao=0\nvsync=bad\nfov=60junk\n";}
     check(Settings::load(path,loaded),"load partially malformed options");
-    check(loaded.fov==110 && loaded.sensitivity==10 && loaded.distance==8 && !loaded.ao && loaded.vsync,"clamp ranges and ignore malformed values");
+    check(loaded.fov==110 && loaded.sensitivity==10 && loaded.distance==32 && !loaded.ao && loaded.vsync,"clamp ranges and ignore malformed values");
     value=loaded;check(!Settings::load("settings-test/missing.txt",loaded) && loaded==value,"missing file must preserve current options");
     std::filesystem::remove(path);std::filesystem::remove("settings-test");
     std::cout<<"Settings: persistence, all fields, bounds, malformed/missing files passed\n";

@@ -88,6 +88,11 @@ bool Player::use_item_action(int id,Chunk* c,ivec3 local,ivec3 normal){
         if(!world->place_block(c,target,&b))return false;
         message(ru,en);consume();return true;
     };
+    if(id==Items::FLINT_AND_STEEL && hit_info.hit && c && c->get(local)->id==TNT_BLOCK){
+        dvec3 blast=chunk_pos_to_world_hp(c->pos)+dvec3(local)+dvec3(.5);
+        world->remove_block(c,local,true);world->explode(blast);message("TNT взорван","TNT ignited");
+        if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value(),1);action_delay=.5;return true;
+    }
     const bool seed=id==Items::WHEAT_SEEDS || id==Items::BEETROOT_SEEDS || id==Items::PUMPKIN_SEEDS || id==Items::MELON_SEEDS;
     if(seed && hit_info.hit){
         auto support=c->get(local)->id;auto target=local+normal;auto* n=get_neighbor_chunk(c,target);
@@ -531,15 +536,17 @@ void Player::draw_drops(){
         m=m*facing;m=scale(m,vec3(shot.item==Items::ARROW?.35f:.25f));
         ItemModel::draw(shot.item,Ui::items_texture(),Ui::item_frame(shot.item),m);
     }
-    glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);glEnable(GL_CULL_FACE);
     for(auto& d:drops){
-        vec3 target=vec3(d.position)+vec3(0,.12f*sin(float(d.age)*3),0);
-        vec4 clip=matrix*vec4(target,1);if(clip.w<.1)continue;vec3 ndc=vec3(clip)/clip.w;
-        if(abs(ndc.x)>1.1 || abs(ndc.y)>1.1 || ndc.z>1)continue;
-        vec3 origin=vec3(pos)+view.pos,direction=target-origin;float distance=length(direction);if(distance>32)continue;
-        auto hit=raycast(origin,normalize(direction),std::max(.01f,distance-.3f),world->get_chunk_from_pos(origin));if(hit.hit)continue;
-        float size=clamp(240.f/std::max(1.f,distance),10.f,48.f);
-        Ui::item(d.stack,(ndc.x*.5f+.5f)*win_size.x-size/2,(.5f-ndc.y*.5f)*win_size.y-size/2,size,false);
+        dvec3 relative=d.position-render_position();float distance=float(length(relative));if(distance>32)continue;
+        vec4 clip=matrix*vec4(vec3(relative),1);if(clip.w<.1)continue;
+        mat4 m=translate(matrix,vec3(relative)+vec3(0,.12f*sin(float(d.age)*3),0));
+        m=rotate(m,float(d.age*2.7),vec3(0,1,0));m=rotate(m,float(sin(d.age*1.7)*.18),vec3(1,0,0));
+        float item_scale=Items::block(d.stack.id)?.32f:.42f;
+        for(int copy=0;copy<std::min(4,std::max(1,d.stack.count));++copy){
+            mat4 item=m*translate(mat4(1),vec3((copy%2-.5f)*.12f,(copy/2)*.1f,0));
+            ItemModel::draw(d.stack.id,Ui::items_texture(),Ui::item_frame(d.stack.id),item_scale*item);
+        }
     }
     glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);
 }
@@ -632,6 +639,5 @@ void Player::draw_hand(){
     // Vanilla keeps the right arm visible while holding an item.  Draw it
     // with the same pose before the item so the hand stays attached to tools
     // and blocks instead of disappearing behind the model.
-    Avatar::hand(m);
     ItemModel::draw(equipped_item,Ui::items_texture(),Ui::item_frame(equipped_item),m);
 }
