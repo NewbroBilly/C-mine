@@ -71,6 +71,8 @@ vec2 uv_offsets[4] =
 };
 
 Block* blocks[BLOCK_COUNT];
+void build_cross(Block* block, Chunk* chunk, const ivec3& pos,
+                 std::vector<Vertex>& vertices, std::vector<int>& indices, int& index);
 
 /*bool add_block_light(Chunk* chunk, ivec3& pos, int& sky_sum, int& block_sum, int& n)
 {
@@ -256,6 +258,35 @@ void build_banner(Block* block, Chunk* chunk, const ivec3& pos,
         build_box(block,chunk,pos,vec3(.47f,0,.46f),vec3(.53f,1,.54f),vertices,indices,index);
         build_box(block,chunk,pos,vec3(.47f,.25f,.10f),vec3(.53f,.86f,.90f),vertices,indices,index);
     }
+}
+
+void build_slab(Block* block, Chunk* chunk, const ivec3& pos,
+                std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    build_box(block,chunk,pos,vec3(0,0,0),vec3(1,.5f,1),vertices,indices,index);
+}
+
+void build_stairs(Block* block, Chunk* chunk, const ivec3& pos,
+                  std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    // Default state is the vanilla east-facing lower stair. Placement states
+    // are preserved and can be rotated by the renderer when directional
+    // placement is enabled.
+    build_box(block,chunk,pos,vec3(0,0,0),vec3(1,.5f,1),vertices,indices,index);
+    build_box(block,chunk,pos,vec3(.5f,.5f,0),vec3(1,1,1),vertices,indices,index);
+}
+
+void build_pane(Block* block, Chunk* chunk, const ivec3& pos,
+                std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    build_box(block,chunk,pos,vec3(.4375f,0,.4375f),vec3(.5625f,1,.5625f),vertices,indices,index);
+    build_box(block,chunk,pos,vec3(0,.0f,.4375f),vec3(1,1,.5625f),vertices,indices,index);
+}
+
+void build_plant(Block* block, Chunk* chunk, const ivec3& pos,
+                 std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    build_cross(block,chunk,pos,vertices,indices,index);
 }
 
 void build_oriented_cube(Block* block, Chunk* chunk, const ivec3& pos, std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
@@ -652,6 +683,10 @@ struct CatalogBlock : public Block {
         if(c->get(p)->id==FIRE){auto start=v.size();build_cross(this,c,p,v,i,n);for(size_t a=start;a<v.size();++a)v[a].data|=1<<26;}
         else if(id==BED_BLOCK)build_box(this,c,p,vec3(0,0,0),vec3(1,.5625f,1),v,i,n);
         else if(id==BANNER_BLOCK)build_banner(this,c,p,v,i,n);
+        else if(id>=OAK_STAIRS && id<=PRISMARINE_STAIRS)build_stairs(this,c,p,v,i,n);
+        else if(id==OAK_SLAB || id==STONE_SLAB || id==SANDSTONE_SLAB)build_slab(this,c,p,v,i,n);
+        else if(id==GLASS_PANE || id==IRON_BARS)build_pane(this,c,p,v,i,n);
+        else if(id==SAPLING || id==DEADBUSH || id==FERN || id==WHEAT_CROP || id==CARROT_CROP || id==POTATO_CROP || id==BEETROOT_CROP || id==NETHER_WART_CROP || id==VINE || id==WATERLILY || id==CHORUS_FLOWER)build_plant(this,c,p,v,i,n);
         else build_cube(this,c,p,v,i,n);
     }
 };
