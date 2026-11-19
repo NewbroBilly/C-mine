@@ -216,8 +216,13 @@ void World::draw() {
     block_shader.upload_float("water_time",SDL_GetTicks()/1000.f);
     for (Chunk* chunk : chunk_vector) chunk->draw();
     draw_mobs(cam_mat);
+    // Entity rendering binds another shader and texture unit. Restore BOTH for
+    // the translucent pass; otherwise water is interpreted as avatar vertices.
+    texture_atlas.bind();
+    block_shader.bind();
     std::vector<Chunk*> sorted=chunk_vector;
     std::sort(sorted.begin(),sorted.end(),[&](Chunk* a,Chunk* b){return distance(chunk_pos_to_world(a->pos),vec3(player->pos))>distance(chunk_pos_to_world(b->pos),vec3(player->pos));});
+    glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);glDisable(GL_CULL_FACE);
     for(auto* chunk:sorted)if(chunk->can_draw)chunk->mesh.draw(true);
     glDepthMask(GL_TRUE);glEnable(GL_CULL_FACE);
