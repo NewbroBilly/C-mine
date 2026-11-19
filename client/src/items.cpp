@@ -2,6 +2,7 @@
 #include <items.h>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 namespace Items {
 static bool wool(int id){return id==WHITE_WOOL || id==RED_WOOL || id==BLUE_WOOL || (id>=ORANGE_WOOL && id<=BLACK_WOOL);}
 static bool wood(int id){return id==LOG || id==SPRUCE_LOG || id==BIRCH_LOG || id==PLANKS || id==SPRUCE_PLANKS || id==BIRCH_PLANKS || (id>=JUNGLE_PLANKS && id<=DARK_OAK_LOG) || id==CRAFTING_TABLE || id==BOOKSHELF;}
@@ -10,6 +11,11 @@ int food_points(int id){switch(id){
 case APPLE:return 4;case BREAD:case BAKED_POTATO:case COOKED_FISH:case COOKED_RABBIT:return 5;
 case RAW_FISH:case MELON_SLICE:case COOKIE:case RAW_CHICKEN:case RAW_MUTTON:return 2;
 case ROTTEN_FLESH:return 4;
+case RAW_SALMON:case POISONOUS_POTATO:case SPIDER_EYE:return 2;
+case CLOWNFISH:case PUFFERFISH:return 1;
+case COOKED_SALMON:case GOLDEN_CARROT:case MUSHROOM_STEW:case BEETROOT_SOUP:return 6;
+case RABBIT_STEW:return 10;
+case GOLDEN_APPLE:case ENCHANTED_GOLDEN_APPLE:case CHORUS_FRUIT:return 4;
 case CARROT:case RAW_BEEF:case RAW_PORKCHOP:case RABBIT:return 3;
 case POTATO:case BEETROOT:return 1;
 case STEAK:case COOKED_PORKCHOP:case PUMPKIN_PIE:return 8;
@@ -17,6 +23,12 @@ case COOKED_CHICKEN:case COOKED_MUTTON:return 6;
 default:return 0;}}
 float food_saturation(int id){switch(id){
 case RAW_FISH:case COOKIE:return .1f;
+case RAW_SALMON:case CLOWNFISH:case PUFFERFISH:return .1f;
+case ROTTEN_FLESH:case RAW_CHICKEN:return .1f;
+case RAW_MUTTON:case POISONOUS_POTATO:case CHORUS_FRUIT:return .3f;
+case COOKED_SALMON:return .8f;
+case GOLDEN_APPLE:case ENCHANTED_GOLDEN_APPLE:case GOLDEN_CARROT:return 1.2f;
+case SPIDER_EYE:return .8f;
 case APPLE:case PUMPKIN_PIE:case POTATO:case MELON_SLICE:case RAW_BEEF:case RAW_PORKCHOP:case RABBIT:return .3f;
 case STEAK:case COOKED_PORKCHOP:case COOKED_MUTTON:return .8f;
 default:return .6f;}}
@@ -46,6 +58,27 @@ default:return "";}}
 const char* name(int id){return Language::tr(english_name(id));}
 bool block(int id){return id>AIR && id<BLOCK_COUNT && id!=WATER && id!=FIRE;}
 bool valid(int id){return block(id) || (id>ITEM_START && id<ITEM_END);}
+int from_vanilla_name(const char* name){
+    if(!name)return -1;
+    if(std::strncmp(name,"minecraft:",10)==0)name+=10;
+#define VANILLA_ITEM(key,id) if(std::strcmp(name,#key)==0)return id;
+#include <vanilla_items.def>
+#undef VANILLA_ITEM
+    return -1;
+}
+bool always_edible(int id){return id==GOLDEN_APPLE || id==ENCHANTED_GOLDEN_APPLE || id==CHORUS_FRUIT;}
+int container_after_use(int id){switch(id){
+case MUSHROOM_STEW:case RABBIT_STEW:case BEETROOT_SOUP:return BOWL;
+case MILK_BUCKET:return BUCKET;case POTION:case DRAGON_BREATH:return GLASS_BOTTLE;
+default:return -1;}}
+int spawn_kind(int id){return id>=PIG_SPAWN_EGG && id<=CREEPER_SPAWN_EGG?id-PIG_SPAWN_EGG:-1;}
+Projectile projectile(int id){switch(id){
+case ARROW:case SPECTRAL_ARROW:case TIPPED_ARROW:return Projectile::Arrow;
+case SNOWBALL:return Projectile::Snowball;case EGG:return Projectile::Egg;case ENDER_PEARL:return Projectile::Pearl;
+default:return Projectile::None;}}
+float bow_charge(float seconds){float t=std::max(0.f,seconds)*20/20;return std::min(1.f,(t*t+2*t)/3);}
+float projectile_speed(Projectile kind,float charge){return kind==Projectile::Arrow?60.f*charge:30.f;}
+float projectile_gravity(Projectile kind){return kind==Projectile::Arrow?20.f:12.f;} // blocks/second^2, .05/.03 per tick
 Tool tool_kind(int id){
     if((id>=WOOD_PICKAXE && id<=DIAMOND_PICKAXE) || id==GOLD_PICKAXE)return Tool::Pickaxe;
     if(id>=WOOD_AXE && id<=GOLD_AXE)return Tool::Axe;
@@ -193,6 +226,17 @@ Recipe recipe(const std::array<Stack,9>& grid,int width){
     }
     if(shape(" RR ",2,2,IRON_INGOT) || shape("R  R",2,2,IRON_INGOT))r.output={SHEARS,1};
     if(shape("  S STS T",3,3,STICK) || shape("  S STS T",3,3,STICK,true))r.output={FISHING_ROD,1};
+    if(shape(" STR T ST",3,3,STICK) || shape(" STR T ST",3,3,STICK,true))r.output={BOW,1};
+    if(w==1 && h==3 && count==3 && at(0,0)==FLINT && at(0,1)==STICK && at(0,2)==FEATHER)r.output={ARROW,4};
+    if(w==3 && h==2 && count==3 && plank(at(0,0)) && plank(at(2,0)) && plank(at(1,1)))r.output={BOWL,4};
+    if(w==3 && h==3 && count==7 && at(1,0)==IRON_INGOT){
+        bool shield=true;
+        for(int y=0;y<3;++y)for(int x=0;x<3;++x){
+            if(y==0 && x==1)continue;
+            if(y==2 && x!=1){if(!grid[(top+y)*width+left+x].empty())shield=false;}
+            else if(!plank(at(x,y)))shield=false;
+        }if(shield)r.output={SHIELD,1};
+    }
     if(w==3 && h==3 && count==5 && at(1,1)==REDSTONE_DUST){
         bool iron=true,gold=true;
         for(auto p:{std::array<int,2>{1,0},{0,1},{2,1},{1,2}}){iron&=at(p[0],p[1])==IRON_INGOT;gold&=at(p[0],p[1])==GOLD_INGOT;}
@@ -219,6 +263,7 @@ Recipe recipe(const std::array<Stack,9>& grid,int width){
         for(int i=0;i<6;++i)if(at(0,0)==packed[i])r.output={raw[i],9};
     }
     if(count==1){switch(at(0,0)){
+        case PUMPKIN:r.output={PUMPKIN_SEEDS,4};break;case MELON_SLICE:r.output={MELON_SEEDS,1};break;
         case COAL_BLOCK:r.output={COAL,9};break;case HAY_BLOCK:r.output={WHEAT,9};break;
         case IRON_INGOT:r.output={IRON_NUGGET,9};break;case GOLD_INGOT:r.output={GOLD_NUGGET,9};break;default:break;}}
     if(count==3 || count==4){
@@ -301,7 +346,7 @@ Stack drop(int id,int tool,unsigned r){
 }
 void Vitals::hurt(float amount){if(amount>0 && hurt_ticks==0){health=std::max(0.f,health-amount);hurt_ticks=10;}}
 void Vitals::exhaust(float amount){exhaustion=std::min(40.f,exhaustion+amount);}
-bool Vitals::eat(int id){if(food>=20)return false;int n=food_points(id);if(!n)return false;
+bool Vitals::eat(int id){if(food>=20 && !always_edible(id))return false;int n=food_points(id);if(!n)return false;
     food=std::min(20,food+n);saturation=std::min(float(food),saturation+n*food_saturation(id)*2);return true;}
 void Vitals::tick(){
     if(hurt_ticks>0)--hurt_ticks;

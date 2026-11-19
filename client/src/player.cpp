@@ -71,20 +71,82 @@ bool Player::place_selected(Chunk* c,ivec3 local,ivec3 normal){
     if(!world->place_block(c,local,&bs))return false;
     swing();if(survival_mode){--stack.count;Items::normalize(stack);}return true;
 }
-void Player::hurt(float damage,bool bypass){if(!survival_mode || vitals.hurt_ticks>0 || damage<=0)return;vitals.hurt(bypass?damage:Items::absorb_damage(inventory.data().armor,damage));}
+void Player::hurt(float damage,bool bypass){
+    if(!survival_mode || vitals.hurt_ticks>0 || damage<=0)return;
+    if(blocking && hotbar.get_item()==Items::SHIELD && !bypass){Items::wear(hotbar.slots[hotbar.index].value(),std::max(1,int(damage)+1));return;}
+    vitals.hurt(bypass?damage:Items::absorb_damage(inventory.data().armor,damage));
+}
+void Player::consume_held(int result){
+    if(!survival_mode)return;
+    auto& stack=hotbar.slots[hotbar.index].value();--stack.count;Items::normalize(stack);
+    if(result>0){Items::Stack out{result,1};if(stack.empty())stack=out;else {out.count=inventory.data().add(out);if(out.count)drop_item(out);}}
+}
+bool Player::teleport_near(dvec3 target){
+    // Never generate chunks for pearls. Test the whole standing player box,
+    // including headroom, and refuse unloaded/water/lava destinations.
+    for(int dy=0;dy<=3;++dy)for(int dx=-1;dx<=1;++dx)for(int dz=-1;dz<=1;++dz){
+        dvec3 p=target+dvec3(dx,dy,dz);bool safe=true;
+        for(int x=int(floor(p.x-.3));x<=int(floor(p.x+.3));++x)
+        for(int y=int(floor(p.y));y<=int(floor(p.y+1.8));++y)
+        for(int z=int(floor(p.z-.3));z<=int(floor(p.z+.3));++z)
+            if(world->mob_cell(x,y,z)!=0)safe=false;
+        if(safe && p.y>=0 && p.y<254){pos=previous_position=p;vel=dvec3(0);accumulator=0;vitals.fallen=0;return true;}
+    }return false;
+}
+void Player::launch(int item,float charge){
+    auto kind=Items::projectile(item);float speed=Items::projectile_speed(kind,charge);
+    dvec3 origin=pos+dvec3(cam.pos),velocity=dvec3(cam.forward)*double(speed)+dvec3(vel.x,grounded?0:vel.y,vel.z);
+    shots.push_back({item,origin,velocity,0,kind==Items::Projectile::Arrow?float(std::ceil(speed/20*2)):0});
+}
+void Player::update_projectiles(){
+    double remaining=std::min(delta_time,.25);
+    while(remaining>1e-8){
+        double dt=std::min(remaining,.01);remaining-=dt;
+        for(auto it=shots.begin();it!=shots.end();){
+            auto kind=Items::projectile(it->item);dvec3 travel=it->velocity*dt;double distance=length(travel);
+            bool erase=(it->age+=dt)>15 || it->position.y<0 || it->position.y>=256;
+            if(!erase && distance>1e-8){
+                dvec3 direction=travel/distance;
+                auto hit=raycast(vec3(it->position),vec3(direction),float(distance),world->get_chunk_from_pos(vec3(it->position)));
+                double reach=hit.hit?std::min(distance,double(length(dvec3(hit.hit_point)-it->position))):distance;
+                int mob=world->target_mob(it->position,direction,reach+1e-5);
+                // Projectiles stop at unloaded frontiers instead of tunnelling.
+                dvec3 next=it->position+travel;
+                if(world->mob_cell(int(floor(next.x)),int(floor(next.y)),int(floor(next.z)))==3)erase=true;
+                else if(mob>=0 || hit.hit){
+                    if(mob>=0){auto& e=world->mobs[mob];double t=Mobs::ray_distance(e,{it->position.x,it->position.y,it->position.z},{direction.x,direction.y,direction.z},reach+1e-5);
+                        next=it->position+direction*std::max(0.,t);if(it->damage>0)world->hit_mob(mob,it->damage,direction);}
+                    else next=dvec3(hit.hit_point)-direction*.1;
+                    if(kind==Items::Projectile::Pearl && teleport_near(next))hurt(5,true);
+                    erase=true;
+                }
+                if(!erase){it->position=next;it->velocity*=std::pow(.99,dt*20);it->velocity.y-=Items::projectile_gravity(kind)*dt;}
+            }
+            if(erase)it=shots.erase(it);else ++it;
+        }
+    }
+}
 void Player::handle_clicks(){
     action_delay=std::max(0.,action_delay-delta_time);
-    if(show_inventory){hit_info.hit=false;break_progress=eat_progress=0;return;}
+    item_message_time=std::max(0.,item_message_time-delta_time);
+    if(show_inventory){hit_info.hit=false;break_progress=eat_progress=bow_time=0;blocking=false;return;}
     vec3 origin=vec3(pos)+cam.pos;
     hit_info=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin));
     bool attack=is_button_down(0) || is_button_pressed(0);
+    bool use=is_button_down(2) || is_button_pressed(2);
+    int held=hotbar.get_item();
+    if(!use || eating_item!=held){eat_progress=0;eating_item=held;}
+    if(held!=Items::BOW)bow_time=0;
+    blocking=held==Items::SHIELD && use;
     if(attack)swing();
     double reach=hit_info.hit?double(length(hit_info.hit_point-origin)):(survival_mode?4.5:5.);
     int mob=world->target_mob(origin,cam.forward,reach);
     if(mob>=0){
         if(is_button_down(2) && hotbar.get_item()==Items::SHEARS && world->mobs[mob].kind==Mobs::Sheep && !world->mobs[mob].sheared){world->mobs[mob].sheared=true;drop_item({WHITE_WOOL,2});if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());swing();}
         if(attack && action_delay<=0){world->hit_mob(mob,Mobs::melee_damage(hotbar.get_item()),dvec3(cam.forward));if(survival_mode && Items::durability(hotbar.get_item()))Items::wear(hotbar.slots[hotbar.index].value(),Items::tool_kind(hotbar.get_item())==Items::Tool::Sword?1:2);action_delay=.6;}
-        hit_info.hit=false;break_progress=0;return;
+        // Entity targeting blocks mining/placement, not item use. Returning here
+        // used to prevent drawing/releasing a bow and made cow milking unreachable.
+        hit_info.hit=false;break_progress=0;
     }
     if(hit_info.hit){
         int id=hit_info.chunk->get(hit_info.block_pos)->id;
@@ -109,8 +171,32 @@ void Player::handle_clicks(){
         if(is_button_down(2) && id==CRAFTING_TABLE && survival_mode && !is_key_pressed(SDLK_LSHIFT)){Game::inventory(true,true);return;}
     }else break_progress=0;
     if(!attack)break_progress=0;
-    bool use=is_button_down(2) || is_button_pressed(2);
-    int held=hotbar.get_item();
+    if(held==Items::BOW){
+        eat_progress=0;
+        int ammo=-1;
+        for(int i=0;i<36;++i)if(!inventory.data().main[i].empty() && Items::projectile(inventory.data().main[i].id)==Items::Projectile::Arrow){ammo=i;break;}
+        if(use && (!survival_mode || ammo>=0))bow_time+=std::min(delta_time,.25);
+        else if(bow_time>0){
+            float charge=Items::bow_charge(float(bow_time));bow_time=0;
+            if(charge>=.1f && (!survival_mode || ammo>=0)){
+                int arrow=ammo>=0?inventory.data().main[ammo].id:int(Items::ARROW);launch(arrow,charge);
+                if(survival_mode){auto& s=inventory.data().main[ammo];--s.count;Items::normalize(s);Items::wear(hotbar.slots[hotbar.index].value());}
+            }
+        }return;
+    }
+    auto throwable=Items::projectile(held);
+    if(is_button_down(2) && action_delay<=0 && throwable!=Items::Projectile::None && throwable!=Items::Projectile::Arrow){
+        launch(held);consume_held();swing();action_delay=held==Items::ENDER_PEARL?1.:.25;return;
+    }
+    int spawn=Items::spawn_kind(held);
+    if(is_button_down(2) && hit_info.hit && spawn>=0 && action_delay<=0){
+        auto point=dvec3(hit_info.block_pos+hit_info.face_normal)+chunk_pos_to_world_hp(hit_info.chunk->pos)+dvec3(.5,0,.5);
+        auto e=Mobs::create(spawn,{point.x,point.y,point.z},SDL_GetTicks()+unsigned(world->mobs.size()));
+        if(world->mobs.size()<128 && Mobs::fits(e,e.position,[&](int x,int y,int z){return world->mob_cell(x,y,z);})){
+            world->mobs.push_back(e);consume_held();swing();action_delay=.25;
+        }return;
+    }
+    if(blocking)return;
     if(is_button_down(2) && Items::armor_slot(held)>=0){if(Items::equip(inventory.data().armor,hotbar.slots[hotbar.index].value()))swing();return;}
     if(is_button_down(2) && action_delay<=0 && held==Items::FISHING_ROD){
         if(fishing){
@@ -137,32 +223,45 @@ void Player::handle_clicks(){
             BlockState b{char(replacement),0,0};c->set(p,&b);world->notify_water(c,p);world->rebuild_dirty();
             swing();if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;return;
         }
-        if(held==Items::FLINT_AND_STEEL){
+        if(held==Items::FLINT_AND_STEEL || held==Items::FIRE_CHARGE){
             BlockState fire{FIRE,0,0};
             auto target=p+hit_info.face_normal;auto* n=get_neighbor_chunk(c,target);
             if(n && n->get(target)->id!=WATER && world->place_block(c,p+hit_info.face_normal,&fire)){
-                swing();if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;
+                swing();if(held==Items::FIRE_CHARGE)consume_held();else if(survival_mode)Items::wear(hotbar.slots[hotbar.index].value());action_delay=.25;
             }return;
         }
+    }
+    if(is_button_down(2) && held==Items::BUCKET && mob>=0 && world->mobs[mob].kind==Mobs::Cow && action_delay<=0){consume_held(Items::MILK_BUCKET);swing();action_delay=.25;return;}
+    if(use && action_delay<=0 && held==Items::GLASS_BOTTLE){
+        auto hit=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin),true);
+        if(hit.hit && hit.chunk->get(hit.block_pos)->id==WATER){consume_held(Items::POTION);swing();action_delay=.25;}return;
     }
     if(use && action_delay<=0 && (held==Items::BUCKET || held==Items::WATER_BUCKET)){
         auto hit=raycast(origin,cam.forward,survival_mode?4.5f:5.f,world->get_chunk_from_pos(origin),held==Items::BUCKET);
         if(hit.hit){auto& stack=hotbar.slots[hotbar.index].value();bool done=false;int result=Items::BUCKET;
-            if(held==Items::BUCKET && hit.chunk->get(hit.block_pos)->id==WATER){world->remove_block(hit.chunk,hit.block_pos,true);done=true;result=Items::WATER_BUCKET;}
+            if(held==Items::BUCKET && hit.chunk->get(hit.block_pos)->id==WATER && (hit.chunk->get(hit.block_pos)->data1&15)==0){world->remove_block(hit.chunk,hit.block_pos,true);done=true;result=Items::WATER_BUCKET;}
             if(held==Items::WATER_BUCKET){BlockState b{WATER,0,0};done=world->place_block(hit.chunk,hit.block_pos+hit.face_normal,&b);}
             if(done){if(survival_mode){--stack.count;Items::normalize(stack);Items::Stack out{result,1};if(stack.empty())stack=out;else if(inventory.data().add(out))drop_item(out);}else if(held==Items::BUCKET)stack={Items::WATER_BUCKET,1};action_delay=.25;}
         }return;
     }
-    bool edible=survival_mode && Items::food_points(held)>0 && vitals.food<20;
-    if(use && edible){
+    bool drink=held==Items::MILK_BUCKET || held==Items::POTION;
+    bool edible=survival_mode && Items::food_points(held)>0 && (vitals.food<20 || Items::always_edible(held));
+    if(use && (edible || drink)){
         if(eating_item!=held){eating_item=held;eat_progress=0;}
         eat_progress+=delta_time;
-        if(eat_progress>=1.6){auto& stack=hotbar.slots[hotbar.index].value();if(vitals.eat(stack.id)){--stack.count;Items::normalize(stack);}eat_progress=0;}
+        if(eat_progress>=1.6){
+            if(drink || vitals.eat(held)){
+                consume_held(Items::container_after_use(held));
+                if(held==Items::CHORUS_FRUIT)for(int attempt=0;attempt<16;++attempt){double angle=(SDL_GetTicks()+attempt*937)*.013;
+                    if(teleport_near(pos+dvec3(sin(angle)*8,(attempt%5)-2,cos(angle)*8)))break;}
+            }eat_progress=0;
+        }
         return;
     }
     eat_progress=0;
     if(use && action_delay<=0){
         if(hit_info.hit && place_selected(hit_info.chunk,hit_info.block_pos+hit_info.face_normal,hit_info.face_normal))action_delay=.2;
+        else if(is_button_down(2) && held>Items::ITEM_START){item_message=Language::russian?"Действие этого предмета ещё не реализовано":"This item's action is not implemented yet";item_message_time=2;}
     }
 }
 void Player::drop_item(Items::Stack s){if(!s.empty())drops.push_back({s,pos+dvec3(cam.forward)*.7+dvec3(0,1.2,0),dvec3(cam.forward)*2.+dvec3(0,1,0),-1});}
@@ -233,6 +332,7 @@ void Player::move()
             if(jump && was_grounded && state.velocity.y>0)vitals.exhaust(sprint?.2f:.05f);
             if(sprint && state.grounded)vitals.exhaust(float(length(dvec2(state.velocity.x,state.velocity.z))*.05*.1));
         }
+        model_walk.tick(state.position.x-previous_position.x,state.position.z-previous_position.z);++model_age;
         accumulator=std::max(0.,accumulator-.05);
     }
     pos = state.position; vel = state.velocity; grounded = state.grounded;jump_cooldown=state.jump_cooldown;
@@ -276,7 +376,7 @@ Camera Player::view_camera() {
 void Player::update()
 {
     if (!world->spawned) return;
-    animate();handle_keys();handle_clicks();move();update_drops();update_fishing();
+    animate();handle_keys();handle_clicks();move();update_drops();update_fishing();update_projectiles();
     bool burning=false;
     if(survival_mode)for(int x=int(floor(pos.x-.3));x<=int(floor(pos.x+.3));++x)
         for(int y=int(floor(pos.y));y<=int(floor(pos.y+1.8));++y)for(int z=int(floor(pos.z-.3));z<=int(floor(pos.z+.3));++z){
@@ -287,7 +387,12 @@ void Player::update()
         else{air=300;if(vitals.hurt_ticks>0)--vitals.hurt_ticks;}
         vital_clock-=.05;
     }
-    if(survival_mode){if(pos.y<0)hurt(4,true);if(vitals.health<=0)Game::die();}
+    if(survival_mode){if(pos.y<0)hurt(4,true);
+        if(vitals.health<=0 && pos.y>=0){auto& main=hotbar.slots[hotbar.index].value();auto& off=inventory.data().offhand;
+            auto* totem=main.id==Items::TOTEM && !main.empty()?&main:off.id==Items::TOTEM && !off.empty()?&off:nullptr;
+            if(totem){--totem->count;Items::normalize(*totem);vitals.health=1;vitals.hurt_ticks=20;vitals.fallen=0;}
+        }
+        if(vitals.health<=0)Game::die();}
 }
 
 void Player::draw()
@@ -299,7 +404,9 @@ void Player::draw()
         mat4 m=scale(translate(cam_mat,center),vec3(1.002f));
         ItemModel::cracks(int(break_progress/break_duration*10),m);
     }
-    if (third_person) Avatar::draw(render_position(),cam.forward,walk_phase,cam_mat,flying?0.f:float(length(dvec2(vel.x,vel.z))/5.6),float(swing_progress),&inventory.data().armor);
+    if (third_person) Avatar::draw(render_position(),cam.forward,model_walk.render_phase(float(accumulator/.05)),cam_mat,
+        flying?0.f:model_walk.render_amount(float(accumulator/.05)),float(swing_progress),&inventory.data().armor,
+        float(model_age+accumulator/.05),is_key_pressed(SDLK_LSHIFT) && !flying,Items::valid(hotbar.get_item()),blocking,bow_time>0);
     line_shader.bind();
     line_shader.upload_mat4("cam_mat", cam_mat);
     if(fishing){
@@ -348,6 +455,15 @@ void Player::destroy()
 
 void Player::draw_drops(){
     Camera view=view_camera();mat4 matrix=view.matrix(vec3(render_position()));
+    // World-space projectile sprites use the depth buffer, unlike the legacy
+    // billboard pickup labels below. Camera-facing basis is shared by all shots.
+    vec3 right=normalize(cross(view.forward,view.up)),up=normalize(cross(right,view.forward));
+    for(auto& shot:shots){
+        mat4 m=translate(matrix,vec3(shot.position));
+        mat4 facing(1);facing[0]=vec4(right,0);facing[1]=vec4(up,0);facing[2]=vec4(-view.forward,0);
+        m=m*facing;m=scale(m,vec3(shot.item==Items::ARROW?.35f:.25f));
+        ItemModel::draw(shot.item,Ui::items_texture(),Ui::item_frame(shot.item),m);
+    }
     glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);
     for(auto& d:drops){
         vec3 target=vec3(d.position)+vec3(0,.12f*sin(float(d.age)*3),0);
@@ -376,6 +492,7 @@ void Player::draw_hud(){
     }
     Ui::text("mode",survival_mode?Language::tr("Survival"):Language::tr("Creative"),10,10,2);
     Ui::text("fishing",fishing?(fish_bite>0?Language::tr("Bite! Right click to reel in"):Language::tr("Fishing...")):"",10,36,2);
+    Ui::text("item-action",item_message_time>0?item_message:"",10,62,2);
     if(break_progress>0 && break_duration>0){float f=float(std::min(1.,break_progress/break_duration));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150*f,6,vec4(1));}
     if(eat_progress>0){Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,150,6,vec4(0,0,0,.8));Ui::rect(win_size.x/2.f-75,win_size.y/2.f+25,float(eat_progress/1.6)*150,6,vec4(.5,1,.3,1));}
     int id=hotbar.get_item();std::string title=Items::name(id);Ui::text("hand",title,int(win_size.x)/2-Text::measure(title,2)/2,bottom-26,2);
@@ -399,6 +516,17 @@ void Player::draw_hand(){
     mat4 m=perspective(radians(70.f),float(win_size.x)/win_size.y,.05f,10.f);
     float phase=float(walk_phase)*.6662f;
     m=translate(m,vec3(sin(phase)*bob_amount*.025f,-abs(cos(phase))*bob_amount*.025f,0));
+    // Keep the arm on its own vanilla-sized transform. Reusing the item's
+    // scale makes the arm enormous for blocks and tools.
+    mat4 arm=m;
+    arm=translate(arm,vec3(.64000005f-.3f*sin(root*pi),-.6f+.4f*sin(root*2*pi)-(1-equip)*.6f,-.71999997f-.4f*sin(s*pi)));
+    arm=rotate(arm,radians(45.f+70.f*sin(root*pi)),vec3(0,1,0));
+    arm=rotate(arm,radians(-20.f*sin(s*s*pi)),vec3(0,0,1));
+    arm=translate(arm,vec3(-1.f,3.6f,3.5f));
+    arm=rotate(arm,radians(120.f),vec3(0,0,1));
+    arm=rotate(arm,radians(200.f),vec3(1,0,0));
+    arm=rotate(arm,radians(-135.f),vec3(0,1,0));
+    arm=translate(arm,vec3(5.6f,0,0));
     if(!Items::valid(equipped_item)){
         // 1.12.2 ItemRenderer's right-arm pose, with the ModelBiped shoulder
         // pivot retained in Avatar::hand instead of centering the arm mesh.
@@ -411,7 +539,20 @@ void Player::draw_hand(){
         m=rotate(m,radians(-135.f),vec3(0,1,0));
         m=translate(m,vec3(5.6f,0,0));Avatar::hand(m);return;
     }
-    if(eat_progress>0){
+    if(blocking && equipped_item==Items::SHIELD){
+        m=translate(m,vec3(.35f,-.2f-(1-equip)*.6f,-.5f));
+        m=rotate(m,radians(-25.f),vec3(0,1,0));
+    }else if(bow_time>0 && equipped_item==Items::BOW){
+        // ItemRenderer 1.12.2 BOW use branch (main/right hand).
+        m=translate(m,vec3(.56f,-.52f-(1-equip)*.6f,-.72f));
+        m=translate(m,vec3(-.2785682f,.18344387f,.15731531f));
+        m=rotate(m,radians(-13.935f),vec3(1,0,0));
+        m=rotate(m,radians(35.3f),vec3(0,1,0));m=rotate(m,radians(-9.785f),vec3(0,0,1));
+        float charge=Items::bow_charge(float(bow_time)),ticks=float(bow_time)*20;
+        if(charge>.1f)m=translate(m,vec3(0,sin((ticks-.1f)*1.3f)*(charge-.1f)*.004f,0));
+        m=translate(m,vec3(0,0,charge*.04f));m=scale(m,vec3(1,1,1+charge*.2f));
+        m=rotate(m,radians(-45.f),vec3(0,1,0));
+    }else if(eat_progress>0){
         float remaining=32.f-float(eat_progress)*20.f+1;
         float f=remaining/32.f;
         if(f<.8f)m=translate(m,vec3(0,abs(cos(remaining/4*pi))*.1f,0));
@@ -432,5 +573,9 @@ void Player::draw_hand(){
         // Flat sprite adaptation of the vanilla generated/handheld display pose.
         m=rotate(m,radians(-45.f),vec3(0,1,0));m=rotate(m,radians(25.f),vec3(0,0,1));m=scale(m,vec3(.68f));
     }
+    // Vanilla renders the right arm behind the held item. Keeping this pass
+    // for blocks, tools and food fixes the floating item look and gives every
+    // first-person item the same hand attachment as the empty-hand pose.
+    Avatar::hand(arm);
     ItemModel::draw(equipped_item,Ui::items_texture(),Ui::item_frame(equipped_item),m);
 }

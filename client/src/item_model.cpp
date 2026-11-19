@@ -8,7 +8,7 @@ namespace {
 Shader shader;GLuint vao=0,vbo=0;
 struct ModelVertex {vec3 p;vec2 uv;float light;};
 struct Range {int first=0,count=0;};
-Range block_mesh[BLOCK_COUNT],sprites[256];
+Range block_mesh[BLOCK_COUNT],sprites[Items::ATLAS_CAPACITY];
 Range damage[10];
 std::vector<ModelVertex> vertices;
 void face(const vec3* p,vec2 tile,vec2 extent,float light){
@@ -36,7 +36,7 @@ void ItemModel::init(){
         range.count=int(vertices.size())-range.first;
     }
     for(int n=0;n<10;++n){damage[n]={int(vertices.size()),36};for(int f=0;f<6;++f)face(corners[f],vec2(n,10)/32.f,vec2(1.f/32),1);}
-    for(int n=0;n<256;++n){sprites[n]={int(vertices.size()),6};face(flat,vec2(n%16,n/16)/16.f,vec2(1.f/16),1);}
+    for(int n=0;n<Items::ATLAS_CAPACITY;++n){sprites[n]={int(vertices.size()),6};face(flat,vec2(n%Items::ATLAS_COLUMNS,n/Items::ATLAS_COLUMNS)/float(Items::ATLAS_COLUMNS),vec2(1.f/Items::ATLAS_COLUMNS),1);}
     glGenVertexArrays(1,&vao);glGenBuffers(1,&vbo);glBindVertexArray(vao);glBindBuffer(GL_ARRAY_BUFFER,vbo);
     glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(ModelVertex),vertices.data(),GL_STATIC_DRAW);
     glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(ModelVertex),(void*)offsetof(ModelVertex,p));glEnableVertexAttribArray(0);
@@ -49,7 +49,7 @@ void ItemModel::draw(int id,Texture& items,int frame,const mat4& matrix){
     GLboolean cull=glIsEnabled(GL_CULL_FACE);
     if(cube(id))glEnable(GL_CULL_FACE);else glDisable(GL_CULL_FACE);
     Texture& tex=block?texture_atlas:items;tex.bind();shader.bind();shader.upload_texture("tex",tex);shader.upload_mat4("cam_mat",matrix);
-    Range r=block?block_mesh[id]:sprites[std::clamp(frame,0,255)];
+    Range r=block?block_mesh[id]:sprites[std::clamp(frame,0,Items::ATLAS_CAPACITY-1)];
     glBindVertexArray(vao);glDrawArrays(GL_TRIANGLES,r.first,r.count);
     if(cull)glEnable(GL_CULL_FACE);else glDisable(GL_CULL_FACE);
 }

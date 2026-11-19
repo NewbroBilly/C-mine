@@ -2,6 +2,7 @@
 #include <array>
 #include <functional>
 #include <cstdint>
+#include <model_animation.h>
 namespace Mobs {
 enum Kind {Pig,Cow,Sheep,Zombie,Creeper,Count};
 struct Entity {
@@ -11,6 +12,10 @@ struct Entity {
     float health=10;
     bool grounded=false,sheared=false;
     uint32_t random=1;
+    ModelAnimation::Walk walk;
+    double previous_yaw=0;
+    int age_ticks=0,attack_ticks=0;
+    bool arms_raised=false;
 };
 struct Traits {double width,height,speed;float health;bool hostile;};
 Traits traits(int kind);

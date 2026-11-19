@@ -1,6 +1,7 @@
 #pragma once
 
 #include <global.h>
+#include <model_animation.h>
 #include <camera.h>
 #include <blocks.h>
 #include <raycast.h>
@@ -23,6 +24,8 @@ struct Player
     bool grounded;
     int third_person = 0;
     double accumulator = 0, walk_phase = 0;
+    ModelAnimation::Walk model_walk;
+    int model_age=0;
     int jump_cooldown = 0;
     dvec3 previous_position{0};
     dvec3 render_position() const;
@@ -47,6 +50,16 @@ struct Player
     void hurt(float damage,bool bypass=false);
     double flight_tap=-1,vital_clock=0,break_progress=0,break_duration=0,action_delay=0,eat_progress=0;
     int eating_item=-1;
+    double bow_time=0;
+    bool blocking=false;
+    double item_message_time=0;
+    std::string item_message;
+    struct Shot {int item;dvec3 position,velocity;double age=0;float damage=0;};
+    std::vector<Shot> shots;
+    void update_projectiles();
+    void launch(int item,float charge=1);
+    void consume_held(int result=-1);
+    bool teleport_near(dvec3 target);
     ivec3 mining_position{-1000000};
     int mining_tool=-1;
     struct Dropped {Items::Stack stack;dvec3 position,velocity;double age=0;};

@@ -1,6 +1,7 @@
 #include <vector>
 #include <avatar.h>
 #include <gtc/matrix_transform.hpp>
+#include <model_animation.h>
 namespace {
 Shader shader;
 Texture skin,mob_skins[Mobs::Count],fur,armor_skins[5][2];
@@ -8,6 +9,11 @@ vec2 texture_size(64);
 GLuint vao,vbo;
 struct Vertex { vec3 position; vec2 uv; float shade; };
 std::vector<Vertex> vertices;
+// ModelRenderer applies its rotations Z, Y, X, after its pivot translation.
+mat4 part(const mat4& root,const ModelAnimation::Part& p) {
+    mat4 m=translate(root,vec3(p.px,p.py,p.pz));
+    m=rotate(m,p.z,vec3(0,0,1));m=rotate(m,p.y,vec3(0,1,0));return rotate(m,p.x,vec3(1,0,0));
+}
 // ModelBox's six rectangles on a 64x64 skin; coordinates remain in model pixels.
 void box(mat4 transform,vec3 minimum,ivec3 size,ivec2 uv,float inflate=0) {
     vec3 p[8];
@@ -52,26 +58,24 @@ void Avatar::init() {
     glVertexAttribPointer(1,2,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)offsetof(Vertex,uv));glEnableVertexAttribArray(1);
     glVertexAttribPointer(2,1,GL_FLOAT,GL_FALSE,sizeof(Vertex),(void*)offsetof(Vertex,shade));glEnableVertexAttribArray(2);
 }
-void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,float amount,float attack,const std::array<Items::Stack,4>* armor) {
+void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,float amount,float attack,const std::array<Items::Stack,4>* armor,float age,bool sneak,bool held,bool blocking,bool bow) {
     vertices.clear();texture_size=vec2(64);
     mat4 body=translate(mat4(1),vec3(position));
     body=rotate(body,atan2(forward.x,forward.z),vec3(0,1,0));
     body=scale(body,vec3(.9375f));body=translate(body,vec3(0,1.5,0));body=scale(body,vec3(1,-1,-1)/16.f);
-    mat4 head=rotate(body,-asin(clamp(forward.y,-1.f,1.f)),vec3(1,0,0));
+    if(sneak)body=translate(body,vec3(0,3.2f,0));
+    auto pose=ModelAnimation::biped(float(phase),amount,age,-asin(clamp(forward.y,-1.f,1.f)),attack>=1?0:attack,sneak,held,blocking,bow);
+    mat4 head=part(body,pose.head),torso=part(body,pose.body);
     box(head,vec3(-4,-8,-4),ivec3(8),ivec2(0,0));
     box(head,vec3(-4,-8,-4),ivec3(8),ivec2(32,0),.5f);
-    box(body,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16));
-    box(body,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,32),.25f);
-    float swing=cos(float(phase)*.6662f)*clamp(amount,0.f,1.f);
-    mat4 right_arm=rotate(translate(body,vec3(-5,2,0)),-swing,vec3(1,0,0));
-    right_arm=rotate(right_arm,-sin(sqrt(attack)*3.14159265f)*1.2f,vec3(1,0,0));
-    mat4 left_arm=rotate(translate(body,vec3(5,2,0)),swing,vec3(1,0,0));
+    box(torso,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16));
+    box(torso,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,32),.25f);
+    mat4 right_arm=part(body,pose.right_arm),left_arm=part(body,pose.left_arm);
     box(right_arm,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16));
     box(right_arm,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,32),.25f);
     box(left_arm,vec3(-1,-2,-2),ivec3(4,12,4),ivec2(32,48));
     box(left_arm,vec3(-1,-2,-2),ivec3(4,12,4),ivec2(48,48),.25f);
-    mat4 right_leg=rotate(translate(body,vec3(-1.9f,12,0)),swing*1.4f,vec3(1,0,0));
-    mat4 left_leg=rotate(translate(body,vec3(1.9f,12,0)),-swing*1.4f,vec3(1,0,0));
+    mat4 right_leg=part(body,pose.right_leg),left_leg=part(body,pose.left_leg);
     box(right_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16));
     box(right_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,32),.25f);
     box(left_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(16,48));
@@ -81,7 +85,7 @@ void Avatar::draw(dvec3 position,vec3 forward,double phase,const mat4& camera,fl
         for(int i=0;i<4;++i){auto& item=(*armor)[i];int material=Items::armor_material(item.id);if(item.empty() || material<0 || Items::armor_slot(item.id)!=i)continue;
             float f=i==2?.5f:1.f;
             if(i==0)box(head,vec3(-4,-8,-4),ivec3(8),ivec2(0),f);
-            if(i==1 || i==2)box(body,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16),f);
+            if(i==1 || i==2)box(torso,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16),f);
             if(i==1){box(right_arm,vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16),f);box(left_arm,vec3(-1,-2,-2),ivec3(4,12,4),ivec2(40,16),f);}
             if(i==2 || i==3){box(right_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16),f);box(left_leg,vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16),f);}
             flush(armor_skins[material][i==2?1:0],camera);
@@ -101,16 +105,16 @@ void Avatar::hand(const mat4& matrix){
 // ModelRenderer pivots and ModelBox UV rectangles, converted to our Y-up world.
 void Avatar::mob(const Mobs::Entity& e,const mat4& camera,double partial){
     vertices.clear();auto p=mix(dvec3(e.previous[0],e.previous[1],e.previous[2]),dvec3(e.position[0],e.position[1],e.position[2]),std::clamp(partial,0.,1.));
-    mat4 root=translate(mat4(1),vec3(p));root=rotate(root,float(e.yaw),vec3(0,1,0));root=translate(root,vec3(0,1.5,0));root=scale(root,vec3(1,-1,-1)/16.f);
-    float walk=length(dvec2(e.velocity[0],e.velocity[2]))>.1?cos(float(e.phase)*.6662f)*1.4f:0;
+    float alpha=float(std::clamp(partial,0.,1.)),phase=e.walk.render_phase(alpha),amount=e.walk.render_amount(alpha);
+    mat4 root=translate(mat4(1),vec3(p));root=rotate(root,ModelAnimation::interpolate_yaw(e.previous_yaw,e.yaw,alpha),vec3(0,1,0));root=translate(root,vec3(0,1.5,0));root=scale(root,vec3(1,-1,-1)/16.f);
+    float walk=ModelAnimation::leg(phase,amount,0);
     auto pivot=[&](vec3 pos,float angle=0.f){return rotate(translate(root,pos),angle,vec3(1,0,0));};
     texture_size=vec2(64,e.kind==Mobs::Zombie?64:32);
     if(e.kind==Mobs::Zombie){
         box(root,vec3(-4,-8,-4),ivec3(8),ivec2(0));box(root,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16));
-        // Zombies hold both arms forward, with the original small idle sway.
-        mat4 b=translate(root,vec3(0,0,0));
-        box(pivot(vec3(-5,2,0),-1.5708f+.05f*sin(float(e.phase))),vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16));
-        box(pivot(vec3(5,2,0),-1.5708f-.05f*sin(float(e.phase))),vec3(-1,-2,-2),ivec3(4,12,4),ivec2(40,16));
+        auto pose=ModelAnimation::zombie(phase,amount,float(e.age_ticks)+alpha,e.attack_ticks?std::clamp((6-e.attack_ticks+alpha)/6.f,0.f,1.f):0,e.arms_raised);
+        box(part(root,pose.right_arm),vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16));
+        box(part(root,pose.left_arm),vec3(-1,-2,-2),ivec3(4,12,4),ivec2(40,16));
         box(pivot(vec3(-1.9,12,0),walk),vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16));
         box(pivot(vec3(1.9,12,0),-walk),vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16));
     }else if(e.kind==Mobs::Creeper){

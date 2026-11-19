@@ -9,7 +9,8 @@ enum ID { ITEM_START=255,
 #undef ITEM
     ITEM_END
 };
-static_assert(ITEM_END-ITEM_START-1<=160,"Static icons overlap the animated item atlas region");
+constexpr int ATLAS_COLUMNS=32,ATLAS_CAPACITY=1024,CLOCK_ICON=768,COMPASS_ICON=800,CAST_ROD_ICON=832,BOW_ICON=833;
+static_assert(ITEM_END-ITEM_START-1<=CLOCK_ICON,"Static icons overlap the animated item atlas region");
 struct Stack {
     int id=-1,count=0,damage=0;
     bool empty() const {return id<1 || count<=0;}
@@ -21,6 +22,15 @@ int durability(int id);
 const char* name(int id);
 const char* english_name(int id);
 bool valid(int id);
+int from_vanilla_name(const char* name);
+bool always_edible(int id);
+int container_after_use(int id);
+int spawn_kind(int id);
+enum class Projectile {None,Arrow,Snowball,Egg,Pearl};
+Projectile projectile(int id);
+float bow_charge(float seconds);
+float projectile_speed(Projectile kind,float charge=1);
+float projectile_gravity(Projectile kind);
 int food_points(int id);
 float food_saturation(int id);
 bool block(int id);

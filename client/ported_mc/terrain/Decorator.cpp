@@ -219,7 +219,9 @@ void runSurface(Ctx& c, const Feature& f, uint64_t seed) {
         } else if (soil == B::MYCELIUM) { if (u < 0.08) c.put(x, y, z, makeState(v < 0.5 ? B::RED_MUSHROOM : B::BROWN_MUSHROOM), Mode::OnlyAir); }
         else if (soil == B::SAND || soil == B::RED_SAND) {
             if (b == Biome::Desert || b == Biome::Badlands) {
-                if (i < 6 && u < (b == Biome::Desert ? 0.5 : 0.25)) { int hgt = 1 + r.nextInt(3); for (int k = 0; k < hgt; ++k) c.put(x, y + k, z, makeState(B::CACTUS), Mode::OnlyAir); }
+                // Two sparse attempts instead of six dense ones (~6x fewer
+                // desert pillars). Keep feature seeds independent of load order.
+                if (i < 2 && u < (b == Biome::Desert ? 0.25 : 0.125)) { int hgt = 1 + r.nextInt(3); for (int k = 0; k < hgt; ++k) c.put(x, y + k, z, makeState(B::CACTUS), Mode::OnlyAir); }
                 else if (i < 16 && u < 0.5) c.put(x, y, z, makeState(B::DEAD_BUSH), Mode::OnlyAir);
             }
         }

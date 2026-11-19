@@ -47,8 +47,10 @@ int main(){
     int desert_x=0,desert_z=0;bool desert=false;
     for(int x=-8192;x<=8192 && !desert;x+=256)for(int z=-8192;z<=8192;z+=256){auto biome=terrain.column(x,z).biome;if(biome==mc::Biome::Desert || biome==mc::Biome::Badlands){desert_x=x/16;desert_z=z/16;desert=true;break;}}
     check(desert,"sample contains an arid biome");
-    size_t cactus=0;for(int dx=0;dx<4;++dx)for(int dz=0;dz<4;++dz){auto data=Generation::generate(12345,desert_x+dx,desert_z+dz);for(size_t i=0;i<data.size();i+=3)if(data[i]==CACTUS)++cactus;}
+    size_t cactus=0,pillars=0;for(int dx=0;dx<4;++dx)for(int dz=0;dz<4;++dz){auto data=Generation::generate(12345,desert_x+dx,desert_z+dz);for(size_t i=0;i<data.size();i+=3)if(data[i]==CACTUS)++cactus;
+        for(int x=0;x<16;++x)for(int z=0;z<16;++z)for(int y=1;y<255;++y)if(cell(data,x,y,z)==CACTUS && cell(data,x,y-1,z)!=CACTUS)++pillars;}
     check(cactus>0,"arid decoration must map cactus into cactus, never stone pillars");
+    check(pillars<=32,"at most two sparse cactus attempts per chunk (not six dense attempts)");
     auto tree_a=Generation::generate(12345,forest_x,forest_z),tree_b=Generation::generate(12345,forest_x+1,forest_z);
     size_t leaves=0;for(size_t i=0;i<tree_a.size();i+=3){if(tree_a[i]==BIRCH_LOG)++logs;if(tree_a[i]==LEAVES)++leaves;}
     check(logs>0 && leaves>0,"forest trees map into usable logs and leaf crowns");

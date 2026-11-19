@@ -1,6 +1,7 @@
 #include <items.h>
 #include <iostream>
 #include <stdexcept>
+#include <cmath>
 using namespace Items;
 void require(bool ok,const char* message){if(!ok)throw std::runtime_error(message);}
 int total(const Inventory& inv,int id){int n=0;for(auto& s:inv.main)if(s.id==id)n+=s.count;return n;}
@@ -85,7 +86,27 @@ int main(){try{
     require(!harvestable(RED_CONCRETE,-1) && harvestable(RED_CONCRETE,WOOD_PICKAXE),"concrete requires a pickaxe");
     require(break_seconds(DARK_OAK_LOG,IRON_AXE,true)<break_seconds(DARK_OAK_LOG,IRON_PICKAXE,true),"extended wood uses axe speed");
     Vitals fed;fed.food=1;fed.saturation=0;require(fed.eat(STEAK) && fed.food==9 && fed.saturation==9,"steak uses vanilla food and saturation cap");
-    require(BLOCK_COUNT<128 && ITEM_END-ITEM_START-1<160,"catalog fits persistent IDs and static item atlas region");
+    require(BLOCK_COUNT<128 && ITEM_END-ITEM_START-1<CLOCK_ICON,"catalog fits persistent IDs and static item atlas region");
+    int registry_count=0;
+#define VANILLA_ITEM(key,id) require(from_vanilla_name(#key)==id && valid(id),"vanilla registry names resolve to valid saved IDs");++registry_count;
+#include <vanilla_items.def>
+#undef VANILLA_ITEM
+    require(registry_count==209 && from_vanilla_name("minecraft:bow")==BOW && from_vanilla_name("not_an_item")==-1 && from_vanilla_name(nullptr)==-1,"all 209 non-block registry types and namespace validation");
+    require(ITEM_END-ITEM_START-1==235 && CLOCK_ICON>235 && BOW_ICON+2<ATLAS_CAPACITY,"expanded icons do not overlap animated frames");
+    require(limit(BOW)==1 && durability(BOW)==384 && durability(SHIELD)==336 && limit(ENDER_PEARL)==16 && limit(BEETROOT_SOUP)==1,"new items retain stack/durability rules");
+    require(container_after_use(MUSHROOM_STEW)==BOWL && container_after_use(MILK_BUCKET)==BUCKET && container_after_use(POTION)==GLASS_BOTTLE && container_after_use(APPLE)==-1,"consumables return the correct container");
+    require(spawn_kind(PIG_SPAWN_EGG)==0 && spawn_kind(CREEPER_SPAWN_EGG)==4 && spawn_kind(SPAWN_EGG)==-1,"spawn egg variants map only to implemented entity kinds");
+    require(bow_charge(0)==0 && bow_charge(1)==1 && bow_charge(2)==1 && std::abs(bow_charge(.5f)-5.f/12)<1e-5,"original bow charge curve and cap");
+    require(projectile(SNOWBALL)==Projectile::Snowball && projectile(EGG)==Projectile::Egg && projectile(ENDER_PEARL)==Projectile::Pearl && projectile(TIPPED_ARROW)==Projectile::Arrow,"throwable dispatch");
+    require(projectile_speed(Projectile::Arrow)==60 && projectile_gravity(Projectile::Arrow)==20 && projectile_speed(Projectile::Pearl)==30 && projectile_gravity(Projectile::Pearl)==12,"projectile tick values converted to seconds");
+    inv={};for(int i:{1,3,7})inv.craft[i]={STICK,1};for(int i:{2,5,8})inv.craft[i]={STRING,1};
+    require(recipe(inv.craft,3).output.id==BOW,"bow shaped recipe");
+    inv={};inv.craft[0]={FLINT,1};inv.craft[3]={STICK,1};inv.craft[6]={FEATHER,1};
+    require(recipe(inv.craft,3).output.id==ARROW && recipe(inv.craft,3).output.count==4,"four arrows from flint, stick and feather");
+    inv={};for(int i:{0,2,3,4,5,7})inv.craft[i]={PLANKS,1};inv.craft[1]={IRON_INGOT,1};
+    require(recipe(inv.craft,3).output.id==SHIELD,"shield shaped recipe");inv.craft[8]={DIRT,1};require(recipe(inv.craft,3).output.empty(),"shield rejects extra inputs");
+    v={};require(v.eat(GOLDEN_APPLE) && !v.eat(APPLE),"only always-edible foods bypass full hunger");
+    require(food_points(RABBIT_STEW)==10 && food_points(COOKED_SALMON)==6 && std::abs(food_saturation(GOLDEN_CARROT)-1.2f)<1e-5,"extended vanilla nutrition");
     v={};v.landing(3,true);require(v.health==20,"Three-block fall is safe");
     v.food=10;v.saturation=0;require(v.eat(APPLE) && v.food==14 && v.saturation>2.3,"Apple nutrition");
     v={};require(!v.eat(APPLE),"Cannot eat when full");v.saturation=0;v.exhaust(4.1f);v.tick();require(v.food==19,"Exhaustion depletes food after saturation");

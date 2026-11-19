@@ -173,6 +173,8 @@ void Game::create_world(){
     d.spawn_point=d.position;
     auto path=Saves::unique_path(save_root());if(!Saves::save(path,d)){message=Language::tr("Could not create save. Check free space.");return;}
     start(d.survival);current_save=d;world->seed=d.seed;world->generator_version=d.generator_version;world->save_path=path;
+    world->spawn_point=dvec3(d.spawn_point[0],d.spawn_point[1],d.spawn_point[2]);
+    world->spawn_known=true;
     player->pos=player->previous_position=dvec3(d.position[0],d.position[1],d.position[2]);
 }
 void Game::load_world(int index){
@@ -221,7 +223,12 @@ void Game::die(){
     screen=Screen::Dead;capture(false);
 }
 void Game::respawn(){
-    player->pos=player->previous_position=dvec3(8.5,122,8.5);player->vel=dvec3(0);player->grounded=false;
+    // Respawn at the world's saved spawn, never at the old hard-coded test
+    // coordinate. World::update validates the column and snaps to its surface
+    // before enabling player input.
+    const dvec3 target=world && world->spawn_known?world->spawn_point:dvec3(8.5,122,8.5);
+    player->pos=player->previous_position=target;player->vel=dvec3(0);player->grounded=false;
+    player->flying=false;player->flight_tap=-1;player->blocking=false;player->fishing=false;
     player->accumulator=player->vital_clock=0;player->vitals={};player->air=300;player->break_progress=0;player->hit_info.hit=false;
     world->spawned=false;screen=Screen::Playing;capture(true);
 }

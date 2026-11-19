@@ -94,20 +94,42 @@ def main():
                     overlay=Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/models/armor/leather_layer_{layer}_overlay.png"))).convert("RGBA")
                     image=Image.alpha_composite(image,overlay)
                 image.save(args.output/target)
-        items = Image.new("RGBA", (256, 256))
+        items = Image.new("RGBA", (512, 512))
         catalog = Path(__file__).resolve().parents[1] / "client/include/items.def"
         entries = catalog.read_text().splitlines()
-        if len(entries) > 160: raise ValueError("Static item atlas collides with animation region")
+        if len(entries) > 768: raise ValueError("Static item atlas collides with animation region")
         for i, line in enumerate(entries):
             fields = next(csv.reader([re.fullmatch(r"ITEM\((.*)\)", line)[1]]))
-            image = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/" + fields[2] + ".png"))).convert("RGBA")
-            items.paste(image.crop((0, 0, 16, 16)), ((i % 16)*16, (i // 16)*16))
-        for start, prefix in [(160,"clock"),(192,"compass")]:
+            texture = fields[2]
+            # Built-in entity item renderers do not have an item PNG. These
+            # compact thumbnails use their original entity texture, not a
+            # nonexistent textures/items/shield.png path.
+            builtin = {"@shield": ("entity/shield_base", (2, 0, 12, 22)),
+                       "@banner": ("entity/banner_base", (0, 0, 20, 40)),
+                       "@bed": ("entity/bed/red", (6, 6, 22, 22)),
+                       "@skull": ("entity/skeleton/skeleton", (8, 8, 16, 16))}
+            if texture in builtin:
+                name, crop = builtin[texture]
+                image = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/" + name + ".png"))).convert("RGBA").crop(crop)
+                image.thumbnail((14, 14), Image.Resampling.NEAREST)
+                tile_image = Image.new("RGBA", (16,16));tile_image.paste(image, ((16-image.width)//2, (16-image.height)//2))
+                image = tile_image
+            else:
+                image = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/" + texture + ".png"))).convert("RGBA")
+            if texture == "spawn_egg":
+                tint = {"PIG":(226,153,153),"COW":(112,80,60),"SHEEP":(220,220,220),"ZOMBIE":(78,132,68),"CREEPER":(65,155,60)}
+                color = tint.get(fields[0].split("_")[0], (160,180,150))
+                image = ImageChops.multiply(image, Image.new("RGBA",image.size,(*color,255)))
+            items.paste(image.crop((0, 0, 16, 16)), ((i % 32)*16, (i // 32)*16))
+        for start, prefix in [(768,"clock"),(800,"compass")]:
             for frame in range(32):
                 image=Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/items/{prefix}_{frame:02d}.png"))).convert("RGBA")
-                n=start+frame;items.paste(image.crop((0,0,16,16)),((n%16)*16,(n//16)*16))
+                n=start+frame;items.paste(image.crop((0,0,16,16)),((n%32)*16,(n//32)*16))
         image=Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/fishing_rod_cast.png"))).convert("RGBA")
-        items.paste(image.crop((0,0,16,16)),(0,224))
+        items.paste(image.crop((0,0,16,16)),(0,416))
+        for frame in range(3):
+            image=Image.open(io.BytesIO(archive.read(f"assets/minecraft/textures/items/bow_pulling_{frame}.png"))).convert("RGBA")
+            items.paste(image.crop((0,0,16,16)),((frame+1)*16,416))
         items.save(args.output / "items.png")
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "player.png").write_bytes(skin)

@@ -56,7 +56,7 @@ bool read(const std::filesystem::path& file,Data& result){
             for(auto& p:e.position)if(!(f>>p) || !std::isfinite(p) || std::abs(p)>30000000)return false;
             for(auto& v:e.velocity)if(!(f>>v) || !std::isfinite(v) || std::abs(v)>1000)return false;
             if(!(f>>e.yaw>>e.phase>>e.health>>e.sheared>>e.random>>e.fuse) || !std::isfinite(e.yaw) || !std::isfinite(e.phase) || !std::isfinite(e.health) || !std::isfinite(e.fuse) || std::abs(e.yaw)>1e9 || std::abs(e.phase)>1e12 || e.health<=0 || e.health>20 || e.fuse<0 || e.fuse>1.5)return false;
-            e.previous=e.position;d.mobs.push_back(e);
+            e.previous=e.position;e.previous_yaw=e.yaw;e.walk.phase=e.walk.previous_phase=float(e.phase);d.mobs.push_back(e);
         }
     }
     f>>std::ws;if(!f.eof())return false;result=d;return true;

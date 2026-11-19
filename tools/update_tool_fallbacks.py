@@ -8,12 +8,17 @@ from PIL import Image, ImageDraw
 root = Path(__file__).resolve().parents[1]
 folder = root / "client/textures"
 items = Image.open(folder / "items.png").convert("RGBA")
+columns = items.width // 16
+if items.size not in ((256, 256), (512, 512)):
+    raise ValueError("Expected the legacy 256px or current 512px item atlas")
 entries = [next(csv.reader([re.fullmatch(r"ITEM\((.*)\)", line)[1]]))
            for line in (root / "client/include/items.def").read_text().splitlines()]
 colors = {"WOOD": "#aa7845", "STONE": "#9b9fa5", "IRON": "#dbe5e5",
           "DIAMOND": "#4ce2ce", "GOLD": "#ffda50"}
 for index, fields in enumerate(entries):
-    if index < 21:
+    # Only this script's original tool/material art; appended icons are owned by
+    # expand_item_fallbacks.py. Never overwrite its catalog or animation frames.
+    if index < 21 or index >= 113:
         continue
     name = fields[0]
     tile = Image.new("RGBA", (16, 16))
@@ -91,8 +96,8 @@ for index, fields in enumerate(entries):
     else:
         d.ellipse((1, 1, 14, 14), fill="#efce64" if name == "CLOCK" else "#a3afb8", outline="#383a40", width=2)
         d.line([(8, 8), (8, 3)], fill="#cc4040", width=2)
-    items.paste(tile, ((index % 16) * 16, (index // 16) * 16))
-for start, compass in [(160, False), (192, True)]:
+    items.paste(tile, ((index % columns) * 16, (index // columns) * 16))
+for start, compass in ([(160, False), (192, True)] if columns == 16 else [(768, False), (800, True)]):
     for frame in range(32):
         tile = Image.new("RGBA", (16, 16))
         d = ImageDraw.Draw(tile)
@@ -100,9 +105,11 @@ for start, compass in [(160, False), (192, True)]:
         angle = frame / 32 * math.tau
         d.line([(8, 8), (8 + math.sin(angle)*5, 8 - math.cos(angle)*5)], fill="#e24343" if compass else "#273951", width=2)
         n = start + frame
-        items.paste(tile, ((n % 16)*16, (n // 16)*16))
+        items.paste(tile, ((n % columns)*16, (n // columns)*16))
 rod_index = next(i for i, fields in enumerate(entries) if fields[0] == "FISHING_ROD")
-items.paste(items.crop(((rod_index%16)*16, (rod_index//16)*16, (rod_index%16)*16+16, (rod_index//16)*16+16)), (0,224))
+rod_frame = 224 if columns == 16 else 832
+items.paste(items.crop(((rod_index%columns)*16, (rod_index//columns)*16, (rod_index%columns)*16+16, (rod_index//columns)*16+16)),
+            ((rod_frame%columns)*16, (rod_frame//columns)*16))
 items.save(folder / "items.png")
 
 atlas = Image.open(folder / "texture_atlas.png").convert("RGBA")

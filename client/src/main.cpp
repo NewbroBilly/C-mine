@@ -3,6 +3,7 @@
 #include <settings.h>
 #include <menu.h>
 #include <language.h>
+#include <item_smoke.h>
 #ifdef __SWITCH__
 #include <switch.h>
 #include <unistd.h>
@@ -543,6 +544,7 @@ int main(int argc, char** argv)
                 Game::title();Game::select_worlds();Game::load_world(0);
                 if(world->mobs.size()!=Mobs::Count || !world->initial_mobs || player->inventory.survival.armor[0].id!=Items::DIAMOND_HELMET || player->inventory.creative.armor[1].id!=Items::IRON_CHESTPLATE)return 87;
                 SDL_Log("Classic release smoke passed: all five textured mob models, armored avatar/HUD, damage mitigation, survival and creative equipment validation, shift equip, all mobs and armor saved/reopened");
+                if(!item_smoke(save_frame))return 88;
                 if(glGetError()!=GL_NO_ERROR)return 70;
                 closed=true;
             }
