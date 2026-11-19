@@ -571,17 +571,6 @@ void Player::draw_hand(){
     mat4 m=perspective(radians(70.f),float(win_size.x)/win_size.y,.05f,10.f);
     float phase=float(walk_phase)*.6662f;
     m=translate(m,vec3(sin(phase)*bob_amount*.025f,-abs(cos(phase))*bob_amount*.025f,0));
-    // Keep the arm on its own vanilla-sized transform. Reusing the item's
-    // scale makes the arm enormous for blocks and tools.
-    mat4 arm=m;
-    arm=translate(arm,vec3(.64000005f-.3f*sin(root*pi),-.6f+.4f*sin(root*2*pi)-(1-equip)*.6f,-.71999997f-.4f*sin(s*pi)));
-    arm=rotate(arm,radians(45.f+70.f*sin(root*pi)),vec3(0,1,0));
-    arm=rotate(arm,radians(-20.f*sin(s*s*pi)),vec3(0,0,1));
-    arm=translate(arm,vec3(-1.f,3.6f,3.5f));
-    arm=rotate(arm,radians(120.f),vec3(0,0,1));
-    arm=rotate(arm,radians(200.f),vec3(1,0,0));
-    arm=rotate(arm,radians(-135.f),vec3(0,1,0));
-    arm=translate(arm,vec3(5.6f,0,0));
     if(!Items::valid(equipped_item)){
         // 1.12.2 ItemRenderer's right-arm pose, with the ModelBiped shoulder
         // pivot retained in Avatar::hand instead of centering the arm mesh.
@@ -628,9 +617,8 @@ void Player::draw_hand(){
         // Flat sprite adaptation of the vanilla generated/handheld display pose.
         m=rotate(m,radians(-45.f),vec3(0,1,0));m=rotate(m,radians(25.f),vec3(0,0,1));m=scale(m,vec3(.68f));
     }
-    // Vanilla renders the right arm behind the held item. Keeping this pass
-    // for blocks, tools and food fixes the floating item look and gives every
-    // first-person item the same hand attachment as the empty-hand pose.
-    Avatar::hand(arm);
+    // The first-person arm is shown only for an empty hand.  When an item is
+    // selected the held model owns the hand area, matching the requested
+    // classic view and preventing the arm from covering the item texture.
     ItemModel::draw(equipped_item,Ui::items_texture(),Ui::item_frame(equipped_item),m);
 }
