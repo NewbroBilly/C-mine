@@ -357,21 +357,6 @@ void Game::draw()
 
     if (!world) { Menu::draw(false); return; }
     world->draw();
-    // Lightweight vanilla-style celestial overlay. The position follows the
-    // 24,000-tick day cycle; clouds can be disabled in Options.
-    glDisable(GL_DEPTH_TEST);glDisable(GL_CULL_FACE);glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-    float cycle=float(std::fmod(world->day_ticks,24000.0)/24000.0*6.2831853);
-    float sx=win_size.x*.5f+std::cos(cycle)*win_size.x*.38f;
-    float sy=win_size.y*.46f-std::sin(cycle)*win_size.y*.38f;
-    Ui::rect(sx-22,sy-22,44,44,vec4(1.f,.86f,.25f,.9f));
-    float mx=win_size.x*.5f-std::cos(cycle)*win_size.x*.32f;
-    float my=win_size.y*.46f+std::sin(cycle)*win_size.y*.32f;
-    Ui::rect(mx-15,my-15,30,30,vec4(.8f,.86f,1.f,.8f));
-    if(Settings::options.clouds){
-        float drift=float(std::fmod(world->day_ticks*.015,win_size.x+260.f))-130.f;
-        for(int row=0;row<3;++row){float y=win_size.y*(.18f+row*.09f);Ui::rect(drift+row*220,y,180,18,vec4(1,1,1,.16f));Ui::rect(drift+95+row*220,y-7,110,16,vec4(1,1,1,.13f));}
-    }
-    glEnable(GL_DEPTH_TEST);glEnable(GL_CULL_FACE);
     player->draw();
     player->draw_drops();
     player->draw_hand();
