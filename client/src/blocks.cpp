@@ -218,6 +218,29 @@ void build_cube(Block* block, Chunk* chunk, const ivec3& pos, std::vector<Vertex
     }
 }
 
+// A small axis-aligned box helper for catalog blocks that are thinner than a
+// full voxel (beds). It keeps the normal atlas UVs while retaining the same
+// culling and ambient-occlusion rules as ordinary cubes.
+void build_box(Block* block, Chunk* chunk, const ivec3& pos,
+               const vec3& minimum, const vec3& maximum,
+               std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    for (int f = 0; f < 6; ++f) {
+        int light;
+        if (!face_is_visible(chunk, pos, f, light)) continue;
+        const vec2 tex_coord = block->get_texture(chunk, pos, f);
+        const vec3 origin = (vec3)pos + chunk_pos_to_world(chunk->pos);
+        for (int v = 0; v < 4; ++v) {
+            const vec3 corner = vec3(vertex_offset[f][v]);
+            const vec3 p = minimum + corner * (maximum - minimum);
+            Vertex vert(origin + p, f, light, get_ao(chunk, pos, f, v), tex_coord, v);
+            vertices.push_back(vert);
+        }
+        for (int v : {0, 1, 2, 0, 2, 3}) indices.push_back(index + v);
+        index += 4;
+    }
+}
+
 void build_oriented_cube(Block* block, Chunk* chunk, const ivec3& pos, std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
 {
     int orientation = chunk->get(pos)->data1 & 3;
@@ -602,13 +625,16 @@ struct WaterBlock : public Block {
 };
 
 struct CatalogBlock : public Block {
+    int id;
     ivec2 side,top,bottom;
-    CatalogBlock(ivec2 s,ivec2 t,ivec2 b,int emission):side(s),top(t),bottom(b){
-        opacity=s==ivec2(0,7)?0:15;light=char(emission);icon=Sprite(vec2(0),vec2(16),vec2(s.x*16,(s.y+1)*16),&texture_atlas);
+    CatalogBlock(int block_id,ivec2 s,ivec2 t,ivec2 b,int emission):id(block_id),side(s),top(t),bottom(b){
+        opacity=block_id==BANNER_BLOCK?0:15;light=char(emission);icon=Sprite(vec2(0),vec2(16),vec2(s.x*16,(s.y+1)*16),&texture_atlas);
     }
     vec2 get_texture(Chunk*,const ivec3&,int face) override {return face==TOP_FACE?top:(face==BOTTOM_FACE?bottom:side);}
     void build(Chunk* c,const ivec3& p,std::vector<Vertex>& v,std::vector<int>& i,int& n) override {
         if(c->get(p)->id==FIRE){auto start=v.size();build_cross(this,c,p,v,i,n);for(size_t a=start;a<v.size();++a)v[a].data|=1<<26;}
+        else if(id==BED_BLOCK)build_box(this,c,p,vec3(0,0,0),vec3(1,.5625f,1),v,i,n);
+        else if(id==BANNER_BLOCK)build_cross(this,c,p,v,i,n);
         else build_cube(this,c,p,v,i,n);
     }
 };
@@ -627,7 +653,7 @@ void blocks_init()
     blocks[TORCH] = new Torch();
     blocks[PLANKS] = new Planks();
     blocks[BEDROCK] = new Bedrock();
-#define BASE_BLOCK(id,label,sx,sy,sname,tx,ty,tname,bx,by,bname,emission) blocks[id]=new CatalogBlock(ivec2(sx,sy),ivec2(tx,ty),ivec2(bx,by),emission);
+#define BASE_BLOCK(id,label,sx,sy,sname,tx,ty,tname,bx,by,bname,emission) blocks[id]=new CatalogBlock(id,ivec2(sx,sy),ivec2(tx,ty),ivec2(bx,by),emission);
 #define EXTRA_BLOCK BASE_BLOCK
 #include <extra_blocks.def>
 #undef EXTRA_BLOCK
