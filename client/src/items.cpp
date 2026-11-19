@@ -71,7 +71,7 @@ int container_after_use(int id){switch(id){
 case MUSHROOM_STEW:case RABBIT_STEW:case BEETROOT_SOUP:return BOWL;
 case MILK_BUCKET:return BUCKET;case POTION:case DRAGON_BREATH:return GLASS_BOTTLE;
 default:return -1;}}
-int spawn_kind(int id){return id>=PIG_SPAWN_EGG && id<=CREEPER_SPAWN_EGG?id-PIG_SPAWN_EGG:-1;}
+int spawn_kind(int id){return id>=PIG_SPAWN_EGG && id<=HORSE_SPAWN_EGG?id-PIG_SPAWN_EGG:-1;}
 Projectile projectile(int id){switch(id){
 case ARROW:case SPECTRAL_ARROW:case TIPPED_ARROW:return Projectile::Arrow;
 case SNOWBALL:return Projectile::Snowball;case EGG:return Projectile::Egg;case ENDER_PEARL:return Projectile::Pearl;

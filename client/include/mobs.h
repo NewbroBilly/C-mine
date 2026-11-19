@@ -4,7 +4,8 @@
 #include <cstdint>
 #include <model_animation.h>
 namespace Mobs {
-enum Kind {Pig,Cow,Sheep,Zombie,Creeper,Count};
+// Minecraft 1.12.2 living entity roster used by the client renderer.
+enum Kind {Pig,Cow,Sheep,Zombie,Creeper,Chicken,Skeleton,Spider,Enderman,Slime,Ghast,Blaze,Witch,Wither,Bat,Rabbit,Wolf,Ocelot,Horse,Count};
 struct Entity {
     int kind=Pig;
     std::array<double,3> position{},previous{},velocity{};

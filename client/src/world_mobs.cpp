@@ -53,7 +53,9 @@ void World::update_mobs(){
         for(int attempt=0;attempt<100 && nearby<24 && mobs.size()<128;++attempt){
             auto r=next_random(mob_random);bool hostile=day_ticks>13000 && day_ticks<23000 && (passive>=6 || attempt%3==0);
             if(!hostile && passive>=12)continue;
-            int kind=hostile?Mobs::Zombie+int(r%2):int(r%3);
+            static const int hostile_kinds[]={Mobs::Zombie,Mobs::Creeper,Mobs::Skeleton,Mobs::Spider,Mobs::Enderman,Mobs::Slime,Mobs::Ghast,Mobs::Blaze,Mobs::Witch,Mobs::Wither};
+            static const int passive_kinds[]={Mobs::Pig,Mobs::Cow,Mobs::Sheep,Mobs::Chicken,Mobs::Rabbit,Mobs::Wolf,Mobs::Ocelot,Mobs::Horse};
+            int kind=hostile?hostile_kinds[r%(sizeof(hostile_kinds)/sizeof(hostile_kinds[0]))]:passive_kinds[r%(sizeof(passive_kinds)/sizeof(passive_kinds[0]))];
             double angle=next_random(mob_random)/4294967296.*6.2831853;
             double radius=(first?9:24)+next_random(mob_random)%24;
             int x=int(floor(player->pos.x+sin(angle)*radius)),z=int(floor(player->pos.z+cos(angle)*radius));

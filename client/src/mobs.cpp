@@ -4,7 +4,7 @@
 #include <cmath>
 #include <limits>
 namespace Mobs {
-Traits traits(int kind){static const Traits t[]={{.9,.9,.25f,10,false},{.9,1.4,.2f,10,false},{.9,1.3,.23f,8,false},{.6,1.95,.23f,20,true},{.6,1.7,.25f,20,true}};return t[std::clamp(kind,0,int(Count)-1)];}
+Traits traits(int kind){static const Traits t[]={{.9,.9,.25f,10,false},{.9,1.4,.2f,10,false},{.9,1.3,.23f,8,false},{.6,1.95,.23f,20,true},{.6,1.7,.25f,20,true},{.5,.8,.25f,4,false},{.6,1.99,.23f,20,true},{1.4,.9,.3f,16,true},{.6,2.9,.23f,40,true},{.8,.8,.2f,16,true},{4,4,.1f,10,true},{.7,1.8,.22f,20,true},{.6,1.95,.2f,26,true},{.9,3.5,.2f,300,true},{.5,.5,.18f,6,false},{.6,.7,.28f,3,false},{.8,.9,.25f,8,false},{.8,.8,.25f,10,false},{1.4,1.6,.25f,30,false}};return t[std::clamp(kind,0,int(Count)-1)];}
 Entity create(int kind,std::array<double,3> p,uint32_t seed){Entity e;e.kind=kind;e.position=e.previous=p;e.health=traits(kind).health;e.random=seed?seed:1;e.yaw=e.previous_yaw=(seed%6283)/1000.;return e;}
 static uint32_t random(Entity& e){e.random^=e.random<<13;e.random^=e.random>>17;e.random^=e.random<<5;return e.random;}
 bool fits(const Entity& e,const std::array<double,3>& p,const Query& query){auto t=traits(e.kind);double w=t.width/2;

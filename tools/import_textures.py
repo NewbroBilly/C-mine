@@ -98,7 +98,7 @@ def main():
             (args.output / target).write_bytes(archive.read("assets/minecraft/textures/gui/" + source))
         for target, source in [("creative.png", "tab_items.png"), ("creative_tabs.png", "tabs.png")]:
             (args.output / target).write_bytes(archive.read("assets/minecraft/textures/gui/container/creative_inventory/" + source))
-        entities={"pig":"pig/pig", "cow":"cow/cow", "sheep":"sheep/sheep", "sheep_fur":"sheep/sheep_fur", "zombie":"zombie/zombie", "creeper":"creeper/creeper"}
+        entities={"pig":"pig/pig", "cow":"cow/cow", "sheep":"sheep/sheep", "sheep_fur":"sheep/sheep_fur", "zombie":"zombie/zombie", "creeper":"creeper/creeper", "chicken":"chicken", "skeleton":"skeleton/skeleton", "spider":"spider/spider", "enderman":"enderman/enderman", "slime":"slime/slime", "ghast":"ghast/ghast", "blaze":"blaze", "witch":"witch", "wither":"wither/wither", "bat":"bat", "rabbit":"rabbit/brown", "wolf":"wolf/wolf", "ocelot":"cat/ocelot", "horse":"horse/horse_brown"}
         for target,source in entities.items():
             (args.output/(target+".png")).write_bytes(archive.read("assets/minecraft/textures/entity/"+source+".png"))
         for material in ("leather","chainmail","iron","gold","diamond"):
@@ -133,7 +133,7 @@ def main():
             else:
                 image = Image.open(io.BytesIO(archive.read("assets/minecraft/textures/items/" + texture + ".png"))).convert("RGBA")
             if texture == "spawn_egg":
-                tint = {"PIG":(226,153,153),"COW":(112,80,60),"SHEEP":(220,220,220),"ZOMBIE":(78,132,68),"CREEPER":(65,155,60)}
+                tint = {"PIG":(226,153,153),"COW":(112,80,60),"SHEEP":(220,220,220),"ZOMBIE":(78,132,68),"CREEPER":(65,155,60),"CHICKEN":(235,235,235),"SKELETON":(220,220,220),"SPIDER":(55,30,30),"ENDERMAN":(35,20,45),"SLIME":(80,220,100),"GHAST":(235,235,235),"BLAZE":(245,160,50),"WITCH":(90,55,110),"WITHER":(45,45,45),"BAT":(70,45,75),"RABBIT":(170,130,90),"WOLF":(150,150,150),"OCELOT":(210,180,110),"HORSE":(140,90,50)}
                 color = tint.get(fields[0].split("_")[0], (160,180,150))
                 image = ImageChops.multiply(image, Image.new("RGBA",image.size,(*color,255)))
             items.paste(image.crop((0, 0, 16, 16)), ((i % 32)*16, (i // 32)*16))

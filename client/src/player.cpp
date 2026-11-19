@@ -629,8 +629,9 @@ void Player::draw_hand(){
         // Flat sprite adaptation of the vanilla generated/handheld display pose.
         m=rotate(m,radians(-45.f),vec3(0,1,0));m=rotate(m,radians(25.f),vec3(0,0,1));m=scale(m,vec3(.68f));
     }
-    // The first-person arm is shown only for an empty hand.  When an item is
-    // selected the held model owns the hand area, matching the requested
-    // classic view and preventing the arm from covering the item texture.
+    // Vanilla keeps the right arm visible while holding an item.  Draw it
+    // with the same pose before the item so the hand stays attached to tools
+    // and blocks instead of disappearing behind the model.
+    Avatar::hand(m);
     ItemModel::draw(equipped_item,Ui::items_texture(),Ui::item_frame(equipped_item),m);
 }

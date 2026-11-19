@@ -92,7 +92,7 @@ int main(){try{
 #include <vanilla_items.def>
 #undef VANILLA_ITEM
     require(registry_count==209 && from_vanilla_name("minecraft:bow")==BOW && from_vanilla_name("not_an_item")==-1 && from_vanilla_name(nullptr)==-1,"all 209 non-block registry types and namespace validation");
-    require(ITEM_END-ITEM_START-1==235 && CLOCK_ICON>235 && BOW_ICON+2<ATLAS_CAPACITY,"expanded icons do not overlap animated frames");
+    require(ITEM_END-ITEM_START-1>=235 && CLOCK_ICON>ITEM_END-ITEM_START-1 && BOW_ICON+2<ATLAS_CAPACITY,"expanded icons do not overlap animated frames");
     require(limit(BOW)==1 && durability(BOW)==384 && durability(SHIELD)==336 && limit(ENDER_PEARL)==16 && limit(BEETROOT_SOUP)==1,"new items retain stack/durability rules");
     require(container_after_use(MUSHROOM_STEW)==BOWL && container_after_use(MILK_BUCKET)==BUCKET && container_after_use(POTION)==GLASS_BOTTLE && container_after_use(APPLE)==-1,"consumables return the correct container");
     require(spawn_kind(PIG_SPAWN_EGG)==0 && spawn_kind(CREEPER_SPAWN_EGG)==4 && spawn_kind(SPAWN_EGG)==-1,"spawn egg variants map only to implemented entity kinds");

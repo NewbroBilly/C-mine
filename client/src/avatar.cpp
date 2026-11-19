@@ -48,7 +48,7 @@ void Avatar::init() {
 #endif
     if(!std::filesystem::exists(path))path="textures/player.png";
     skin=Texture(path.c_str(),6);
-    const char* names[]={"pig","cow","sheep","zombie","creeper"};
+    const char* names[]={"pig","cow","sheep","zombie","creeper","chicken","skeleton","spider","enderman","slime","ghast","blaze","witch","wither","bat","rabbit","wolf","ocelot","horse"};
     for(int i=0;i<Mobs::Count;++i)mob_skins[i]=load_skin(names[i]);fur=load_skin("sheep_fur");
     const char* mats[]={"leather","chainmail","iron","gold","diamond"};
     for(int m=0;m<5;++m)for(int l=0;l<2;++l)armor_skins[m][l]=load_skin(std::string(mats[m])+"_layer_"+std::to_string(l+1));
@@ -121,6 +121,31 @@ void Avatar::mob(const Mobs::Entity& e,const mat4& camera,double partial){
         box(pivot(vec3(0,6,0)),vec3(-4,-8,-4),ivec3(8),ivec2(0));
         box(pivot(vec3(0,6,0)),vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16));
         for(int i=0;i<4;++i)box(pivot(vec3(i%2?2:-2,18,i<2?4:-4),(i==0 || i==3)?walk:-walk),vec3(-2,0,-2),ivec3(4,6,4),ivec2(0,16));
+    }else if(e.kind==Mobs::Chicken){
+        box(pivot(vec3(0,8,-4)),vec3(-3,-3,-4),ivec3(6,6,6),ivec2(0));
+        box(pivot(vec3(0,8,-8)),vec3(-2,-2,-3),ivec3(4,4,3),ivec2(14,0));
+        for(int i=0;i<2;++i)box(pivot(vec3(i?2:-2,10,0),i?-.25f:.25f),vec3(-1,-2,-3),ivec3(2,4,6),ivec2(0,16));
+        for(int i=0;i<2;++i)box(pivot(vec3(i?1:-1,2,0),i?walk:-walk),vec3(-1,0,-1),ivec3(2,6,2),ivec2(0,22));
+    }else if(e.kind==Mobs::Spider){
+        box(pivot(vec3(0,6,0)),vec3(-4,-3,-8),ivec3(8,6,16),ivec2(0));
+        box(pivot(vec3(0,7,-8)),vec3(-4,-4,-4),ivec3(8),ivec2(32,0));
+        for(int i=0;i<8;++i){float side=i%2?-1.f:1.f;float z=(i/2-1.5f)*3.f;box(pivot(vec3(side*5,5,z),side*(i%4<2?.35f:-.35f)+walk*side),vec3(-1,0,-1),ivec3(2,1,8),ivec2(0,16));}
+    }else if(e.kind==Mobs::Enderman){
+        box(root,vec3(-4,-8,-4),ivec3(8),ivec2(0));box(root,vec3(-3,0,-2),ivec3(6,24,4),ivec2(16,16));
+        box(pivot(vec3(-5,0,0),walk),vec3(-2,0,-2),ivec3(4,24,4),ivec2(40,16));box(pivot(vec3(5,0,0),-walk),vec3(-2,0,-2),ivec3(4,24,4),ivec2(40,16));
+    }else if(e.kind==Mobs::Slime){
+        box(root,vec3(-6,-6,-6),ivec3(12),ivec2(0),.15f);box(root,vec3(-3,-3,-6.5),ivec3(2),ivec2(0));box(root,vec3(3,-3,-6.5),ivec3(2),ivec2(0));
+    }else if(e.kind==Mobs::Ghast || e.kind==Mobs::Wither){
+        int s=e.kind==Mobs::Ghast?16:10;box(root,vec3(-s,-s,-s),ivec3(s*2),ivec2(0));
+        for(int i=0;i<8;++i)box(pivot(vec3((i%4-1.5f)*5,-s*1.2f,(i/4?4:-4)),walk),vec3(-1,0,-1),ivec3(2,8,2),ivec2(0,16));
+    }else if(e.kind==Mobs::Blaze){
+        box(root,vec3(-4,-8,-4),ivec3(8,16,8),ivec2(0));for(int i=0;i<12;++i){float a=i*.5236f;box(pivot(vec3(std::cos(a)*8,5+std::sin(a*2)*3,std::sin(a)*8),a+phase*.15f),vec3(-1,-1,-1),ivec3(2),ivec2(0,16));}
+    }else if(e.kind==Mobs::Bat){
+        box(pivot(vec3(0,4,0)),vec3(-2,-3,-2),ivec3(4,6,4),ivec2(0));for(int i=0;i<2;++i)box(pivot(vec3(i?3:-3,5,0),i?-.25f:.25f),vec3(-1,-1,-4),ivec3(2,2,8),ivec2(0,16));
+    }else if(e.kind==Mobs::Rabbit){
+        box(pivot(vec3(0,5,-3)),vec3(-3,-3,-4),ivec3(6,6,8),ivec2(0));box(pivot(vec3(0,11,-5)),vec3(-2,-4,-2),ivec3(4,6,4),ivec2(24,0));for(int i=0;i<4;++i)box(pivot(vec3(i%2?2:-2,0,i<2?2:-2),walk),vec3(-1,0,-1),ivec3(2,4,2),ivec2(0,16));
+    }else if(e.kind==Mobs::Witch || e.kind==Mobs::Skeleton){
+        box(root,vec3(-4,-8,-4),ivec3(8),ivec2(0));box(root,vec3(-4,0,-2),ivec3(8,12,4),ivec2(16,16));auto pose=ModelAnimation::biped(phase,amount,float(e.age_ticks)+alpha,0,0,false,e.kind==Mobs::Witch);box(part(root,pose.right_arm),vec3(-3,-2,-2),ivec3(4,12,4),ivec2(40,16));box(part(root,pose.left_arm),vec3(-1,-2,-2),ivec3(4,12,4),ivec2(40,16));box(pivot(vec3(-1.9,12,0),walk),vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16));box(pivot(vec3(1.9,12,0),-walk),vec3(-2,0,-2),ivec3(4,12,4),ivec2(0,16));
     }else{
         bool cow=e.kind==Mobs::Cow,sheep=e.kind==Mobs::Sheep;
         if(cow){auto h=pivot(vec3(0,4,-8));box(h,vec3(-4,-4,-6),ivec3(8,8,6),ivec2(0));
