@@ -9,6 +9,7 @@ Shader shader;GLuint vao=0,vbo=0;
 struct ModelVertex {vec3 p;vec2 uv;float light;};
 struct Range {int first=0,count=0;};
 Range block_mesh[BLOCK_COUNT],sprites[Items::ATLAS_CAPACITY];
+Range shield_mesh;
 Range damage[10];
 std::vector<ModelVertex> vertices;
 void face(const vec3* p,vec2 tile,vec2 extent,float light){
@@ -29,6 +30,19 @@ void ItemModel::init(){
         {{.5,-.5,-.5},{-.5,-.5,-.5},{-.5,.5,-.5},{.5,.5,-.5}}};
     const float shades[]={.78f,.78f,1.f,.5f,.9f,.65f};
     const vec3 flat[4]={{-.5,-.5,0},{.5,-.5,0},{.5,.5,0},{-.5,.5,0}};
+    shield_mesh.first=int(vertices.size());
+    const int shield_tile=Items::SHIELD-Items::ITEM_START-1;
+    const vec2 st(vec2(shield_tile%Items::ATLAS_COLUMNS,shield_tile/Items::ATLAS_COLUMNS)/float(Items::ATLAS_COLUMNS));
+    const vec2 ss(1.f/Items::ATLAS_COLUMNS);
+    const vec3 outline[8]={{-.32f,-.5f,.08f},{.32f,-.5f,.08f},{.5f,-.32f,.08f},{.5f,.25f,.08f},{0,.5f,.08f},{-.5f,.25f,.08f},{-.5f,-.32f,.08f},{-.32f,-.5f,.08f}};
+    auto shield_tri=[&](vec3 a,vec3 b,vec3 c,float z){
+        vec3 p[3]={{a.x,a.y,z},{b.x,b.y,z},{c.x,c.y,z}};
+        for(auto q:p){vec2 uv=st+vec2((q.x+.5f)*ss.x,(.5f-q.y)*ss.y);vertices.push_back({q,uv,1});}
+    };
+    for(int n=1;n<7;++n)shield_tri({0,0,.08f},outline[n-1],outline[n],.08f);
+    for(int n=1;n<7;++n)shield_tri({0,0,-.08f},outline[n],outline[n-1],-.08f);
+    for(int n=1;n<7;++n){vec3 a=outline[n-1],b=outline[n];vec3 q[4]={{a.x,a.y,.08f},{b.x,b.y,.08f},{b.x,b.y,-.08f},{a.x,a.y,-.08f}};face(q,st,ss,.8f);}
+    shield_mesh.count=int(vertices.size())-shield_mesh.first;
     for(int id=1;id<BLOCK_COUNT;++id){
         auto& range=block_mesh[id];range.first=int(vertices.size());
         if(cube(id))for(int f=0;f<6;++f)face(corners[f],get_block_by_id(id)->get_texture(nullptr,ivec3(0),f)/32.f,vec2(1.f/32),shades[f]);
@@ -49,7 +63,7 @@ void ItemModel::draw(int id,Texture& items,int frame,const mat4& matrix){
     GLboolean cull=glIsEnabled(GL_CULL_FACE);
     if(cube(id))glEnable(GL_CULL_FACE);else glDisable(GL_CULL_FACE);
     Texture& tex=block?texture_atlas:items;tex.bind();shader.bind();shader.upload_texture("tex",tex);shader.upload_mat4("cam_mat",matrix);
-    Range r=block?block_mesh[id]:sprites[std::clamp(frame,0,Items::ATLAS_CAPACITY-1)];
+    Range r=id==Items::SHIELD?shield_mesh:(block?block_mesh[id]:sprites[std::clamp(frame,0,Items::ATLAS_CAPACITY-1)]);
     glBindVertexArray(vao);glDrawArrays(GL_TRIANGLES,r.first,r.count);
     if(cull)glEnable(GL_CULL_FACE);else glDisable(GL_CULL_FACE);
 }
