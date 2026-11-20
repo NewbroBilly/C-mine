@@ -318,6 +318,26 @@ void build_trapdoor(Block* block, Chunk* chunk, const ivec3& pos,
     else build_box(block,chunk,pos,vec3(0,.0f,0),vec3(1,.1875f,1),vertices,indices,index);
 }
 
+void build_door(Block* block, Chunk* chunk, const ivec3& pos,
+                std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    const int state=chunk->get(pos)->data1;
+    const bool open=(state&4)!=0, along_x=(state&1)!=0;
+    if(open){
+        if(along_x)build_box(block,chunk,pos,vec3(.0f,0,.0f),vec3(.12f,1,1),vertices,indices,index);
+        else build_box(block,chunk,pos,vec3(.0f,0,.0f),vec3(1,1,.12f),vertices,indices,index);
+    }else{
+        if(along_x)build_box(block,chunk,pos,vec3(.44f,0,0),vec3(.56f,1,1),vertices,indices,index);
+        else build_box(block,chunk,pos,vec3(0,0,.44f),vec3(1,1,.56f),vertices,indices,index);
+    }
+}
+
+void build_redstone(Block* block, Chunk* chunk, const ivec3& pos,
+                    std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    build_box(block,chunk,pos,vec3(.08f,.01f,.08f),vec3(.92f,.055f,.92f),vertices,indices,index);
+}
+
 void build_slab(Block* block, Chunk* chunk, const ivec3& pos,
                 std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
 {
@@ -782,6 +802,8 @@ struct CatalogBlock : public Block {
         else if(id==LADDER)build_ladder(this,c,p,v,i,n);
         else if(id==OAK_FENCE || id==OAK_FENCE_GATE)build_fence(this,c,p,v,i,n);
         else if(id==OAK_TRAPDOOR || id==IRON_TRAPDOOR)build_trapdoor(this,c,p,v,i,n);
+        else if(id==DOOR_BLOCK)build_door(this,c,p,v,i,n);
+        else if(id==REDSTONE_DUST_BLOCK)build_redstone(this,c,p,v,i,n);
         else if(id>=OAK_STAIRS && id<=PRISMARINE_STAIRS)build_stairs(this,c,p,v,i,n);
         else if(id==OAK_SLAB || id==STONE_SLAB || id==SANDSTONE_SLAB)build_slab(this,c,p,v,i,n);
         else if(id==GLASS_PANE || id==IRON_BARS)build_pane(this,c,p,v,i,n);

@@ -106,6 +106,9 @@ bool Player::use_item_action(int id,Chunk* c,ivec3 local,ivec3 normal){
         if(!world->place_block(c,target,&b))return false;
         message(ru,en);consume();return true;
     };
+    if(hit_info.hit && (c->get(local)->id==DOOR_BLOCK)){
+        auto state=c->get(local)->data1;state^=4;BlockState door{DOOR_BLOCK,state,0};c->set(local,&door);world->rebuild_dirty();message("Дверь открыта","Door toggled");action_delay=.2;return true;
+    }
     if(id==Items::FLINT_AND_STEEL && hit_info.hit && c && c->get(local)->id==TNT_BLOCK){
         dvec3 blast=chunk_pos_to_world_hp(c->pos)+dvec3(local)+dvec3(.5);
         world->remove_block(c,local,true);world->explode(blast);message("TNT взорван","TNT ignited");
@@ -137,7 +140,10 @@ bool Player::use_item_action(int id,Chunk* c,ivec3 local,ivec3 normal){
     }
     // Items with a physical placement action use a simple solid anchor in the
     // compact renderer; they still obey collision, stack and survival rules.
-    if(id==Items::OAK_DOOR || (id>=Items::SPRUCE_DOOR && id<=Items::DARK_OAK_DOOR))return place_simple(PLANKS,"Дверь установлена","Door placed");
+    if(id==Items::OAK_DOOR || (id>=Items::SPRUCE_DOOR && id<=Items::DARK_OAK_DOOR)){
+        int facing=normal.x?1:0;return place_simple(DOOR_BLOCK,"Дверь установлена","Door placed",facing);
+    }
+    if(id==Items::REDSTONE_DUST)return place_simple(REDSTONE_DUST_BLOCK,"Редстоун установлен","Redstone placed");
     if(id==Items::FLOWER_POT)return place_simple(FLOWER_POT_BLOCK,"Цветочный горшок установлен","Flower pot placed");
     if(id==Items::BANNER){
         const int orientation=normal.y?0:(normal.x? (normal.x>0?1:3) : (normal.z>0?2:4));
@@ -400,11 +406,12 @@ void Player::move()
         if (!c) return true;
         ivec3 local = dvec3(x,y,z)-chunk_pos_to_world_hp(c->pos);
         int id = c->get(local)->id;
+        if(id==DOOR_BLOCK && (c->get(local)->data1&4))return false;
         const bool passable=id==AIR || id==GRASS || id==TORCH || id==WATER || id==LAVA_BLOCK || id==FIRE ||
             id==SAPLING || id==DEADBUSH || id==FERN || id==WHEAT_CROP || id==CARROT_CROP || id==POTATO_CROP ||
             id==BEETROOT_CROP || id==NETHER_WART_CROP || id==VINE || id==CHORUS_FLOWER || id==WATERLILY ||
             id==BANNER_BLOCK || id==FLOWER_POT_BLOCK || id==RAIL || id==POWERED_RAIL || id==DETECTOR_RAIL ||
-            id==ACTIVATOR_RAIL || id==LADDER;
+            id==ACTIVATOR_RAIL || id==LADDER || id==REDSTONE_DUST_BLOCK;
         return !passable;
     };
     const bool sneak=!show_inventory && is_key_pressed(SDLK_LSHIFT);

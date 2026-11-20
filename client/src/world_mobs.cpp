@@ -8,12 +8,15 @@ uint32_t next_random(uint32_t& r){if(!r)r=1;r^=r<<13;r^=r>>17;r^=r<<5;return r;}
 int World::mob_cell(int x,int y,int z) const{
     if(y<0)return 1;if(y>=256)return 0;
     ivec2 cp(int(floor(x/16.)),int(floor(z/16.)));auto it=chunk_map.find(cp);if(it==chunk_map.end() || !it->second->can_draw)return 3;
-    int id=it->second->get(ivec3(x-cp.x*16,y,z-cp.y*16))->id;
+    auto* state=it->second->get(ivec3(x-cp.x*16,y,z-cp.y*16));
+    int id=state->id;
+    if(id==DOOR_BLOCK && (state->data1&4))return 0;
     if(id==WATER || id==LAVA_BLOCK)return 2;
     if(id==AIR || id==GRASS || id==TORCH || id==FIRE || id==SAPLING || id==DEADBUSH || id==FERN ||
        id==WHEAT_CROP || id==CARROT_CROP || id==POTATO_CROP || id==BEETROOT_CROP || id==NETHER_WART_CROP ||
        id==VINE || id==CHORUS_FLOWER || id==WATERLILY || id==BANNER_BLOCK || id==FLOWER_POT_BLOCK ||
        id==RAIL || id==POWERED_RAIL || id==DETECTOR_RAIL || id==ACTIVATOR_RAIL || id==LADDER)return 0;
+    if(id==REDSTONE_DUST_BLOCK)return 0;
     return 1;
 }
 int World::target_mob(dvec3 origin,dvec3 direction,double reach){
