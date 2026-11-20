@@ -567,7 +567,7 @@ void Player::draw_drops(){
         float item_scale=Items::block(d.stack.id)?.32f:.42f;
         for(int copy=0;copy<std::min(4,std::max(1,d.stack.count));++copy){
             mat4 item=m*translate(mat4(1),vec3((copy%2-.5f)*.12f,(copy/2)*.1f,0));
-            ItemModel::draw(d.stack.id,Ui::items_texture(),Ui::item_frame(d.stack.id),item_scale*item);
+            ItemModel::draw(d.stack.id,Ui::items_texture(),Ui::item_frame(d.stack.id),scale(item,vec3(item_scale)));
         }
     }
     for(auto& p:particles){
