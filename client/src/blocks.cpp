@@ -269,11 +269,28 @@ void build_slab(Block* block, Chunk* chunk, const ivec3& pos,
 void build_stairs(Block* block, Chunk* chunk, const ivec3& pos,
                   std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
 {
-    // Default state is the vanilla east-facing lower stair. Placement states
-    // are preserved and can be rotated by the renderer when directional
-    // placement is enabled.
-    build_box(block,chunk,pos,vec3(0,0,0),vec3(1,.5f,1),vertices,indices,index);
-    build_box(block,chunk,pos,vec3(.5f,.5f,0),vec3(1,1,1),vertices,indices,index);
+    // Vanilla stair states use four horizontal facings and a half flag. The
+    // canonical model faces east; rotate its two boxes around the block
+    // center to match the stored state.
+    const int state=chunk->get(pos)->data1&7;
+    const int facing=state&3;
+    const bool upper=(state&4)!=0;
+    const vec3 center(.5f,.0f,.5f);
+    auto rotate=[&](vec3 p){
+        p-=center;
+        if(facing==1)p=vec3(-p.z,p.y,p.x);
+        else if(facing==2)p=vec3(-p.x,p.y,-p.z);
+        else if(facing==3)p=vec3(p.z,p.y,-p.x);
+        return p+center;
+    };
+    auto box=[&](vec3 lo,vec3 hi){
+        int light; const vec3 origin=(vec3)pos+chunk_pos_to_world(chunk->pos);
+        for(int f=0;f<6;++f){if(!face_is_visible(chunk,pos,f,light))continue;
+            for(int v=0;v<4;++v){vec3 q=lo+vec3(vertex_offset[f][v])*(hi-lo);Vertex vert(origin+rotate(q),f,light,get_ao(chunk,pos,f,v),block->get_texture(chunk,pos,f),v);vertices.push_back(vert);}
+            for(int v:{0,1,2,0,2,3})indices.push_back(index+v);index+=4;}
+    };
+    if(!upper){box(vec3(0,0,0),vec3(1,.5f,1));box(vec3(.5f,.5f,0),vec3(1,1,1));}
+    else {box(vec3(0,.5f,0),vec3(1,1,1));box(vec3(.5f,0,0),vec3(1,.5f,1));}
 }
 
 void build_pane(Block* block, Chunk* chunk, const ivec3& pos,

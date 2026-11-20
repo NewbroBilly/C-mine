@@ -71,6 +71,12 @@ bool Player::place_selected(Chunk* c,ivec3 local,ivec3 normal){
     if(stack.empty() || !Items::block(stack.id))return false;
     BlockState bs{static_cast<unsigned char>(stack.id),0,0};
     if(bs.id==LOG)bs.data1=normal.x?0:(normal.y?1:2);
+    if(bs.id>=OAK_STAIRS && bs.id<=PRISMARINE_STAIRS){
+        // Store the vanilla horizontal facing plus the upper-half bit. The
+        // face clicked above a block creates an upper stair, matching Java.
+        int facing=normal.x? (normal.x>0?1:3) : (normal.z>0?0:2);
+        bs.data1=char(facing | (normal.y<0?4:0));
+    }
     if(bs.id==TORCH){if(normal.y<0)return false;bs.data1=normal.y?0:(normal.z==1?1:(normal.z==-1?2:(normal.x==1?3:4)));}
     Hitbox cube(dvec3(local)+chunk_pos_to_world_hp(c->pos)-pos,dvec3(1));
     if(intersect(cube,hitbox))return false;
