@@ -241,6 +241,7 @@ void Player::handle_clicks(){
                 if(break_progress>=break_duration){
                     static std::mt19937 random(81421);
                     auto loot=survival_mode?Items::drop(id,hotbar.get_item(),random()):Items::Stack{};
+                    for(int n=0;n<7;++n){double a=(random()%6283)/1000.;particles.push_back({id,dvec3(target)+dvec3(.5),dvec3(cos(a)*.8,1.1+(random()%100)/120.,sin(a)*.8),0});}
                     world->remove_block(hit_info.chunk,hit_info.block_pos,!survival_mode);
                     if(!loot.empty())drops.push_back({loot,dvec3(target)+dvec3(.5),dvec3(0,2,0),0});
                     if(survival_mode){vitals.exhaust(.005f);auto& tool=hotbar.slots[hotbar.index].value();Items::wear(tool,Items::mining_wear(id,tool.id));}
@@ -362,6 +363,7 @@ void Player::update_fishing(){
     else{fish_timer-=delta_time;if(fish_timer<=0)fish_bite=1.5;}
 }
 void Player::update_drops(){
+    for(auto it=particles.begin();it!=particles.end();){it->age+=delta_time;if(it->age>.8){it=particles.erase(it);continue;}it->velocity.y-=8.*delta_time;it->position+=it->velocity*delta_time;++it;}
     for(auto it=drops.begin();it!=drops.end();){
         it->age+=delta_time;if(it->age>300){it=drops.erase(it);continue;}
         dvec3 next=it->position+it->velocity*delta_time;it->velocity.y-=9.8*delta_time;
@@ -567,6 +569,11 @@ void Player::draw_drops(){
             mat4 item=m*translate(mat4(1),vec3((copy%2-.5f)*.12f,(copy/2)*.1f,0));
             ItemModel::draw(d.stack.id,Ui::items_texture(),Ui::item_frame(d.stack.id),item_scale*item);
         }
+    }
+    for(auto& p:particles){
+        dvec3 relative=p.position-render_position();if(length(relative)>32)continue;
+        mat4 m=translate(matrix,vec3(relative));m=rotate(m,float(p.age*5),vec3(0,1,0));m=scale(m,vec3(.08f));
+        ItemModel::draw(p.item,Ui::items_texture(),Ui::item_frame(p.item),m);
     }
     glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);
 }

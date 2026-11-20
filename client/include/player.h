@@ -68,6 +68,8 @@ struct Player
     int mining_tool=-1;
     struct Dropped {Items::Stack stack;dvec3 position,velocity;double age=0;};
     std::vector<Dropped> drops;
+    struct Particle { int item; dvec3 position,velocity; double age=0; };
+    std::vector<Particle> particles;
     void drop_item(Items::Stack stack);
     void update_drops();
     void draw_hud();
