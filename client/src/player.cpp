@@ -561,8 +561,8 @@ void Player::draw_drops(){
     glEnable(GL_DEPTH_TEST);glEnable(GL_CULL_FACE);
     for(auto& d:drops){
         dvec3 relative=d.position-render_position();float distance=float(length(relative));if(distance>32)continue;
-        vec4 clip=matrix*vec4(vec3(relative),1);if(clip.w<.1)continue;
-        mat4 m=translate(matrix,vec3(relative)+vec3(0,.12f*sin(float(d.age)*3),0));
+        vec4 clip=matrix*vec4(vec3(d.position),1);if(clip.w<.1)continue;
+        mat4 m=translate(matrix,vec3(d.position)+vec3(0,.12f*sin(float(d.age)*3),0));
         m=rotate(m,float(d.age*2.7),vec3(0,1,0));m=rotate(m,float(sin(d.age*1.7)*.18),vec3(1,0,0));
         float item_scale=Items::block(d.stack.id)?.32f:.42f;
         for(int copy=0;copy<std::min(4,std::max(1,d.stack.count));++copy){
@@ -572,7 +572,7 @@ void Player::draw_drops(){
     }
     for(auto& p:particles){
         dvec3 relative=p.position-render_position();if(length(relative)>32)continue;
-        mat4 m=translate(matrix,vec3(relative));m=rotate(m,float(p.age*5),vec3(0,1,0));m=scale(m,vec3(.08f));
+        mat4 m=translate(matrix,vec3(p.position));m=rotate(m,float(p.age*5),vec3(0,1,0));m=scale(m,vec3(.08f));
         ItemModel::draw(p.item,Ui::items_texture(),Ui::item_frame(p.item),m);
     }
     glEnable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);
