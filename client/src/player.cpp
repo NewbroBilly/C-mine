@@ -664,12 +664,18 @@ void Player::draw_hand(){
     auto& off=inventory.data().offhand;
     if(!off.empty() && Items::valid(off.id)){
         mat4 left=perspective(radians(70.f),float(win_size.x)/win_size.y,.05f,10.f);
-        left=translate(left,vec3(-.56f,-.52f,-.72f));
-        left=rotate(left,radians(35.f),vec3(0,1,0));
-        left=rotate(left,radians(-25.f),vec3(0,0,1));
+        // Mirror the vanilla first-person arm pose around the screen center.
+        left=translate(left,vec3(-.64000005f+.3f*sin(root*pi),-.6f+.4f*sin(root*2*pi)-(1-equip)*.6f,-.71999997f-.4f*sin(s*pi)));
+        left=rotate(left,radians(-45.f-70.f*sin(root*pi)),vec3(0,1,0));
+        left=rotate(left,radians(20.f*sin(s*s*pi)),vec3(0,0,1));
+        left=translate(left,vec3(1.f,3.6f,3.5f));
+        left=rotate(left,radians(-120.f),vec3(0,0,1));
+        left=rotate(left,radians(200.f),vec3(1,0,0));
+        left=rotate(left,radians(135.f),vec3(0,1,0));
+        left=translate(left,vec3(-5.6f,0,0));
         Avatar::hand(left,true);
-        mat4 held=left;
-        held=translate(held,vec3(.14f,.02f,.02f));
+        mat4 held=perspective(radians(70.f),float(win_size.x)/win_size.y,.05f,10.f);
+        held=translate(held,vec3(-.56f,-.52f-(1-equip)*.6f,-.72f));
         if(ItemModel::cube(off.id)){held=rotate(held,radians(-45.f),vec3(0,1,0));held=scale(held,vec3(.4f));}
         else{held=rotate(held,radians(45.f),vec3(0,1,0));held=rotate(held,radians(-25.f),vec3(0,0,1));held=scale(held,vec3(.68f));}
         ItemModel::draw(off.id,Ui::items_texture(),Ui::item_frame(off.id),held);
