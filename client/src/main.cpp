@@ -500,6 +500,13 @@ int main(int argc, char** argv)
                 player->inventory.tab(10);Game::draw();save_frame("smoke-expanded-materials.bmp");Game::inventory(false);
                 player->inventory.creative.main[0]=old_stack;
                 SDL_Log("Flight/icons/animation smoke passed: identical flight at 10/20/60/144 FPS; expanded catalog, isometric menus, held block/tool/empty hand, swing/eating and mining cracks rendered");
+                // Verify special block models and door state before reporting them.
+                BlockState debug_door{DOOR_BLOCK,0,0},debug_redstone{REDSTONE_DUST_BLOCK,0,0};
+                c->set(ivec3(10,232,8),&debug_door);c->set(ivec3(11,232,8),&debug_redstone);world->rebuild_dirty();
+                player->cam.forward=normalize(vec3(.25f,-.35f,1));Game::draw();save_frame("smoke-door-redstone.bmp");
+                if(c->get(ivec3(10,232,8))->id!=DOOR_BLOCK || c->get(ivec3(11,232,8))->id!=REDSTONE_DUST_BLOCK)return 73;
+                debug_door.data1=4;c->set(ivec3(10,232,8),&debug_door);world->rebuild_dirty();
+                if(world->mob_cell(10,232,8)!=0)return 74;
                 // Restore a known source and persist the edits, both bags and player pose.
                 BlockState water{WATER,0,0};world->place_block(c,ivec3(8,232,8),&water);
                 player->cam.forward=normalize(vec3(0,-.5,1));player->pos=player->previous_position=chunk_pos_to_world_hp(c->pos)+dvec3(8.5,234,4.5);
