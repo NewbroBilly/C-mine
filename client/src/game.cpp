@@ -110,6 +110,7 @@ std::vector<Saves::Entry> Game::saved_worlds;
 int Game::world_index=0;
 std::string Game::world_name=Language::tr("New World"),Game::world_seed,Game::message;
 bool Game::new_survival=true;
+bool Game::debug_world=false;
 namespace {Saves::Data current_save;double autosave_clock=0;
 std::filesystem::path save_root(){
     if(!Saves::root_override.empty())return Saves::root_override;
@@ -168,8 +169,9 @@ void Game::start(bool survival) {
 }
 void Game::select_worlds(){saved_worlds=Saves::list(save_root());world_index=std::clamp(world_index,0,std::max(0,int(saved_worlds.size())-1));screen=Screen::Worlds;message.clear();capture(false);}
 void Game::create_world(){
-    Saves::Data d;d.name=world_name.empty()?Language::tr("New World"):world_name;d.seed=Saves::seed_from_text(world_seed);d.survival=new_survival;d.generator_version=1;
-    if(!Generation::find_spawn(uint64_t(d.seed),d.position)){message=Language::tr("No safe spawn found. Try another seed.");return;}
+    Saves::Data d;d.name=world_name.empty()?Language::tr("New World"):world_name;d.seed=Saves::seed_from_text(world_seed);d.survival=new_survival;d.generator_version=debug_world?2:1;
+    if(debug_world){d.position={8.5,121,8.5};d.spawn_point=d.position;}
+    if(!debug_world && !Generation::find_spawn(uint64_t(d.seed),d.position)){message=Language::tr("No safe spawn found. Try another seed.");return;}
     d.spawn_point=d.position;
     auto path=Saves::unique_path(save_root());if(!Saves::save(path,d)){message=Language::tr("Could not create save. Check free space.");return;}
     start(d.survival);current_save=d;world->seed=d.seed;world->generator_version=d.generator_version;world->save_path=path;
@@ -283,10 +285,10 @@ void Game::update()
         else if(screen==Screen::Title){if(button==0)select_worlds();else if(button==1)open_options();else if(button==2)closed=true;}
         else if(screen==Screen::Worlds){
             if(button==0)load_world(world_index);
-            else if(button==1){screen=Screen::CreateWorld;world_name=Language::tr("New World");world_seed.clear();new_survival=true;message.clear();Menu::reset();}
+    else if(button==1){screen=Screen::CreateWorld;world_name=Language::tr("New World");world_seed.clear();new_survival=true;debug_world=false;message.clear();Menu::reset();}
             else if(button==2){screen=Screen::Title;Menu::reset();}
         }
-        else if(screen==Screen::CreateWorld){if(button==2)new_survival=!new_survival;else if(button==3){SDL_StopTextInput();create_world();}else if(button==4){SDL_StopTextInput();select_worlds();}}
+        else if(screen==Screen::CreateWorld){if(button==2)new_survival=!new_survival;else if(button==3)debug_world=!debug_world;else if(button==4){SDL_StopTextInput();create_world();}else if(button==5){SDL_StopTextInput();select_worlds();}}
         else if(screen==Screen::Paused){if(button==0)resume();else if(button==1)set_mode(!survival_mode);else if(button==2)open_options();else if(button==3)title();else if(button==4 && save_world())closed=true;}
         return;
     }

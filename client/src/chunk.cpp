@@ -87,6 +87,15 @@ void Chunk::set_block_light(const ivec3& p, int value)
 
 void Chunk::load()
 {
+    if(world && world->generator_version==2){
+        const int palette=BLOCK_COUNT-1;
+        int wx=int(chunk_pos_to_world(pos).x),wz=int(chunk_pos_to_world(pos).z);
+        for(int x=0;x<CHUNK_WIDTH;++x)for(int z=0;z<CHUNK_WIDTH;++z)for(int y=0;y<CHUNK_HEIGHT;++y){
+            int id=y==0?BEDROCK:(y<120?STONE:(y==120?((std::abs((wx+x)/16)+std::abs((wz+z)/16))%2?GRASS_BLOCK:palette==0?STONE:1+((std::abs(wx+x)*31+std::abs(wz+z))%palette)):AIR));
+            blocks[x][y][z]={static_cast<unsigned char>(id),0,0};
+        }
+        dirty=true;can_draw=true;return;
+    }
     if(world && world->generator_version==1){
         auto data=Generation::generate(uint64_t(world->seed),pos.x,pos.y);
         static_assert(sizeof(blocks)==16*256*16*3,"Generated chunk layout mismatch");

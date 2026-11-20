@@ -16,7 +16,7 @@ GLuint vao=0, cube=0;
 int selected=0, last_x=-1,last_y=-1;
 int count(bool paused){
 if(Game::screen==Game::Screen::Worlds)return 3;
-if(Game::screen==Game::Screen::CreateWorld)return 5;
+if(Game::screen==Game::Screen::CreateWorld)return 6;
 return Game::screen==Game::Screen::Options?10:(Game::screen==Game::Screen::Dead?2:(paused?5:3));}
 int button_y(int index){
 if(Game::screen==Game::Screen::Worlds)return int(win_size.y)-174+index*48;
@@ -136,7 +136,7 @@ void Menu::draw(bool paused) {
         std::string(Language::tr("Ambient occlusion: "))+(o.ao?Language::tr("ON"):Language::tr("OFF")),std::string(Language::tr("Fullscreen: "))+(o.fullscreen?Language::tr("ON"):Language::tr("OFF")),
         std::string(Language::tr("Invert mouse Y: "))+(o.invert_y?Language::tr("ON"):Language::tr("OFF")),std::string(Language::tr("Clouds: "))+(o.clouds?Language::tr("ON"):Language::tr("OFF")),Language::tr("Language: English"),Language::tr("Done")};
     else if(worlds)labels={Language::tr("Play Selected World"),Language::tr("Create New World"),Language::tr("Cancel")};
-    else if(create)labels={Language::tr("World name: ")+Language::tail(Game::world_name,24)+(edit_field==0?"_":""),Language::tr("Seed: ")+Language::tail(Game::world_seed,28)+(edit_field==1?"_":""),Game::new_survival?Language::tr("Game Mode: Survival"):Language::tr("Game Mode: Creative"),Language::tr("Create New World"),Language::tr("Cancel")};
+    else if(create)labels={Language::tr("World name: ")+Language::tail(Game::world_name,24)+(edit_field==0?"_":""),Language::tr("Seed: ")+Language::tail(Game::world_seed,28)+(edit_field==1?"_":""),Game::new_survival?Language::tr("Game Mode: Survival"):Language::tr("Game Mode: Creative"),std::string(Language::tr("Debug world: "))+(Game::debug_world?Language::tr("ON"):Language::tr("OFF")),Language::tr("Create New World"),Language::tr("Cancel")};
     else if(Game::screen==Game::Screen::Dead)labels={Language::tr("Respawn"),Language::tr("Back to Title")};
     else if(paused)labels={Language::tr("Resume Game"),survival_mode?Language::tr("Mode: Survival"):Language::tr("Mode: Creative"),Language::tr("Options..."),Language::tr("Back to Title"),Language::tr("Quit Game")};
     else labels={Language::tr("Singleplayer"),Language::tr("Options..."),Language::tr("Quit Game")};

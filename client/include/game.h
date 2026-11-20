@@ -17,7 +17,7 @@ namespace Game
     extern std::vector<Saves::Entry> saved_worlds;
     extern int world_index;
     extern std::string world_name,world_seed,message;
-    extern bool new_survival;
+    extern bool new_survival,debug_world;
     void select_worlds();
     void create_world();
     void load_world(int index);

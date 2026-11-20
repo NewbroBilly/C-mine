@@ -47,6 +47,12 @@ void Player::handle_keys()
         auto& s=hotbar.slots[hotbar.index].value();
         if(!s.empty()){auto one=s;one.count=is_key_pressed(SDLK_LCTRL)?s.count:1;drop_item(one);s.count-=one.count;Items::normalize(s);}
     }
+    if(is_key_down(SDLK_f)){
+        auto& off=inventory.data().offhand;
+        auto& main=hotbar.slots[hotbar.index].value();
+        std::swap(main,off);
+        equipped_item=main.id;
+    }
     if(is_key_down(SDLK_w)){
         double now=SDL_GetTicks()/1000.;
         if(w_tap>=0 && now-w_tap<.35)sprinting=true;
@@ -617,11 +623,11 @@ void Player::draw_hand(){
         m=translate(m,vec3(5.6f,0,0));Avatar::hand(m);return;
     }
     if(blocking && equipped_item==Items::SHIELD){
-        m=translate(m,vec3(.30f,-.24f-(1-equip)*.6f,-.62f));
+        m=translate(m,vec3(.35f,-.2f-(1-equip)*.6f,-.5f));
         m=rotate(m,radians(-25.f),vec3(0,1,0));
     }else if(bow_time>0 && equipped_item==Items::BOW){
         // ItemRenderer 1.12.2 BOW use branch (main/right hand).
-        m=translate(m,vec3(.42f,-.56f-(1-equip)*.6f,-.82f));
+        m=translate(m,vec3(.56f,-.52f-(1-equip)*.6f,-.72f));
         m=translate(m,vec3(-.2785682f,.18344387f,.15731531f));
         m=rotate(m,radians(-13.935f),vec3(1,0,0));
         m=rotate(m,radians(35.3f),vec3(0,1,0));m=rotate(m,radians(-9.785f),vec3(0,0,1));
@@ -636,27 +642,36 @@ void Player::draw_hand(){
         float bite=1-pow(f,27.f);
         m=translate(m,vec3(bite*.6f,bite*-.5f,0));
         m=rotate(m,radians(bite*90),vec3(0,1,0));m=rotate(m,radians(bite*10),vec3(1,0,0));m=rotate(m,radians(bite*30),vec3(0,0,1));
-        m=translate(m,vec3(.42f,-.56f-(1-equip)*.6f,-.82f));
+        m=translate(m,vec3(.56f,-.52f-(1-equip)*.6f,-.72f));
     }else{
         m=translate(m,vec3(-.4f*sin(root*pi),.2f*sin(root*2*pi),-.2f*sin(s*pi)));
-        m=translate(m,vec3(.42f,-.56f-(1-equip)*.6f,-.82f));
+        m=translate(m,vec3(.56f,-.52f-(1-equip)*.6f,-.72f));
         m=rotate(m,radians(45.f-20.f*sin(s*s*pi)),vec3(0,1,0));
         m=rotate(m,radians(-20.f*sin(root*pi)),vec3(0,0,1));
         m=rotate(m,radians(-80.f*sin(root*pi)),vec3(1,0,0));
         m=rotate(m,radians(-45.f),vec3(0,1,0));
     }
-    if(ItemModel::cube(equipped_item)){m=rotate(m,radians(45.f),vec3(0,1,0));m=scale(m,vec3(.30f));}
-    else if(equipped_item==Items::SHIELD){
-        m=rotate(m,radians(-12.f),vec3(1,0,0));
-        m=rotate(m,radians(-18.f),vec3(0,1,0));
-        m=scale(m,vec3(.52f));
-    }
+    if(ItemModel::cube(equipped_item)){m=rotate(m,radians(45.f),vec3(0,1,0));m=scale(m,vec3(.4f));}
+    else if(equipped_item==Items::SHIELD){m=rotate(m,radians(-12.f),vec3(1,0,0));m=rotate(m,radians(-18.f),vec3(0,1,0));m=scale(m,vec3(.52f));}
     else{
         // Flat sprite adaptation of the vanilla generated/handheld display pose.
-        m=rotate(m,radians(-45.f),vec3(0,1,0));m=rotate(m,radians(25.f),vec3(0,0,1));m=scale(m,vec3(.52f));
+        m=rotate(m,radians(-45.f),vec3(0,1,0));m=rotate(m,radians(25.f),vec3(0,0,1));m=scale(m,vec3(.68f));
     }
     // Vanilla keeps the right arm visible while holding an item.  Draw it
     // with the same pose before the item so the hand stays attached to tools
     // and blocks instead of disappearing behind the model.
     ItemModel::draw(equipped_item,Ui::items_texture(),Ui::item_frame(equipped_item),m);
+    auto& off=inventory.data().offhand;
+    if(!off.empty() && Items::valid(off.id)){
+        mat4 left=perspective(radians(70.f),float(win_size.x)/win_size.y,.05f,10.f);
+        left=translate(left,vec3(-.56f,-.52f,-.72f));
+        left=rotate(left,radians(35.f),vec3(0,1,0));
+        left=rotate(left,radians(-25.f),vec3(0,0,1));
+        Avatar::hand(left,true);
+        mat4 held=left;
+        held=translate(held,vec3(.14f,.02f,.02f));
+        if(ItemModel::cube(off.id)){held=rotate(held,radians(-45.f),vec3(0,1,0));held=scale(held,vec3(.4f));}
+        else{held=rotate(held,radians(45.f),vec3(0,1,0));held=rotate(held,radians(-25.f),vec3(0,0,1));held=scale(held,vec3(.68f));}
+        ItemModel::draw(off.id,Ui::items_texture(),Ui::item_frame(off.id),held);
+    }
 }
