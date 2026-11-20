@@ -164,9 +164,12 @@ void Avatar::mob(const Mobs::Entity& e,const mat4& camera,double partial){
         for(int i=0;i<4;++i)box(pivot(vec3(i%2?2.4f:-2.4f,4,i<2?5:-3),i%2?walk:-walk),vec3(-1,0,-1),ivec3(2,6,2),ivec2(0,16));
         box(pivot(vec3(0,8,7),-.55f+walk),vec3(-1,-1,0),ivec3(2,2,10),ivec2(0,22));
     }else if(e.kind==Mobs::Horse){
-        auto neck=pivot(vec3(0,12,-6),-.12f);box(neck,vec3(-3,-10,-3),ivec3(6,14,6),ivec2(0));box(pivot(vec3(0,20,-8)),vec3(-4,-5,-5),ivec3(8,8,8),ivec2(0));
-        auto body=pivot(vec3(0,7,2),1.57079633f);box(body,vec3(-6,-8,-8),ivec3(12,16,12),ivec2(18,4));
-        for(int i=0;i<4;++i)box(pivot(vec3(i%2?4:-4,8,i<2?7:-5),i%2?walk:-walk),vec3(-2,-1,-2),ivec3(4,12,4),ivec2(0,16));
+        // Compact horse proportions: one body, a connected neck/head and four legs.
+        box(root,vec3(-6,-6,-8),ivec3(12,12,16),ivec2(18,4));
+        box(pivot(vec3(0,8,-8),-.12f),vec3(-3,-8,-3),ivec3(6,14,6),ivec2(0));
+        box(pivot(vec3(0,18,-10)),vec3(-4,-4,-5),ivec3(8,8,8),ivec2(0));
+        for(int i=0;i<4;++i)box(pivot(vec3(i%2?4:-4,0,i<2?5:-5),i%2?walk:-walk),vec3(-2,-1,-2),ivec3(4,12,4),ivec2(0,16));
+        box(pivot(vec3(0,7,9),.3f+walk),vec3(-1,-1,0),ivec3(2,2,8),ivec2(0,22));
     }else{
         bool cow=e.kind==Mobs::Cow,sheep=e.kind==Mobs::Sheep;
         if(cow){auto h=pivot(vec3(0,4,-8));box(h,vec3(-4,-4,-6),ivec3(8,8,6),ivec2(0));
