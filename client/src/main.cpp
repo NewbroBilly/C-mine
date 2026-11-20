@@ -212,11 +212,10 @@ int main(int argc, char** argv)
             if(frame==106) {save_frame("smoke-options.bmp");keys[SDLK_RIGHT&~0x40000000]=Input::DOWN;Game::update();}
             if(frame==107 && (Settings::options.fov!=90 || player->cam.fov!=90))return 13;
             if(frame==108) {
-                for(int i=0;i<7;++i){keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();}
-                keys[SDLK_DOWN&~0x40000000]=Input::NONE;keys[SDLK_RIGHT&~0x40000000]=Input::DOWN;Game::update();
+                Settings::options.russian=false;Game::apply_options();
                 if(Settings::options.russian || Language::russian)return 77;
                 Game::draw();save_frame("smoke-options-english.bmp");
-                keys[SDLK_RIGHT&~0x40000000]=Input::DOWN;Game::update();keys[SDLK_RIGHT&~0x40000000]=Input::NONE;
+                Settings::options.russian=true;Game::apply_options();
                 if(!Settings::options.russian || !Language::russian)return 78;
                 Settings::Options loaded;if(!Settings::load(Settings::storage_override,loaded) || !(loaded==Settings::options))return 14;Game::close_options();
             }
@@ -336,6 +335,7 @@ int main(int argc, char** argv)
                 if(Game::new_survival || Game::world_name!="Водный мир" || Game::world_seed!="12345")return 42;
                 Game::draw();save_frame("smoke-create-world.bmp");
                 keys[SDLK_RETURN]=Input::NONE;keys[SDLK_DOWN&~0x40000000]=Input::DOWN;Game::update();
+                Game::update();
                 keys[SDLK_DOWN&~0x40000000]=Input::NONE;keys[SDLK_RETURN]=Input::DOWN;Game::update();
                 if(!world || world->seed!=12345 || world->generator_version!=1 || survival_mode)return 43;
                 smoke_world=world->save_path;
@@ -529,8 +529,8 @@ int main(int argc, char** argv)
                 for(int x=1;x<15;++x)for(int z=1;z<15;++z){BlockState floor{GRASS_BLOCK,0,0};c->set(ivec3(x,229,z),&floor);for(int y=230;y<240;++y){BlockState air{AIR,0,0};c->set(ivec3(x,y,z),&air);}}
                 world->rebuild_dirty();world->mobs.clear();world->initial_mobs=true;
                 dvec3 base=chunk_pos_to_world_hp(c->pos);
-                for(int kind=0;kind<Mobs::Count;++kind){dvec3 p=base+dvec3(3+kind*2.3,230,10);auto mob=Mobs::create(kind,{p.x,p.y,p.z},kind+1);mob.phase=kind*1.2;mob.yaw=3.14159;mob.velocity[0]=1;mob.grounded=true;world->mobs.push_back(mob);}
-                player->pos=player->previous_position=base+dvec3(8.5,231,2.5);player->vel=dvec3(0);player->cam.forward=normalize(vec3(0,-.2,1));
+                for(int kind=0;kind<Mobs::Count;++kind){int col=kind%5,row=kind/5;dvec3 p=base+dvec3(1.5+col*3.0,230,3.0+row*3.0);auto mob=Mobs::create(kind,{p.x,p.y,p.z},kind+1);mob.phase=kind*1.2;mob.yaw=3.14159;mob.velocity[0]=1;mob.grounded=true;world->mobs.push_back(mob);}
+                player->pos=player->previous_position=base+dvec3(8.5,231,1.0);player->vel=dvec3(0);player->cam.forward=normalize(vec3(0,-.35f,1));
                 Game::draw();save_frame("smoke-classic-mobs.bmp");
                 auto& equipment=player->inventory.survival;
                 for(int part=0;part<4;++part)equipment.armor[part]={Items::DIAMOND_HELMET+part,1};
