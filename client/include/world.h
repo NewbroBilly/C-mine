@@ -41,11 +41,15 @@ struct World
     int generator_version=0;
     std::filesystem::path save_path;
     Water::Simulator water;
+    Water::Simulator lava;
     double water_clock=0;
+    double lava_clock=0;
     double fire_clock=0;
     std::map<Water::Pos,int> fires;
     int fluid(Water::Pos p) const;
+    int lava_fluid(Water::Pos p) const;
     void set_fluid(Water::Pos p,int level);
+    void set_lava_fluid(Water::Pos p,int level);
     void notify_water(Chunk* chunk,ivec3 pos);
     bool save_chunks();
     bool save_chunk(Chunk* chunk);

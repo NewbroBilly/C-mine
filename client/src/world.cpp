@@ -14,6 +14,14 @@ int World::fluid(Water::Pos p)const{
     if(bs->id==WATER)return bs->data1&15;
     return bs->id==AIR || bs->id==GRASS || bs->id==TORCH || bs->id==FIRE?Water::Air:Water::Solid;
 }
+int World::lava_fluid(Water::Pos p)const{
+    if(p[1]<0 || p[1]>=CHUNK_HEIGHT)return Water::Solid;
+    ivec2 cp(int(floor(p[0]/16.)),int(floor(p[2]/16.)));auto it=chunk_map.find(cp);
+    if(it==chunk_map.end())return Water::Unloaded;
+    auto* bs=it->second->get(ivec3(p[0]-cp.x*16,p[1],p[2]-cp.y*16));
+    if(bs->id==LAVA_BLOCK)return bs->data1&15;
+    return bs->id==AIR || bs->id==GRASS || bs->id==TORCH || bs->id==FIRE?Water::Air:Water::Solid;
+}
 void World::notify_water(Chunk* c,ivec3 p){
     ivec3 q=ivec3(chunk_pos_to_world_hp(c->pos))+p;
     // Persist which sources have been disturbed, so loading a saved ocean
@@ -25,6 +33,7 @@ void World::notify_water(Chunk* c,ivec3 p){
         }
     }
     water.changed({q.x,q.y,q.z});
+    lava.changed({q.x,q.y,q.z});
 }
 void World::set_fluid(Water::Pos p,int level){
     auto* c=get_chunk_from_pos(vec3(p[0],p[1],p[2]));if(!c || p[1]<0 || p[1]>=256)return;
@@ -32,6 +41,14 @@ void World::set_fluid(Water::Pos p,int level){
     if(level!=Water::Air && old.id!=AIR && old.id!=WATER && old.id!=GRASS && old.id!=TORCH && old.id!=FIRE)return;
     if(old.id==TORCH || old.id==GRASS){auto loot=Items::drop(old.id,-1,0);if(!loot.empty())player->drops.push_back({loot,dvec3(p[0]+.5,p[1]+.5,p[2]+.5),dvec3(0),0});}
     BlockState b{static_cast<unsigned char>(level==Water::Air?AIR:WATER),static_cast<char>(level&15),static_cast<char>(level==Water::Air?0:1)};c->set(local,&b);
+    if(old.id==TORCH || old.id==FIRE)update_lighting(c,local,false,&old);
+}
+void World::set_lava_fluid(Water::Pos p,int level){
+    auto* c=get_chunk_from_pos(vec3(p[0],p[1],p[2]));if(!c || p[1]<0 || p[1]>=256)return;
+    ivec3 local=ivec3(p[0],p[1],p[2])-ivec3(chunk_pos_to_world_hp(c->pos));auto old=*c->get(local);
+    if(level!=Water::Air && old.id!=AIR && old.id!=LAVA_BLOCK && old.id!=GRASS && old.id!=TORCH && old.id!=FIRE)return;
+    if(old.id==TORCH || old.id==GRASS){auto loot=Items::drop(old.id,-1,0);if(!loot.empty())player->drops.push_back({loot,dvec3(p[0]+.5,p[1]+.5,p[2]+.5),dvec3(0),0});}
+    BlockState b{static_cast<unsigned char>(level==Water::Air?AIR:LAVA_BLOCK),static_cast<char>(level&15),static_cast<char>(level==Water::Air?0:1)};c->set(local,&b);
     if(old.id==TORCH || old.id==FIRE)update_lighting(c,local,false,&old);
 }
 bool World::underwater(dvec3 p)const{return Water::contains({p.x,p.y,p.z},[&](Water::Pos q){return fluid(q);});}
@@ -69,7 +86,7 @@ bool World::place_block(Chunk* chunk, const ivec3& pos, BlockState* bs) {
     if (!chunk || !bs || pos.y < 0 || pos.y >= CHUNK_HEIGHT) return false;
     ivec3 local = pos;
     chunk = get_neighbor_chunk(chunk, local);
-    if (!chunk || (chunk->get(local)->id != AIR && chunk->get(local)->id != WATER && chunk->get(local)->id!=FIRE && !(bs->id==FIRE && chunk->get(local)->id==GRASS))) return false;
+    if (!chunk || (chunk->get(local)->id != AIR && chunk->get(local)->id != WATER && chunk->get(local)->id != LAVA_BLOCK && chunk->get(local)->id!=FIRE && !(bs->id==FIRE && chunk->get(local)->id==GRASS))) return false;
     auto old=*chunk->get(local);
     chunk->set(local, bs);
     if(bs->id==FIRE){ivec3 p=ivec3(chunk_pos_to_world_hp(chunk->pos))+local;fires[{p.x,p.y,p.z}]=0;}
@@ -117,6 +134,8 @@ void World::update() {
     if(spawned)update_mobs();
     water_clock+=std::min(delta_time,.05);
     while(water_clock>=.05){water.tick([&](Water::Pos p){return fluid(p);},[&](Water::Pos p,int l){set_fluid(p,l);});water_clock-=.05;}
+    lava_clock+=std::min(delta_time,.05);
+    while(lava_clock>=.20){lava.tick([&](Water::Pos p){return lava_fluid(p);},[&](Water::Pos p,int l){set_lava_fluid(p,l);});lava_clock-=.20;}
     fire_clock+=delta_time;
     while(fire_clock>=1){
         fire_clock-=1;

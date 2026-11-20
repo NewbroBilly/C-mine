@@ -32,7 +32,7 @@ void ChunkMesh::build()
                 ivec3 pos = ivec3(x, y, z);
 
                 BlockState* bs = chunk->get(pos);
-                if((bs->id==WATER)!=(pass==1))continue;
+                if(((bs->id==WATER || bs->id==LAVA_BLOCK)!=(pass==1)))continue;
 
                 Block* block = get_block_by_id(bs->id);
 
@@ -55,7 +55,13 @@ void ChunkMesh::build()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
     glEnableVertexAttribArray(0);
 
+#ifdef __VITA__
+    // vitaGL exposes the GLES-style attribute API; the shader consumes this
+    // packed value as a float-compatible integer bit field.
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, data));
+#else
     glVertexAttribIPointer(1, 1, GL_INT, sizeof(Vertex), (void*)offsetof(Vertex, data));
+#endif
     glEnableVertexAttribArray(1);
 
     indices_count = indices.size();

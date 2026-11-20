@@ -1,0 +1,40 @@
+ifeq ($(strip $(VITASDK)),)
+$(error VITASDK must point to a VitaSDK installation)
+endif
+
+VITA_BUILD := build/vita
+VITA_CXX := $(VITASDK)/bin/arm-vita-eabi-g++
+VITA_BIN := $(shell cygpath -u "$(VITASDK)/bin")
+VITA_INC := $(VITASDK)/arm-vita-eabi/include
+VITA_LIB := $(VITASDK)/arm-vita-eabi/lib
+VITA_FLAGS := -Wl,-q -O2 -std=c++17 -D__VITA__ -DGLM_ENABLE_EXPERIMENTAL -ffunction-sections -fdata-sections
+VITA_FLAGS += -Iclient/include -I$(VITA_INC) -I$(VITA_INC)/glm -I$(VITA_INC)/SDL2
+VITA_SOURCES := $(wildcard client/src/*.cpp)
+VITA_OBJECTS := $(patsubst client/src/%.cpp,$(VITA_BUILD)/%.o,$(VITA_SOURCES))
+VITA_LIBS := -L$(VITA_LIB) -lSDL2main -lSDL2 -lvitaGL -lvitashark -lmathneon -lglm -lSceShaccCgExt -lSceShaccCg_stub -ltaihen_stub -lSceGxm_stub -lSceDisplay_stub -lSceCtrl_stub -lSceTouch_stub -lSceHid_stub -lSceIme_stub -lSceAudio_stub -lSceAudioIn_stub -lSceMotion_stub -lSceSysmodule_stub -lSceNet_stub -lSceNetCtl_stub -lSceAppUtil_stub -lScePower_stub -lSceCommonDialog_stub -lSceAppMgr_stub -lSceDmacmgrForDriver_stub -lSceKernelDmacMgr_stub -lSceKernelThreadMgr_stub -lSceKernelModulemgr_stub -lSceLibKernel_stub -lSceProcessmgr_stub -lm
+
+.PHONY: all clean
+all: $(VITA_BUILD)/C-mine.vpk
+
+$(VITA_BUILD)/%.o: client/src/%.cpp
+	@mkdir -p $(VITA_BUILD)
+	$(VITA_CXX) $(VITA_FLAGS) -MMD -MP -c $< -o $@
+
+$(VITA_BUILD)/C-mine.elf: $(VITA_OBJECTS)
+	$(VITA_CXX) $(VITA_FLAGS) -Wl,--gc-sections $^ $(VITA_LIBS) -o $@
+
+$(VITA_BUILD)/eboot.bin: $(VITA_BUILD)/C-mine.elf
+	$(VITA_BIN)/vita-make-fself -s $< $@
+
+$(VITA_BUILD)/param.sfo:
+	$(VITA_BIN)/vita-mksfoex -s TITLE_ID=CMINE1122 "C-mine" $@
+
+$(VITA_BUILD)/C-mine.vpk: $(VITA_BUILD)/eboot.bin $(VITA_BUILD)/param.sfo $(wildcard client/shaders/* client/textures/* client/textures/panorama/*)
+	@mkdir -p $(VITA_BUILD)/romfs
+	cp -r client/shaders client/textures $(VITA_BUILD)/romfs/
+	$(VITA_BIN)/vita-pack-vpk -s $(VITA_BUILD)/param.sfo -b $(VITA_BUILD)/eboot.bin -a $(VITA_BUILD)/romfs=romfs $@
+
+-include $(VITA_OBJECTS:.o=.d)
+
+clean:
+	rm -rf $(VITA_BUILD)
