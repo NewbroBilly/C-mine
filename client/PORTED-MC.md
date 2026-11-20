@@ -42,7 +42,8 @@ deepslate, tuff and copper ore map to stone; lava maps to obsidian; unsupported
 terracotta colors use plain terracotta; leaves share our oak leaf appearance.
 Unsupported flowers, snow layers and plants are omitted. Mushroom structures
 use logs, and dungeon shells have no chest contents or functioning spawners.
-Biome grass/foliage tinting, lava simulation, mobs and loot are not imported.
+Biome grass/foliage tinting is simplified. Dynamic lava uses the water flow
+rules with a slower update cadence; mobs and loot remain compact approximations.
 Ice, packed ice, spruce/birch logs, podzol and mycelium were added for terrain.
 The logs can be mined and crafted into their respective planks.
 
