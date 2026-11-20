@@ -300,6 +300,24 @@ void build_ladder(Block* block, Chunk* chunk, const ivec3& pos,
     else build_box(block,chunk,pos,vec3(.88f,.0f,0),vec3(.96f,.95f,1),vertices,indices,index);
 }
 
+void build_fence(Block* block, Chunk* chunk, const ivec3& pos,
+                 std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    build_box(block,chunk,pos,vec3(.375f,0,.375f),vec3(.625f,1,.625f),vertices,indices,index);
+    build_box(block,chunk,pos,vec3(.0f,.35f,.42f),vec3(1,.48f,.58f),vertices,indices,index);
+    build_box(block,chunk,pos,vec3(.0f,.68f,.42f),vec3(1,.81f,.58f),vertices,indices,index);
+    build_box(block,chunk,pos,vec3(.42f,.35f,0),vec3(.58f,.48f,1),vertices,indices,index);
+    build_box(block,chunk,pos,vec3(.42f,.68f,0),vec3(.58f,.81f,1),vertices,indices,index);
+}
+
+void build_trapdoor(Block* block, Chunk* chunk, const ivec3& pos,
+                    std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
+{
+    const bool open=(chunk->get(pos)->data1&4)!=0;
+    if(open)build_box(block,chunk,pos,vec3(.0f,0,.0f),vec3(.12f,1,1),vertices,indices,index);
+    else build_box(block,chunk,pos,vec3(0,.0f,0),vec3(1,.1875f,1),vertices,indices,index);
+}
+
 void build_slab(Block* block, Chunk* chunk, const ivec3& pos,
                 std::vector<Vertex>& vertices, std::vector<int>& indices, int& index)
 {
@@ -762,6 +780,8 @@ struct CatalogBlock : public Block {
         else if(id==BANNER_BLOCK)build_banner(this,c,p,v,i,n);
         else if(id==RAIL || id==POWERED_RAIL || id==DETECTOR_RAIL || id==ACTIVATOR_RAIL)build_rail(this,c,p,v,i,n);
         else if(id==LADDER)build_ladder(this,c,p,v,i,n);
+        else if(id==OAK_FENCE || id==OAK_FENCE_GATE)build_fence(this,c,p,v,i,n);
+        else if(id==OAK_TRAPDOOR || id==IRON_TRAPDOOR)build_trapdoor(this,c,p,v,i,n);
         else if(id>=OAK_STAIRS && id<=PRISMARINE_STAIRS)build_stairs(this,c,p,v,i,n);
         else if(id==OAK_SLAB || id==STONE_SLAB || id==SANDSTONE_SLAB)build_slab(this,c,p,v,i,n);
         else if(id==GLASS_PANE || id==IRON_BARS)build_pane(this,c,p,v,i,n);

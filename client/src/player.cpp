@@ -400,7 +400,12 @@ void Player::move()
         if (!c) return true;
         ivec3 local = dvec3(x,y,z)-chunk_pos_to_world_hp(c->pos);
         int id = c->get(local)->id;
-        return id != AIR && id != GRASS && id != TORCH && id!=WATER && id!=LAVA_BLOCK && id!=FIRE;
+        const bool passable=id==AIR || id==GRASS || id==TORCH || id==WATER || id==LAVA_BLOCK || id==FIRE ||
+            id==SAPLING || id==DEADBUSH || id==FERN || id==WHEAT_CROP || id==CARROT_CROP || id==POTATO_CROP ||
+            id==BEETROOT_CROP || id==NETHER_WART_CROP || id==VINE || id==CHORUS_FLOWER || id==WATERLILY ||
+            id==BANNER_BLOCK || id==FLOWER_POT_BLOCK || id==RAIL || id==POWERED_RAIL || id==DETECTOR_RAIL ||
+            id==ACTIVATOR_RAIL || id==LADDER;
+        return !passable;
     };
     const bool sneak=!show_inventory && is_key_pressed(SDLK_LSHIFT);
     const bool sprint=!show_inventory && (is_key_pressed(SDLK_LCTRL) || sprinting || speed_effect>0) && input.z>0 && !sneak && (!survival_mode || vitals.food>6);
